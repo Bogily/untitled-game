@@ -8,7 +8,7 @@ const int SCREEN_HEIGHT = 600;
 int main()
 {
     // Initialization
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Zelda-like 3D Game Structure");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Zelda-like 3D Game Structure skid");
 
     // Define the camera to look into our 3d world
     Camera3D camera = {0};
@@ -38,7 +38,12 @@ int main()
             playerPosition.x -= 0.1f;
         if (IsKeyDown(KEY_D))
             playerPosition.x += 0.1f;
-
+        if (IsKeyDown(KEY_SPACE))
+            playerPosition.y += 0.1f;
+        if (IsKeyDown(KEY_LEFT_SHIFT))
+            playerPosition.y -= 0.1f;
+        if (playerPosition.y < 1.0f)
+            playerPosition.y = 1.0f; // Prevent going below ground
         // Camera follows player (Third Person-ish)
         camera.target = playerPosition;
         camera.position.x = playerPosition.x;
