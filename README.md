@@ -45,7 +45,7 @@ This project uses CMake.
 ## Semantics
 This is an example commit message
 
-```bash
+```
 feat(Audio): fixed audio playing in reverse
 ```
 
