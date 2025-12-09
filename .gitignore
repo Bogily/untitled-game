@@ -1,0 +1,9 @@
+# Build
+build/
+bin/
+lib/
+*.o
+*.exe
+*.a
+.vscode/
+.DS_Store
