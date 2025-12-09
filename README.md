@@ -41,3 +41,12 @@ This project uses CMake.
 ## Dependencies
 
 - **Raylib**: Automatically fetched via CMake.
+
+## Semantics
+This is an example commit message
+
+```bash
+feat(Audio): fixed audio playing in reverse
+```
+
+[Small cheat sheet](https://gist.github.com/joshbuchea/6f47e86d2510bce28f8e7f42ae84c716)
