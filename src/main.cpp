@@ -3,6 +3,7 @@
 #include "player/Player.h"
 #include "utils/custommodel.h"
 #include "graphics/Skybox.h"
+#include "graphics/BillboardText.h"
 
 // Simple constant for screen dimensions
 const int SCREEN_WIDTH = GetScreenWidth();
@@ -100,6 +101,19 @@ int main()
         DrawCube((Vector3){4.0f, 1.0f, 4.0f}, 1.0f, 4.0f, 1.0f, BLUE);
 
         EndMode3D();
+
+        // Billboard text rendering (after EndMode3D, before EndDrawing)
+        // Example 1: Simple billboard text above red cube
+        BillboardText::DrawText3D("Red Cube", (Vector3){-4.0f, 3.0f, -4.0f}, camera, 20, RED);
+
+        // Example 2: Billboard text with background above blue cube
+        BillboardText::DrawText3DWithBackground("Blue Tower", (Vector3){4.0f, 5.5f, 4.0f}, camera, 20, WHITE, Fade(BLUE, 0.7f));
+
+        // Example 3: Distance-scaled text above player
+        BillboardText::DrawText3DScaled("Player", Vector3Add(player.position, (Vector3){0.0f, 2.0f, 0.0f}), camera, 40.0f, 20.0f, GREEN);
+
+        // Example 4: Text with connecting line
+        BillboardText::DrawText3DWithLine("Target", (Vector3){0.0f, 0.0f, 0.0f}, camera, 18, YELLOW, ORANGE, 40.0f);
 
         // UI
         DrawText("WASD: Move | Mouse: Look | TAB: Toggle Cursor | ESC: Exit", 10, 10, 20, DARKGRAY);
