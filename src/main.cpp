@@ -34,7 +34,7 @@ int main()
     skybox.Load("assets/shader/skybox.vs", "assets/shader/skybox.fs");
     // Customize sky and cloud colors
     skybox.SetSkyColor({0.3f, 0.5f, 0.9f});   // Blue sky (default)
-    skybox.SetCloudColor({1.0f, 1.0f, 0.0f}); // White clouds (default)
+    skybox.SetCloudColor({1.0f, 1.0f, 1.0f}); // White clouds (default)
 
     SetTargetFPS(60);
     SetExitKey(KEY_NULL); // Disable ESC to close window
