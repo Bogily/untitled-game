@@ -1,0 +1,85 @@
+#include "Skybox.h"
+#include "raylib.h"
+#include "raymath.h"
+#include "rlgl.h"
+
+Skybox::Skybox() : time(0.0f), skyColor({0.3f, 0.5f, 0.9f}), cloudColor({1.0f, 1.0f, 1.0f})
+{
+    // Constructor - initialization happens in Load()
+}
+
+Skybox::~Skybox()
+{
+    // Destructor
+}
+
+void Skybox::Load(const char *vsPath, const char *fsPath)
+{
+    // Load skybox shader
+    shader = LoadShader(vsPath, fsPath);
+
+    // Get shader uniform locations
+    timeLoc = GetShaderLocation(shader, "time");
+    skyColorLoc = GetShaderLocation(shader, "skyColor");
+    cloudColorLoc = GetShaderLocation(shader, "cloudColor");
+
+    // Generate a cube mesh for the skybox
+    cube = LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f));
+    cube.materials[0].shader = shader;
+
+    TraceLog(LOG_INFO, "Skybox loaded successfully");
+}
+
+void Skybox::SetSkyColor(Vector3 color)
+{
+    skyColor = color;
+}
+
+void Skybox::SetCloudColor(Vector3 color)
+{
+    cloudColor = color;
+}
+
+void Skybox::Update(float deltaTime)
+{
+    time += deltaTime;
+}
+
+void Skybox::Draw(Camera3D camera)
+{
+    // Update shader uniforms
+    SetShaderValue(shader, timeLoc, &time, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(shader, skyColorLoc, &skyColor, SHADER_UNIFORM_VEC3);
+    SetShaderValue(shader, cloudColorLoc, &cloudColor, SHADER_UNIFORM_VEC3);
+
+    // Disable depth writing for skybox (it should always be behind everything)
+    rlDisableDepthMask();
+
+    // Disable backface culling so we can see the inside of the cube
+    rlDisableBackfaceCulling();
+
+    // Push matrix to modify the model matrix
+    rlPushMatrix();
+
+    // Scale the cube to be very large
+    rlScalef(1000.0f, 1000.0f, 1000.0f);
+
+    // Center the skybox on the camera position
+    rlTranslatef(camera.position.x / 1000.0f, camera.position.y / 1000.0f, camera.position.z / 1000.0f);
+
+    // Draw the skybox cube
+    DrawModel(cube, Vector3Zero(), 1.0f, WHITE);
+
+    rlPopMatrix();
+
+    // Re-enable depth writing and backface culling
+    rlEnableBackfaceCulling();
+    rlEnableDepthMask();
+}
+
+void Skybox::Unload()
+{
+    UnloadShader(shader);
+    UnloadModel(cube);
+    TraceLog(LOG_INFO, "Skybox unloaded");
+}
