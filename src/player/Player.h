@@ -10,6 +10,8 @@ public:
     float cameraPitch = -30.0f; // Vertical rotation
     Model model;
     bool modelLoaded = false;
+    Vector3 modelScale = {1.0f, 1.0f, 1.0f};
+    Vector3 modelRotationOffset = {0.0f, 0.0f, 0.0f};  // X, Y, Z rotation offsets
     float sprintMultiplier = 2.0f;
     
     // Jump mechanics

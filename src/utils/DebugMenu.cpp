@@ -16,6 +16,11 @@ void DebugMenu::AddFloat(const std::string& name, float* value, float min, float
     floatSettings.push_back({name, value, min, max, step});
 }
 
+void DebugMenu::AddString(const std::string& name, int* selectedIndex, const std::vector<std::string>& options)
+{
+    stringSettings.push_back({name, selectedIndex, options});
+}
+
 void DebugMenu::Update()
 {
     // Toggle menu with F1
@@ -25,7 +30,7 @@ void DebugMenu::Update()
     if (!isVisible)
         return;
     
-    int totalItems = boolSettings.size() + floatSettings.size();
+    int totalItems = boolSettings.size() + floatSettings.size() + stringSettings.size();
     if (totalItems == 0)
         return;
     
@@ -43,7 +48,7 @@ void DebugMenu::Update()
             selectedIndex = 0;
     }
     
-    // Toggle bool or edit float
+    // Toggle bool or edit float/string
     if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE))
     {
         if (selectedIndex < (int)boolSettings.size())
@@ -51,15 +56,20 @@ void DebugMenu::Update()
             // Toggle boolean
             *boolSettings[selectedIndex].value = !*boolSettings[selectedIndex].value;
         }
-        else
+        else if (selectedIndex < (int)(boolSettings.size() + floatSettings.size()))
         {
             // Toggle editing mode for float
+            editingValue = !editingValue;
+        }
+        else
+        {
+            // Toggle editing mode for string
             editingValue = !editingValue;
         }
     }
     
     // Edit float value
-    if (editingValue && selectedIndex >= (int)boolSettings.size())
+    if (editingValue && selectedIndex >= (int)boolSettings.size() && selectedIndex < (int)(boolSettings.size() + floatSettings.size()))
     {
         int floatIndex = selectedIndex - boolSettings.size();
         FloatSetting& setting = floatSettings[floatIndex];
@@ -84,6 +94,26 @@ void DebugMenu::Update()
         if (*setting.value > setting.max)
             *setting.value = setting.max;
     }
+    
+    // Edit string value (cycle through options)
+    if (editingValue && selectedIndex >= (int)(boolSettings.size() + floatSettings.size()))
+    {
+        int stringIndex = selectedIndex - boolSettings.size() - floatSettings.size();
+        StringSetting& setting = stringSettings[stringIndex];
+        
+        if (IsKeyPressed(KEY_LEFT))
+        {
+            (*setting.selectedIndex)--;
+            if (*setting.selectedIndex < 0)
+                *setting.selectedIndex = setting.options.size() - 1;
+        }
+        if (IsKeyPressed(KEY_RIGHT))
+        {
+            (*setting.selectedIndex)++;
+            if (*setting.selectedIndex >= (int)setting.options.size())
+                *setting.selectedIndex = 0;
+        }
+    }
 }
 
 void DebugMenu::Draw()
@@ -95,7 +125,7 @@ void DebugMenu::Draw()
     int y = 100;
     int width = 400;
     int lineHeight = 30;
-    int totalItems = boolSettings.size() + floatSettings.size();
+    int totalItems = boolSettings.size() + floatSettings.size() + stringSettings.size();
     int height = (totalItems + 2) * lineHeight + 20;
     
     // Draw background panel
@@ -135,6 +165,28 @@ void DebugMenu::Draw()
         
         char valueText[32];
         snprintf(valueText, sizeof(valueText), "%.2f", *setting.value);
+        
+        DrawText(setting.name.c_str(), x, y, 20, textColor);
+        DrawText(valueText, x + 280, y, 20, valueColor);
+        
+        if (currentIndex == selectedIndex)
+        {
+            DrawText(">", x - 20, y, 20, YELLOW);
+            if (editingValue)
+                DrawText("<- EDITING ->", x + 320, y, 15, GREEN);
+        }
+        
+        y += lineHeight;
+        currentIndex++;
+    }
+    
+    // Draw string settings
+    for (const auto& setting : stringSettings)
+    {
+        Color textColor = (currentIndex == selectedIndex) ? YELLOW : WHITE;
+        Color valueColor = (currentIndex == selectedIndex && editingValue) ? GREEN : SKYBLUE;
+        
+        const char* valueText = setting.options[*setting.selectedIndex].c_str();
         
         DrawText(setting.name.c_str(), x, y, 20, textColor);
         DrawText(valueText, x + 280, y, 20, valueColor);

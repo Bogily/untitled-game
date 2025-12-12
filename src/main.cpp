@@ -36,16 +36,21 @@ int main()
     cameraController.SetFollowHeight(5.0f);
     cameraController.SetSmoothness(0.15f);
 
-    // Load rat model with texture
+    // Setup multiple models
     CustomModel customModel;
-    customModel.loadPlayerModel(player, "assets/models/rat.obj", "assets/textures/rat.png");
+    customModel.addModel("Rat", "assets/models/rat.obj", "assets/textures/rat.png", {0.04f, 0.04f, 0.04f}, {0.0f, 0.0f, 0.0f});
+    customModel.addModel("Miku", "assets/models/miku/scene.gltf", "", {1.8f, 1.8f, 1.8f}, {90.0f, 0.0f, 0.0f});  // Rotate -90 on X to stand upright
+    
+    // Load initial model
+    int currentModelIndex = 0;
+    customModel.loadPlayerModel(player, currentModelIndex);
 
     // Load skybox
     Skybox skybox;
     skybox.Load("assets/shader/skybox.vs", "assets/shader/skybox.fs");
     // Customize sky and cloud colors
-    skybox.SetSkyColor({0.3f, 0.5f, 0.9f});   // Blue sky (default)
-    skybox.SetCloudColor({1.0f, 1.0f, 1.0f}); // White clouds (default)
+    skybox.SetSkyColor({0.0f, 0.0f, 0.0f});   // Blue sky (default)
+    skybox.SetCloudColor({1.0f, 1.0f, 0.0f}); // White clouds (default)
 
     SetTargetFPS(TARGET_FPS);
     SetExitKey(KEY_NULL); // Disable ESC to close window
@@ -67,16 +72,34 @@ int main()
     debugMenu.AddBool("Show FPS", &showFPS);
     debugMenu.AddFloat("Jump Strength", &player.jumpStrength, 1.0f, 20.0f, 0.1f);
     debugMenu.AddFloat("Gravity", &player.gravity, -50.0f, -5.0f, 0.1f);
-    debugMenu.AddFloat("Camera Distance", &camera.fovy, 20.0f, 90.0f, 0.1f);
     debugMenu.AddFloat("Sprint Multiplier", &player.sprintMultiplier, 1.0f, 5.0f, 0.1f);
+    
+    // Add model selection to debug menu
+    std::vector<std::string> modelNames;
+    for (int i = 0; i < customModel.getModelCount(); i++)
+        modelNames.push_back(customModel.getModelName(i));
+    debugMenu.AddString("Player Model", &currentModelIndex, modelNames);
+    
+    // Add camera FOV slider
+    debugMenu.AddFloat("Camera FOV", &cameraController.camera.fovy, 20.0f, 120.0f, 1.0f);
 
     // Main game loop
     while (!WindowShouldClose())
     {
         // Update
         // ----------------------------------------------------------------------------------
+        // Store previous model index
+        static int previousModelIndex = currentModelIndex;
+        
         // Update debug menu
         debugMenu.Update();
+        
+        // Check if model selection changed
+        if (currentModelIndex != previousModelIndex)
+        {
+            customModel.loadPlayerModel(player, currentModelIndex);
+            previousModelIndex = currentModelIndex;
+        }
         
         float deltaTime = GetFrameTime();
 
@@ -98,10 +121,6 @@ int main()
         // Close window with ESC
         if (IsKeyPressed(KEY_DELETE))
             break;
-        
-        // Simple movement logic for the "Player" -> view src/player/movement.cpp
-        player.UpdatePlayerMovement(camera);
-        
 
         // Camera mode examples with number keys
         // 1 - Follow player (default)
@@ -230,7 +249,8 @@ int main()
         // Draw skybox first (behind everything)
         skybox.Draw(cameraController.camera);
 
-        player.PlayerRayCast();
+        if(showRaycast)
+            player.PlayerRayCast();
         // Draw ground
         DrawPlane({0.0f, 0.0f, 0.0f}, {32.0f, 32.0f}, LIGHTGRAY);
         
