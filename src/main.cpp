@@ -8,6 +8,7 @@
 // Simple constant for screen dimensions
 const int SCREEN_WIDTH = GetScreenWidth();
 const int SCREEN_HEIGHT = GetScreenHeight();
+const int TARGET_FPS = 60;
 
 int main()
 {
@@ -37,7 +38,7 @@ int main()
     skybox.SetSkyColor({0.3f, 0.5f, 0.9f});   // Blue sky (default)
     skybox.SetCloudColor({1.0f, 1.0f, 1.0f}); // White clouds (default)
 
-    SetTargetFPS(60);
+    SetTargetFPS(TARGET_FPS);
     SetExitKey(KEY_NULL); // Disable ESC to close window
 
     // Lock mouse cursor
