@@ -1,0 +1,97 @@
+// Example usage of CameraController class
+// Add this to your main.cpp to use the camera controller
+
+/*
+#include "graphics/CameraController.h"
+
+int main() {
+    // Initialize window
+    InitWindow(800, 600, "Game");
+    
+    // Create camera controller
+    CameraController cameraController;
+    cameraController.Initialize(
+        (Vector3){0.0f, 10.0f, 10.0f},  // Camera position
+        (Vector3){0.0f, 0.0f, 0.0f},     // Looking at
+        45.0f                             // FOV
+    );
+    
+    // Example 1: Follow player
+    Player player;
+    cameraController.SetMode(CAMERA_MODE_FOLLOW);
+    cameraController.SetFollowTarget(&player.position);
+    cameraController.SetFollowDistance(10.0f);
+    cameraController.SetFollowHeight(5.0f);
+    cameraController.SetSmoothness(0.1f);
+    
+    // Example 2: Create a cutscene
+    std::vector<CameraWaypoint> cutscene;
+    
+    // First waypoint
+    cutscene.push_back({
+        (Vector3){0.0f, 20.0f, 20.0f},   // Camera position
+        (Vector3){0.0f, 0.0f, 0.0f},     // Look at
+        3.0f,                             // Duration (seconds)
+        45.0f                             // FOV
+    });
+    
+    // Second waypoint - zoom in
+    cutscene.push_back({
+        (Vector3){5.0f, 10.0f, 10.0f},
+        (Vector3){0.0f, 2.0f, 0.0f},
+        2.5f,
+        35.0f  // Narrower FOV for zoom effect
+    });
+    
+    // Third waypoint - dramatic angle
+    cutscene.push_back({
+        (Vector3){-10.0f, 5.0f, 5.0f},
+        (Vector3){5.0f, 0.0f, 0.0f},
+        4.0f,
+        60.0f  // Wide angle
+    });
+    
+    // Start cutscene with C key
+    if (IsKeyPressed(KEY_C)) {
+        cameraController.StartCutscene(cutscene);
+    }
+    
+    // Example 3: Smooth transition to a specific position
+    if (IsKeyPressed(KEY_T)) {
+        cameraController.TransitionTo(
+            (Vector3){15.0f, 8.0f, 15.0f},  // New position
+            (Vector3){0.0f, 0.0f, 0.0f},    // New target
+            2.0f                             // Duration
+        );
+    }
+    
+    // Main loop
+    while (!WindowShouldClose()) {
+        float deltaTime = GetFrameTime();
+        
+        // Update camera controller
+        cameraController.Update(deltaTime);
+        
+        // Check if cutscene is playing
+        if (cameraController.IsCutscenePlaying()) {
+            // Disable player input during cutscene
+            DrawText("CUTSCENE PLAYING", 10, 10, 20, RED);
+        }
+        
+        BeginDrawing();
+        ClearBackground(RAYWHITE);
+        
+        // Use camera controller's camera
+        BeginMode3D(cameraController.camera);
+        
+        // Draw your 3D scene...
+        DrawGrid(20, 1.0f);
+        
+        EndMode3D();
+        EndDrawing();
+    }
+    
+    CloseWindow();
+    return 0;
+}
+*/
