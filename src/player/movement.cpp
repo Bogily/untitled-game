@@ -29,14 +29,26 @@ void Player::UpdatePlayerMovement(Camera3D& camera)
     
     Vector3 moveDirection = {0};
     
-    if (IsKeyDown(KEY_W))
+    if (IsKeyDown(KEY_W)){
         moveDirection = Vector3Add(moveDirection, forward);
-    if (IsKeyDown(KEY_S))
+        if(IsKeyDown(KEY_LEFT_SHIFT))
+            moveAmount *= sprintMultiplier; // Sprinting
+    }
+    if (IsKeyDown(KEY_S)){
         moveDirection = Vector3Subtract(moveDirection, forward);
-    if (IsKeyDown(KEY_A))
+        if(IsKeyDown(KEY_LEFT_SHIFT))
+            moveAmount *= sprintMultiplier; // Sprinting
+    }
+    if (IsKeyDown(KEY_A)){
         moveDirection = Vector3Add(moveDirection, right);
-    if (IsKeyDown(KEY_D))
+        if(IsKeyDown(KEY_LEFT_SHIFT))
+            moveAmount *= sprintMultiplier; // Sprinting
+    }
+    if (IsKeyDown(KEY_D)){
         moveDirection = Vector3Subtract(moveDirection, right);
+        if(IsKeyDown(KEY_LEFT_SHIFT))
+            moveAmount *= sprintMultiplier; // Sprinting
+    }
     
     // Normalize and apply movement
     if (Vector3Length(moveDirection) > 0.01f)
@@ -48,12 +60,30 @@ void Player::UpdatePlayerMovement(Camera3D& camera)
         playerYaw = atan2f(moveDirection.x, moveDirection.z) * RAD2DEG;
     }
     
-    if (IsKeyDown(KEY_SPACE))
-        position.y += moveAmount;
-    if (IsKeyDown(KEY_LEFT_SHIFT))
-        position.y -= moveAmount;
-    if (position.y < 1.0f)
-        position.y = 1.0f; // Prevent going below ground
+    // Jump mechanics
+    // Check if on ground
+    isGrounded = (position.y <= groundLevel);
+    
+    // Jump only when on ground and space is PRESSED (not held)
+    if ((IsKeyPressed(KEY_SPACE) || IsKeyDown(KEY_SPACE)) && isGrounded)
+    {
+        velocityY = jumpStrength;
+        isGrounded = false;
+    }
+    
+    // Apply gravity
+    velocityY += gravity * deltaTime;
+    
+    // Apply vertical velocity
+    position.y += velocityY * deltaTime;
+    
+    // Ground collision
+    if (position.y <= groundLevel)
+    {
+        position.y = groundLevel;
+        velocityY = 0.0f;
+        isGrounded = true;
+    }
     
     // Position camera behind player with rotation
     float distance = 10.0f;
@@ -62,17 +92,17 @@ void Player::UpdatePlayerMovement(Camera3D& camera)
     camera.position.x = position.x - sinf(yawRad) * cosf(pitchRad) * distance;
     camera.position.y = position.y - sinf(pitchRad) * distance + 2.0f;
     camera.position.z = position.z - cosf(yawRad) * cosf(pitchRad) * distance;
-    camera.target = Vector3Add(position, (Vector3){0.0f, 1.0f, 0.0f});
+    camera.target = Vector3Add(position, {0.0f, 1.0f, 0.0f});
 }
 
 void Player::PlayerRayCast()
 {
     Ray ray = {0};
-    ray.position = Vector3Add(position, (Vector3){0.0f, 1.0f, 0.0f}); // Eye level
+    ray.position = Vector3Add(position, {0.0f, 1.0f, 0.0f}); // Eye level
     
     // Calculate forward direction based on player rotation
     float yawRad = playerYaw * DEG2RAD;
-    ray.direction = (Vector3){sinf(yawRad), 0.0f, cosf(yawRad)};
+    ray.direction = {sinf(yawRad), 0.0f, cosf(yawRad)};
 
     // Draw ray for visualization
     Vector3 rayEnd = Vector3Add(ray.position, Vector3Scale(ray.direction, 10.0f));
