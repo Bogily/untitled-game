@@ -1,5 +1,6 @@
 # Build
 build/
+temp/
 bin/
 lib/
 *.o
