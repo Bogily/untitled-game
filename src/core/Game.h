@@ -16,7 +16,7 @@ private:
     // Screen settings
     static const int SCREEN_WIDTH = 1280;
     static const int SCREEN_HEIGHT = 720;
-    static const int TARGET_FPS = 60;
+    static const int TARGET_FPS = 160;
 
     // Game constants
     static constexpr float FIXED_CAMERA_MOVE_SPEED = 5.0f;
