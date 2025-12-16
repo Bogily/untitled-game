@@ -4,11 +4,11 @@
 namespace GameConstants
 {
     constexpr Vector3 WORLD_CENTER = {0.0f, 0.0f, 0.0f};
-    constexpr Vector3 PLAYER_START_POS = {0.0f, 1.0f, 0.0f};
+    constexpr Vector3 PLAYER_START_POS = {0.0f, 0.0f, 0.0f};
     constexpr Vector3 CAMERA_START_POS = {0.0f, 10.0f, 10.0f};
     constexpr float CAMERA_START_FOV = 45.0f;
     constexpr float CAMERA_FOLLOW_DISTANCE = 10.0f;
-    constexpr float CAMERA_FOLLOW_HEIGHT = 5.0f;
+    constexpr float CAMERA_FOLLOW_HEIGHT = 6.0f;
     constexpr float CAMERA_SMOOTHNESS = 0.15f;
 
     // World objects
@@ -30,6 +30,7 @@ void Game::Init()
     SetupModels();
     SetupSkybox();
     SetupRenderer();
+    SetupCollisions();
     SetupDebugMenu();
 }
 
@@ -74,18 +75,127 @@ void Game::SetupRenderer()
     renderer.SetFogDensity(0.15f);
 }
 
+void Game::SetupCollisions()
+{
+    // Add collision boxes for world objects
+    // Red cube at (-4, 1, -4) with size 2x2x2
+    collisionSystem.AddBox(GameConstants::RED_CUBE_POS, {2.0f, 2.0f, 2.0f}, "Red Cube", RED);
+
+    // Blue tower at (4, 1, 4) with size 1x4x1
+    collisionSystem.AddBox(GameConstants::BLUE_TOWER_POS, {1.0f, 4.0f, 1.0f}, "Blue Tower", BLUE);
+
+    // Add some spherical obstacles
+    collisionSystem.AddSphere({-6.0f, 1.5f, 2.0f}, 1.5f, "Ball 1", YELLOW);
+    collisionSystem.AddSphere({6.0f, 1.0f, -2.0f}, 1.0f, "Ball 2", ORANGE);
+
+    // Add a capsule obstacle
+    collisionSystem.AddCapsule({0.0f, 2.0f, 6.0f}, 0.5f, 3.0f, "Pillar", SKYBLUE);
+
+    // Add a cylinder
+    collisionSystem.AddCylinder({-2.0f, 2.0f, -6.0f}, 0.8f, 4.0f, "Column", PURPLE);
+
+    // Add a slope/ramp
+    // Ramp at position (8, 0, -8) going upward in the +Z direction
+    Vector3 rampCenter = {8.0f, 1.5f, -7.0f};
+    float rampWidth = 4.0f;
+    float rampLength = 6.0f;
+    float rampMaxHeight = 3.0f;
+    float rampThickness = 0.5f;
+
+    // Calculate rotation angle for the slope
+    // atan2(rise, run) gives us the angle
+    float slopeAngle = atan2f(rampMaxHeight, rampLength) * RAD2DEG; // Convert to degrees
+
+    // Main slope collision box - rotated around X axis (pitch)
+    collisionSystem.AddBox(
+        rampCenter,
+        {rampWidth, rampThickness, rampLength},
+        "Main Slope",
+        Fade(BROWN, 0.5f),
+        {slopeAngle, 0, 0} // Pitch rotation
+    );
+
+    // Add side walls for the slope
+    float slopeWallThickness = 0.3f;
+    float slopeWallHeight = rampMaxHeight;
+
+    // Left wall
+    collisionSystem.AddBox(
+        {rampCenter.x - rampWidth / 2.0f - slopeWallThickness / 2.0f, slopeWallHeight / 2.0f, rampCenter.z},
+        {slopeWallThickness, slopeWallHeight, rampLength},
+        "Slope Wall Left",
+        DARKBROWN);
+
+    // Right wall
+    collisionSystem.AddBox(
+        {rampCenter.x + rampWidth / 2.0f + slopeWallThickness / 2.0f, slopeWallHeight / 2.0f, rampCenter.z},
+        {slopeWallThickness, slopeWallHeight, rampLength},
+        "Slope Wall Right",
+        DARKBROWN);
+
+    // Add a steep slope (> 45 degrees) to test non-walkable surfaces
+    // This will be at position (-8, 1.5, -7)
+    Vector3 steepRampCenter = {-8.0f, 2.0f, -7.0f};
+    float steepRampWidth = 3.0f;
+    float steepRampLength = 4.0f;
+    float steepRampHeight = 5.0f; // Steep: 5 units rise over 4 units run = ~51 degrees
+    float steepRampThickness = 0.5f;
+
+    float steepSlopeAngle = atan2f(steepRampHeight, steepRampLength) * RAD2DEG;
+
+    // Steep slope collision (> 45 degrees - not walkable, player should slide down)
+    collisionSystem.AddBox(
+        steepRampCenter,
+        {steepRampWidth, steepRampThickness, steepRampLength},
+        "Steep Slope (Not Walkable)",
+        Fade(MAROON, 0.5f),
+        {steepSlopeAngle, 0, 0});
+
+    // Side walls for steep slope
+    collisionSystem.AddBox(
+        {steepRampCenter.x - steepRampWidth / 2.0f - slopeWallThickness / 2.0f, steepRampHeight / 2.0f, steepRampCenter.z},
+        {slopeWallThickness, steepRampHeight, steepRampLength},
+        "Steep Slope Wall Left",
+        DARKBROWN);
+
+    collisionSystem.AddBox(
+        {steepRampCenter.x + steepRampWidth / 2.0f + slopeWallThickness / 2.0f, steepRampHeight / 2.0f, steepRampCenter.z},
+        {slopeWallThickness, steepRampHeight, steepRampLength},
+        "Steep Slope Wall Right",
+        DARKBROWN);
+
+    // World boundaries (invisible walls)
+    float worldSize = 16.0f;
+    float wallThickness = 1.0f;
+    float wallHeight = 10.0f;
+
+    // North wall
+    collisionSystem.AddBox({0.0f, wallHeight / 2, -worldSize}, {worldSize * 2, wallHeight, wallThickness}, "North Wall", Fade(GREEN, 0.3f));
+    // South wall
+    collisionSystem.AddBox({0.0f, wallHeight / 2, worldSize}, {worldSize * 2, wallHeight, wallThickness}, "South Wall", Fade(GREEN, 0.3f));
+    // East wall
+    collisionSystem.AddBox({worldSize, wallHeight / 2, 0.0f}, {wallThickness, wallHeight, worldSize * 2}, "East Wall", Fade(GREEN, 0.3f));
+    // West wall
+    collisionSystem.AddBox({-worldSize, wallHeight / 2, 0.0f}, {wallThickness, wallHeight, worldSize * 2}, "West Wall", Fade(GREEN, 0.3f));
+}
+
 void Game::SetupDebugMenu()
 {
     debugMenu.AddBool("Show Grid", &showGrid);
     debugMenu.AddBool("Show Raycast", &showRaycast);
     debugMenu.AddBool("Show Player Position", &showPlayerPos);
     debugMenu.AddBool("Show FPS", &showFPS);
+    debugMenu.AddBool("Show Collision Boxes", &showCollisionBoxes);
+    debugMenu.AddBool("Show Player Hitbox", &showPlayerHitbox);
     debugMenu.AddBool("Fog Enabled", &fogEnabled);
     debugMenu.AddFloat("Fog Distance", &fogDistance, 0.0f, 200.0f, 5.0f);
     debugMenu.AddFloat("Fog Density", &fogDensity, 0.001f, 0.2f, 0.005f);
     debugMenu.AddFloat("Jump Strength", &player.jumpStrength, 1.0f, 20.0f, 0.1f);
     debugMenu.AddFloat("Gravity", &player.gravity, -50.0f, -5.0f, 0.1f);
     debugMenu.AddFloat("Sprint Multiplier", &player.sprintMultiplier, 1.0f, 5.0f, 0.1f);
+    debugMenu.AddFloat("Collision Radius", &player.collisionRadius, 0.1f, 2.0f, 0.05f);
+    debugMenu.AddFloat("Collision Height", &player.collisionHeight, 0.5f, 3.0f, 0.1f);
+    debugMenu.AddFloat("Eye Height", &player.eyeHeight, 0.5f, 2.5f, 0.1f);
 
     std::vector<std::string> modelNames;
     for (int i = 0; i < customModel.getModelCount(); i++)
@@ -184,7 +294,7 @@ void Game::UpdatePlayer(float deltaTime)
 {
     if (!cameraController.IsCutscenePlaying() && cameraController.mode != CAMERA_MODE_FIXED)
     {
-        player.UpdatePlayerMovement(cameraController.camera);
+        player.UpdatePlayerMovementWithCollision(cameraController.camera, &collisionSystem);
     }
     else if (cameraController.mode == CAMERA_MODE_FIXED)
     {
@@ -268,9 +378,95 @@ void Game::DrawScene()
 
     customModel.drawPlayerModel(player);
 
+    // Draw player hitbox for debugging
+    if (showPlayerHitbox)
+    {
+        // DrawCylinderWires draws from base position upward
+        DrawCylinderWires(player.position, player.collisionRadius, player.collisionRadius, player.collisionHeight, 16, LIME);
+
+        // Draw a sphere at the player's actual position (feet)
+        DrawSphereWires(player.position, 0.15f, 8, 8, RED);
+        // Draw a sphere at the top of the hitbox
+        DrawSphereWires({player.position.x, player.position.y + player.collisionHeight, player.position.z}, 0.15f, 8, 8, BLUE);
+    }
+
     // Draw environment objects
     DrawCube(GameConstants::RED_CUBE_POS, 2.0f, 2.0f, 2.0f, RED);
     DrawCube(GameConstants::BLUE_TOWER_POS, 1.0f, 4.0f, 1.0f, BLUE);
+
+    // Draw additional collision objects
+    DrawSphere({-6.0f, 1.5f, 2.0f}, 1.5f, YELLOW);
+    DrawSphere({6.0f, 1.0f, -2.0f}, 1.0f, ORANGE);
+
+    // Draw capsule as cylinder with spheres on ends
+    Vector3 capsulePos = {0.0f, 2.0f, 6.0f};
+    DrawCylinder(capsulePos, 0.5f, 0.5f, 3.0f, 16, SKYBLUE);
+
+    // Draw cylinder
+    Vector3 cylinderPos = {-2.0f, 0.0f, -6.0f};
+    DrawCylinder(cylinderPos, 0.8f, 0.8f, 4.0f, 16, PURPLE);
+
+    // Draw slope/ramp with mesh
+    Vector3 rampCenter = {8.0f, 1.5f, -7.0f};
+    float rampWidth = 4.0f;
+    float rampLength = 6.0f;
+    float rampMaxHeight = 3.0f;
+    float rampThickness = 0.5f;
+    float slopeWallThickness = 0.3f;
+
+    // Calculate slope angle
+    float slopeAngle = atan2f(rampMaxHeight, rampLength) * RAD2DEG;
+
+    // Draw the angled slope surface
+    rlPushMatrix();
+    rlTranslatef(rampCenter.x, rampCenter.y, rampCenter.z);
+    rlRotatef(slopeAngle, 1.0f, 0.0f, 0.0f); // Pitch rotation
+    DrawCube({0.0f, 0.0f, 0.0f}, rampWidth, rampThickness, rampLength, BROWN);
+    rlPopMatrix();
+
+    // Draw side walls
+    // Left wall
+    DrawCube(
+        {rampCenter.x - rampWidth / 2.0f - slopeWallThickness / 2.0f, rampMaxHeight / 2.0f, rampCenter.z},
+        slopeWallThickness, rampMaxHeight, rampLength,
+        DARKBROWN);
+
+    // Right wall
+    DrawCube(
+        {rampCenter.x + rampWidth / 2.0f + slopeWallThickness / 2.0f, rampMaxHeight / 2.0f, rampCenter.z},
+        slopeWallThickness, rampMaxHeight, rampLength,
+        DARKBROWN);
+
+    // Draw steep slope (> 45 degrees)
+    Vector3 steepRampCenter = {-8.0f, 2.0f, -7.0f};
+    float steepRampWidth = 3.0f;
+    float steepRampLength = 4.0f;
+    float steepRampHeight = 5.0f;
+    float steepRampThickness = 0.5f;
+
+    float steepSlopeAngle = atan2f(steepRampHeight, steepRampLength) * RAD2DEG;
+
+    // Draw the steep angled slope surface
+    rlPushMatrix();
+    rlTranslatef(steepRampCenter.x, steepRampCenter.y, steepRampCenter.z);
+    rlRotatef(steepSlopeAngle, 1.0f, 0.0f, 0.0f);
+    DrawCube({0.0f, 0.0f, 0.0f}, steepRampWidth, steepRampThickness, steepRampLength, MAROON);
+    rlPopMatrix();
+
+    // Draw steep slope side walls
+    DrawCube(
+        {steepRampCenter.x - steepRampWidth / 2.0f - slopeWallThickness / 2.0f, steepRampHeight / 2.0f, steepRampCenter.z},
+        slopeWallThickness, steepRampHeight, steepRampLength,
+        DARKBROWN);
+
+    DrawCube(
+        {steepRampCenter.x + steepRampWidth / 2.0f + slopeWallThickness / 2.0f, steepRampHeight / 2.0f, steepRampCenter.z},
+        slopeWallThickness, steepRampHeight, steepRampLength,
+        DARKBROWN);
+
+    // Draw collision boxes for debugging
+    if (showCollisionBoxes)
+        collisionSystem.DrawDebug(false);
 }
 
 void Game::DrawUI()

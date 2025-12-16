@@ -2,6 +2,7 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "../player/Player.h"
+#include "../physics/CollisionSystem.h"
 #include "../utils/custommodel.h"
 #include "../utils/DebugMenu.h"
 #include "../graphics/Skybox.h"
@@ -34,6 +35,9 @@ private:
     Skybox skybox;
     DebugMenu debugMenu;
     Renderer renderer;
+    CollisionSystem collisionSystem;
+    Mesh slopeMesh;
+    Model slopeModel;
 
     // Debug flags
     bool showGrid = true;
@@ -41,6 +45,8 @@ private:
     bool showPlayerPos = false;
     bool showFPS = true;
     bool fogEnabled = true;
+    bool showCollisionBoxes = true;
+    bool showPlayerHitbox = true;
     int debugBufferView = -1; // -1 = normal, 0-1 = debug buffers
 
     // Fog settings
@@ -57,6 +63,7 @@ private:
     void SetupModels();
     void SetupSkybox();
     void SetupRenderer();
+    void SetupCollisions();
 
     void SetupDebugMenu();
     void HandleInput(float deltaTime);

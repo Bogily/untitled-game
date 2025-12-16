@@ -196,7 +196,7 @@ void Renderer::ApplyFogAndRender(Camera3D &camera)
     Matrix invProjection = MatrixInvert(projection);
     SetShaderValueMatrix(compositeShader, GetShaderLocation(compositeShader, "invProjection"), invProjection);
 
-    Vector3 fogColor = {0.5f, 0.6f, 0.7f}; // Light blue-gray fog
+    Vector3 fogColor = {0.8f, 0.8f, 0.8f}; // Light blue-gray fog
     float fogColorArray[3] = {fogColor.x, fogColor.y, fogColor.z};
     SetShaderValue(compositeShader, GetShaderLocation(compositeShader, "fogColor"), fogColorArray, SHADER_UNIFORM_VEC3);
 

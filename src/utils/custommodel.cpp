@@ -4,36 +4,36 @@
 #include "../player/Player.h"
 #include "custommodel.h"
 
-void CustomModel::addModel(const std::string& name, const std::string& modelPath, const std::string& texturePath, Vector3 scale, Vector3 rotationOffset)
+void CustomModel::addModel(const std::string &name, const std::string &modelPath, const std::string &texturePath, Vector3 scale, Vector3 rotationOffset)
 {
     availableModels.push_back({modelPath, texturePath, name, scale, rotationOffset});
 }
 
-void CustomModel::loadPlayerModel(Player& player, int modelIndex)
+void CustomModel::loadPlayerModel(Player &player, int modelIndex)
 {
     if (modelIndex < 0 || modelIndex >= (int)availableModels.size())
     {
         TraceLog(LOG_WARNING, "Invalid model index: %d", modelIndex);
         return;
     }
-    
-    const ModelData& modelData = availableModels[modelIndex];
-    
+
+    const ModelData &modelData = availableModels[modelIndex];
+
     // Unload previous model if one exists
     if (player.modelLoaded)
     {
         UnloadModel(player.model);
         player.modelLoaded = false;
     }
-    
+
     // Load new model
-    const char* texPath = modelData.texturePath.empty() ? nullptr : modelData.texturePath.c_str();
+    const char *texPath = modelData.texturePath.empty() ? nullptr : modelData.texturePath.c_str();
     loadPlayerModel(player, modelData.modelPath.c_str(), texPath);
-    
+
     // Set model scale and rotation
     player.modelScale = modelData.scale;
     player.modelRotationOffset = modelData.rotationOffset;
-    
+
     TraceLog(LOG_INFO, "Switched to model: %s", modelData.name.c_str());
 }
 
@@ -44,16 +44,16 @@ std::string CustomModel::getModelName(int index) const
     return "Unknown";
 }
 
-void CustomModel::loadPlayerModel(Player& player, const char* modelPath, const char* texturePath)
+void CustomModel::loadPlayerModel(Player &player, const char *modelPath, const char *texturePath)
 {
     TraceLog(LOG_INFO, "Attempting to load model from: %s", modelPath);
     player.model = LoadModel(modelPath);
-    
+
     if (player.model.meshCount > 0)
     {
         player.modelLoaded = true;
         TraceLog(LOG_INFO, "Player model loaded successfully with %d meshes", player.model.meshCount);
-        
+
         // Load and apply texture if provided
         if (texturePath != nullptr)
         {
@@ -76,22 +76,22 @@ void CustomModel::loadPlayerModel(Player& player, const char* modelPath, const c
     }
 }
 
-
-void CustomModel::drawPlayerModel(const Player& player)
+void CustomModel::drawPlayerModel(const Player &player)
 {
     if (player.modelLoaded)
     {
-        Vector3 modelPosition = {player.position.x, player.position.y - 1.0f, player.position.z};
-        
+        // Draw model at player's feet position (no offset)
+        Vector3 modelPosition = player.position;
+
         // Apply rotation offsets (X, Y, Z) and player yaw
         // Need to use rlPushMatrix for proper 3D rotations
         rlPushMatrix();
-            rlTranslatef(modelPosition.x, modelPosition.y, modelPosition.z);
-            rlRotatef(player.modelRotationOffset.y + player.playerYaw, 0.0f, 1.0f, 0.0f);  // Y rotation (yaw)
-            rlRotatef(player.modelRotationOffset.x, 1.0f, 0.0f, 0.0f);  // X rotation (pitch)
-            rlRotatef(player.modelRotationOffset.z, 0.0f, 0.0f, 1.0f);  // Z rotation (roll)
-            rlScalef(player.modelScale.x, player.modelScale.y, player.modelScale.z);
-            DrawModel(player.model, (Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+        rlTranslatef(modelPosition.x, modelPosition.y, modelPosition.z);
+        rlRotatef(player.modelRotationOffset.y + player.playerYaw, 0.0f, 1.0f, 0.0f); // Y rotation (yaw)
+        rlRotatef(player.modelRotationOffset.x, 1.0f, 0.0f, 0.0f);                    // X rotation (pitch)
+        rlRotatef(player.modelRotationOffset.z, 0.0f, 0.0f, 1.0f);                    // Z rotation (roll)
+        rlScalef(player.modelScale.x, player.modelScale.y, player.modelScale.z);
+        DrawModel(player.model, (Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
         rlPopMatrix();
     }
     else
