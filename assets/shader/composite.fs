@@ -12,10 +12,8 @@ uniform float ssaoIntensity;
 
 void main()
 {
-    // Flip Y coordinate for raylib render texture (scene)
-    vec2 sceneUV = vec2(fragTexCoord.x, 1.0 - fragTexCoord.y);
-    
-    // SSAO texture is NOT flipped (rendered via raw OpenGL FBO)
+    // Use direct texture coordinates
+    vec2 sceneUV = fragTexCoord;
     vec2 ssaoUV = fragTexCoord;
     
     vec3 sceneColor = texture(sceneTexture, sceneUV).rgb;

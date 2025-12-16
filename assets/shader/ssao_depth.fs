@@ -29,16 +29,12 @@ float LinearizeDepth(float depth)
 }
 
 // Reconstruct view-space position from depth
-// The depth texture from raylib is Y-flipped, so we flip when sampling
 vec3 GetViewPos(vec2 screenUV)
 {
-    // Flip Y to sample from raylib's Y-flipped depth texture
-    vec2 sampleUV = vec2(screenUV.x, 1.0 - screenUV.y);
-    float depth = texture(depthTexture, sampleUV).r;
+    float depth = texture(depthTexture, screenUV).r;
     
-    // For NDC, we also need to flip Y to match the flipped texture
-    // This ensures the reconstructed position is correct
-    vec2 ndc = vec2(screenUV.x, 1.0 - screenUV.y) * 2.0 - 1.0;
+    // Convert to NDC
+    vec2 ndc = screenUV * 2.0 - 1.0;
     float ndcZ = depth * 2.0 - 1.0;
     
     // Reconstruct view position via inverse projection
@@ -49,11 +45,10 @@ vec3 GetViewPos(vec2 screenUV)
     return viewPos.xyz;
 }
 
-// Get raw depth value (with Y-flip for raylib texture)
+// Get raw depth value
 float GetDepth(vec2 screenUV)
 {
-    vec2 sampleUV = vec2(screenUV.x, 1.0 - screenUV.y);
-    return texture(depthTexture, sampleUV).r;
+    return texture(depthTexture, screenUV).r;
 }
 
 // Estimate normal from depth buffer using cross product of derivatives
@@ -123,8 +118,7 @@ void main()
         clipOffset.xyz /= clipOffset.w;
         
         // Convert from NDC [-1,1] to screen UV [0,1]
-        // Note: clipOffset.y needs to be flipped because our depth texture is Y-flipped
-        vec2 sampleScreenUV = vec2(clipOffset.x * 0.5 + 0.5, 1.0 - (clipOffset.y * 0.5 + 0.5));
+        vec2 sampleScreenUV = clipOffset.xy * 0.5 + 0.5;
         
         // Skip if outside screen
         if (sampleScreenUV.x < 0.0 || sampleScreenUV.x > 1.0 || 
