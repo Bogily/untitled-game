@@ -40,13 +40,12 @@ private:
     bool showRaycast = true;
     bool showPlayerPos = false;
     bool showFPS = true;
-    bool ssaoEnabled = true;
-    int debugBufferView = -1; // -1 = normal, 0-4 = debug buffers
+    bool fogEnabled = true;
+    int debugBufferView = -1; // -1 = normal, 0-1 = debug buffers
 
-    // SSAO settings
-    float ssaoRadius = 0.5f;
-    float ssaoBias = 0.025f;
-    float ssaoIntensity = 1.0f;
+    // Fog settings
+    float fogDistance = 10.0f;
+    float fogDensity = 0.15f;
 
     // Model selection
     int currentModelIndex = 0;

@@ -1,167 +1,113 @@
 #version 330 core
 
 out float fragColor;
-
 in vec2 fragTexCoord;
 
 uniform sampler2D depthTexture;
 uniform sampler2D noiseTexture;
-
 uniform mat4 projection;
 uniform mat4 invProjection;
-
-uniform vec3 samples[64];
+uniform vec3 samples[1];
 uniform vec2 noiseScale;
 uniform vec2 screenSize;
-
 uniform int kernelSize;
 uniform float radius;
 uniform float bias;
 
-const float nearPlane = 0.1;
-const float farPlane = 1000.0;
-
-// Convert depth buffer value to linear depth
-float LinearizeDepth(float depth)
+// Raylib render textures are Y-flipped in OpenGL sampling.
+// Treat incoming fragTexCoord as top-left UV and flip Y when sampling the depth texture.
+float SampleDepth(vec2 uvTopLeft)
 {
-    float z = depth * 2.0 - 1.0; // Back to NDC
-    return (2.0 * nearPlane * farPlane) / (farPlane + nearPlane - z * (farPlane - nearPlane));
+    return texture(depthTexture, vec2(uvTopLeft.x, 1.0 - uvTopLeft.y)).r;
 }
 
-// Reconstruct view-space position from depth
-vec3 GetViewPos(vec2 screenUV)
+vec3 reconstructViewPos(vec2 uvTopLeft, float depth)
 {
-    float depth = texture(depthTexture, screenUV).r;
-    
-    // Convert to NDC
-    vec2 ndc = screenUV * 2.0 - 1.0;
-    float ndcZ = depth * 2.0 - 1.0;
-    
-    // Reconstruct view position via inverse projection
-    vec4 clipPos = vec4(ndc, ndcZ, 1.0);
-    vec4 viewPos = invProjection * clipPos;
-    viewPos /= viewPos.w;
-    
-    return viewPos.xyz;
+    // Convert UV (0,0 top-left) to NDC (Y-up)
+    vec2 ndc = vec2(uvTopLeft.x * 2.0 - 1.0, (1.0 - uvTopLeft.y) * 2.0 - 1.0);
+
+    vec4 clipSpace = vec4(ndc, depth * 2.0 - 1.0, 1.0);
+    vec4 viewSpace = invProjection * clipSpace;
+    return viewSpace.xyz / viewSpace.w;
 }
 
-// Get raw depth value
-float GetDepth(vec2 screenUV)
-{
-    return texture(depthTexture, screenUV).r;
-}
-
-// Estimate normal from depth buffer using cross product of derivatives
-vec3 GetNormalFromDepth(vec2 screenUV)
+vec3 computeNormal(vec2 uvTopLeft)
 {
     vec2 texelSize = 1.0 / screenSize;
-    
-    vec3 posCenter = GetViewPos(screenUV);
-    vec3 posRight = GetViewPos(screenUV + vec2(texelSize.x, 0.0));
-    vec3 posDown = GetViewPos(screenUV - vec2(0.0, texelSize.y));
-    vec3 posLeft = GetViewPos(screenUV - vec2(texelSize.x, 0.0));
-    vec3 posUp = GetViewPos(screenUV + vec2(0.0, texelSize.y));
-    
-    // Use central differences for better normal estimation
-    vec3 dx = posRight - posLeft;
-    vec3 dy = posUp - posDown;
-    
-    // Cross product to get normal
-    vec3 normal = normalize(cross(dx, dy));
-    
-    // Ensure normal points towards camera (positive Z in view space)
-    if (normal.z < 0.0)
-        normal = -normal;
-    
-    return normal;
+
+    float depth = SampleDepth(uvTopLeft);
+    if (depth > 0.999) return vec3(0.0, 0.0, 1.0);
+
+    float depthRight = SampleDepth(uvTopLeft + vec2(texelSize.x, 0.0));
+    float depthUp = SampleDepth(uvTopLeft - vec2(0.0, texelSize.y)); // up in screen space
+
+    vec3 p = reconstructViewPos(uvTopLeft, depth);
+    vec3 pRight = reconstructViewPos(uvTopLeft + vec2(texelSize.x, 0.0), depthRight);
+    vec3 pUp = reconstructViewPos(uvTopLeft - vec2(0.0, texelSize.y), depthUp);
+
+    vec3 v1 = pRight - p;
+    vec3 v2 = pUp - p;
+
+    if (dot(v1, v1) < 0.00001 || dot(v2, v2) < 0.00001)
+        return vec3(0.0, 0.0, 1.0);
+
+    vec3 normal = cross(v1, v2);
+    float len = length(normal);
+
+    if (len < 0.00001)
+        return vec3(0.0, 0.0, 1.0);
+
+    return normalize(normal);
 }
 
 void main()
 {
-    float depth = GetDepth(fragTexCoord);
+    float depth = SampleDepth(fragTexCoord);
     
-    // Skip background (far plane)
-    if (depth >= 0.9999)
+    if (depth > 0.999)
     {
         fragColor = 1.0;
         return;
     }
     
-    vec3 fragPos = GetViewPos(fragTexCoord);
-    vec3 normal = GetNormalFromDepth(fragTexCoord);
+    vec3 viewPos = reconstructViewPos(fragTexCoord, depth);
+    vec3 normal = computeNormal(fragTexCoord);
+    vec3 randomVec = normalize(texture(noiseTexture, fragTexCoord * noiseScale).xyz);
     
-    // Sample noise - the noise texture already contains values in [-1,1] range (stored as RGB16F)
-    vec3 randomVec = texture(noiseTexture, fragTexCoord * noiseScale).xyz;
-    randomVec.z = 0.0; // Rotation only in tangent plane
-    if (length(randomVec.xy) < 0.001)
-        randomVec = vec3(1.0, 0.0, 0.0); // Fallback
-    else
-        randomVec = normalize(randomVec);
-    
-    // Create TBN matrix to transform from tangent space to view space
     vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));
+    // Safety check for tangent
+    if (length(tangent) < 0.0001) tangent = vec3(1.0, 0.0, 0.0);
+    
     vec3 bitangent = cross(normal, tangent);
     mat3 TBN = mat3(tangent, bitangent, normal);
     
-    // Iterate through samples
     float occlusion = 0.0;
-    int validSamples = 0;
     
-    for(int i = 0; i < kernelSize; ++i)
+    for (int i = 0; i < kernelSize; i++)
     {
-        // Get sample position in view space
-        vec3 sampleOffset = TBN * samples[i];
-        vec3 samplePos = fragPos + sampleOffset * radius;
+        vec3 samplePos = viewPos + TBN * samples[i] * radius;
         
-        // Project sample to clip space
-        vec4 clipOffset = projection * vec4(samplePos, 1.0);
-        clipOffset.xyz /= clipOffset.w;
+        vec4 offset = projection * vec4(samplePos, 1.0);
+        offset.xyz /= offset.w;
         
-        // Convert from NDC [-1,1] to screen UV [0,1]
-        vec2 sampleScreenUV = clipOffset.xy * 0.5 + 0.5;
+        // Convert NDC to UV (0,0 top-left)
+        // NDC (-1, 1) -> UV (0, 0)
+        // NDC (1, -1) -> UV (1, 1)
+        vec2 offsetUV = vec2(offset.x * 0.5 + 0.5, 0.5 - offset.y * 0.5);
         
-        // Skip if outside screen
-        if (sampleScreenUV.x < 0.0 || sampleScreenUV.x > 1.0 || 
-            sampleScreenUV.y < 0.0 || sampleScreenUV.y > 1.0)
+        if (offsetUV.x < 0.0 || offsetUV.x > 1.0 || offsetUV.y < 0.0 || offsetUV.y > 1.0)
             continue;
         
-        // Get the actual geometry depth at this screen position
-        // Note: We use the flipped UV directly here since sampleScreenUV is already in texture space
-        float geometryDepth = texture(depthTexture, sampleScreenUV).r;
-        
-        // Skip background samples
-        if (geometryDepth >= 0.9999)
+        float sampleDepth = SampleDepth(offsetUV);
+        if (sampleDepth > 0.999)
             continue;
         
-        validSamples++;
+        vec3 sampleViewPos = reconstructViewPos(offsetUV, sampleDepth);
         
-        // Linear depth of the sample position (what we expect)
-        float sampleDepthLinear = -samplePos.z;
-        
-        // Linear depth of actual geometry at that screen position
-        float geometryDepthLinear = LinearizeDepth(geometryDepth);
-        
-        // Range check - only count occlusion from nearby geometry
-        float rangeCheck = smoothstep(0.0, 1.0, radius / (abs(sampleDepthLinear - geometryDepthLinear) + 0.0001));
-        
-        // If geometry is in front of the sample position, it occludes
-        // sampleDepthLinear is positive distance from camera
-        // geometryDepthLinear is also positive distance
-        // Occluded if geometry is closer than sample
-        if (geometryDepthLinear < sampleDepthLinear - bias)
-        {
-            occlusion += rangeCheck;
-        }
+        float rangeCheck = smoothstep(0.0, 1.0, radius / abs(viewPos.z - sampleViewPos.z));
+        occlusion += (sampleViewPos.z >= samplePos.z + bias ? 1.0 : 0.0) * rangeCheck;
     }
     
-    if (validSamples > 0)
-    {
-        occlusion = 1.0 - (occlusion / float(validSamples));
-    }
-    else
-    {
-        occlusion = 1.0;
-    }
-    
-    fragColor = clamp(occlusion, 0.0, 1.0);
+    occlusion = 1.0 - (occlusion / float(kernelSize));
+    fragColor = occlusion;
 }

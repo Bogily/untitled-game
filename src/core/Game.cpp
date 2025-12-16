@@ -69,10 +69,9 @@ void Game::SetupSkybox()
 void Game::SetupRenderer()
 {
     renderer.Init(SCREEN_WIDTH, SCREEN_HEIGHT);
-    renderer.SetSSAOEnabled(true);
-    renderer.SetSSAORadius(0.5f);
-    renderer.SetSSAOBias(0.025f);
-    renderer.SetSSAOIntensity(1.0f);
+    renderer.SetFogEnabled(true);
+    renderer.SetFogDistance(10.0f);
+    renderer.SetFogDensity(0.15f);
 }
 
 void Game::SetupDebugMenu()
@@ -81,10 +80,9 @@ void Game::SetupDebugMenu()
     debugMenu.AddBool("Show Raycast", &showRaycast);
     debugMenu.AddBool("Show Player Position", &showPlayerPos);
     debugMenu.AddBool("Show FPS", &showFPS);
-    debugMenu.AddBool("SSAO Enabled", &ssaoEnabled);
-    debugMenu.AddFloat("SSAO Radius", &ssaoRadius, 0.1f, 2.0f, 0.05f);
-    debugMenu.AddFloat("SSAO Bias", &ssaoBias, 0.001f, 0.1f, 0.005f);
-    debugMenu.AddFloat("SSAO Intensity", &ssaoIntensity, 0.0f, 3.0f, 0.1f);
+    debugMenu.AddBool("Fog Enabled", &fogEnabled);
+    debugMenu.AddFloat("Fog Distance", &fogDistance, 0.0f, 200.0f, 5.0f);
+    debugMenu.AddFloat("Fog Density", &fogDensity, 0.001f, 0.2f, 0.005f);
     debugMenu.AddFloat("Jump Strength", &player.jumpStrength, 1.0f, 20.0f, 0.1f);
     debugMenu.AddFloat("Gravity", &player.gravity, -50.0f, -5.0f, 0.1f);
     debugMenu.AddFloat("Sprint Multiplier", &player.sprintMultiplier, 1.0f, 5.0f, 0.1f);
@@ -103,11 +101,10 @@ void Game::Update()
 
     debugMenu.Update();
 
-    // Sync SSAO settings from debug menu
-    renderer.SetSSAOEnabled(ssaoEnabled);
-    renderer.SetSSAORadius(ssaoRadius);
-    renderer.SetSSAOBias(ssaoBias);
-    renderer.SetSSAOIntensity(ssaoIntensity);
+    // Sync fog settings from debug menu
+    renderer.SetFogEnabled(fogEnabled);
+    renderer.SetFogDistance(fogDistance);
+    renderer.SetFogDensity(fogDensity);
 
     if (currentModelIndex != previousModelIndex)
     {
@@ -133,17 +130,15 @@ void Game::HandleInput(float deltaTime)
             DisableCursor();
     }
 
-    // Debug buffer views (F1-F4 to view different buffers, F5 for normal render)
+    // Debug buffer views (F1-F3 to view different buffers, F4 for normal render)
     if (IsKeyPressed(KEY_F1))
         debugBufferView = 0; // Color
     if (IsKeyPressed(KEY_F2))
         debugBufferView = 1; // Depth
     if (IsKeyPressed(KEY_F3))
-        debugBufferView = 2; // SSAO
+        debugBufferView = 2; // Normals
     if (IsKeyPressed(KEY_F4))
-        debugBufferView = 3; // Normals
-    if (IsKeyPressed(KEY_F5))
-        debugBufferView = -1; // Normal render with SSAO
+        debugBufferView = -1; // Normal render with fog
 }
 
 void Game::HandleCameraControls()
@@ -242,7 +237,7 @@ void Game::Draw()
 
     renderer.EndSceneCapture();
 
-    // === SSAO AND COMPOSITE PASS ===
+    // === FOG AND COMPOSITE PASS ===
     ClearBackground(BLACK);
 
     if (debugBufferView >= 0)
@@ -251,7 +246,7 @@ void Game::Draw()
     }
     else
     {
-        renderer.ApplySSAOAndRender(cameraController.camera);
+        renderer.ApplyFogAndRender(cameraController.camera);
     }
 
     DrawUI();
@@ -304,8 +299,8 @@ void Game::Draw2DUI()
     DrawText("WASD: Move | Mouse: Look | TAB: Toggle Cursor | DELETE: Exit", UI_MARGIN, yPos, UI_TEXT_SIZE, DARKGRAY);
     yPos += UI_LINE_SPACING;
 
-    // SSAO debug info
-    DrawText("F1: Color | F2: Depth | F3: SSAO | F4: Normal View", UI_MARGIN, yPos, UI_SMALL_TEXT_SIZE, DARKGRAY);
+    // Debug view info
+    DrawText("F1: Color | F2: Depth | F3: Normals | F4: Full View", UI_MARGIN, yPos, UI_SMALL_TEXT_SIZE, DARKGRAY);
     yPos += UI_LINE_SPACING - 5;
 
     // Camera mode (always shown)
