@@ -5,6 +5,9 @@ project(ZeldaLikeGame VERSION 1.0.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Build raylib as a shared library so GLAD symbols are exported on Windows
+set(BUILD_SHARED_LIBS ON CACHE BOOL "Build shared libraries" FORCE)
+
 # --- Fetch Raylib ---
 include(FetchContent)
 FetchContent_Declare(
