@@ -91,12 +91,12 @@ void CustomModel::drawPlayerModel(const Player &player)
         rlRotatef(player.modelRotationOffset.x, 1.0f, 0.0f, 0.0f);                    // X rotation (pitch)
         rlRotatef(player.modelRotationOffset.z, 0.0f, 0.0f, 1.0f);                    // Z rotation (roll)
         rlScalef(player.modelScale.x, player.modelScale.y, player.modelScale.z);
-        DrawModel(player.model, (Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+        DrawModel(player.model, Vector3{0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
         rlPopMatrix();
     }
     else
     {
-        DrawCubeV(player.position, (Vector3){1.0f, 2.0f, 1.0f}, GREEN);
-        DrawCubeWiresV(player.position, (Vector3){1.0f, 2.0f, 1.0f}, DARKGREEN);
+        DrawCubeV(player.position, Vector3{1.0f, 2.0f, 1.0f}, GREEN);
+        DrawCubeWiresV(player.position, Vector3{1.0f, 2.0f, 1.0f}, DARKGREEN);
     }
 }

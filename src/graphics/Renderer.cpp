@@ -177,12 +177,14 @@ void Renderer::ApplyFogAndRender(Camera3D &camera)
     // Bind scene color texture
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, sceneTexture.texture.id);
-    SetShaderValue(compositeShader, GetShaderLocation(compositeShader, "sceneTexture"), (int[]){0}, SHADER_UNIFORM_INT);
+    int sceneTextureUnit = 0;
+    SetShaderValue(compositeShader, GetShaderLocation(compositeShader, "sceneTexture"), &sceneTextureUnit, SHADER_UNIFORM_INT);
 
     // Bind depth texture
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, sceneTexture.depth.id);
-    SetShaderValue(compositeShader, GetShaderLocation(compositeShader, "depthTexture"), (int[]){1}, SHADER_UNIFORM_INT);
+    int depthTextureUnit = 1;
+    SetShaderValue(compositeShader, GetShaderLocation(compositeShader, "depthTexture"), &depthTextureUnit, SHADER_UNIFORM_INT);
 
     // Set fog parameters
     int fogOn = fogEnabled ? 1 : 0;
@@ -235,7 +237,8 @@ void Renderer::DrawDebugBuffer(int bufferIndex, Camera3D &camera)
         break;
     }
 
-    SetShaderValue(debugShader, GetShaderLocation(debugShader, "texture0"), (int[]){0}, SHADER_UNIFORM_INT);
+    int textureUnit = 0;
+    SetShaderValue(debugShader, GetShaderLocation(debugShader, "texture0"), &textureUnit, SHADER_UNIFORM_INT);
     SetShaderValue(debugShader, GetShaderLocation(debugShader, "mode"), &mode, SHADER_UNIFORM_INT);
 
     // For normal view, we need additional uniforms
@@ -244,7 +247,8 @@ void Renderer::DrawDebugBuffer(int bufferIndex, Camera3D &camera)
         // Bind depth texture to texture unit 1
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, sceneTexture.depth.id);
-        SetShaderValue(debugShader, GetShaderLocation(debugShader, "depthTexture"), (int[]){1}, SHADER_UNIFORM_INT);
+        int depthTextureUnit = 1;
+        SetShaderValue(debugShader, GetShaderLocation(debugShader, "depthTexture"), &depthTextureUnit, SHADER_UNIFORM_INT);
 
         // Set inverse projection matrix
         float aspect = (float)screenWidth / (float)screenHeight;

@@ -268,8 +268,8 @@ void Game::HandleCameraControls()
     if (IsKeyPressed(KEY_FOUR))
     {
         cameraController.TransitionTo(
-            (Vector3){-10.0f, 8.0f, 0.0f},
-            (Vector3){GameConstants::RED_CUBE_POS.x, GameConstants::RED_CUBE_POS.y, GameConstants::RED_CUBE_POS.z},
+            Vector3{-10.0f, 8.0f, 0.0f},
+            Vector3{GameConstants::RED_CUBE_POS.x, GameConstants::RED_CUBE_POS.y, GameConstants::RED_CUBE_POS.z},
             1.5f);
         cameraController.SetMode(CAMERA_MODE_FIXED);
     }
@@ -283,7 +283,7 @@ void Game::HandleCameraControls()
     if (IsKeyPressed(KEY_SIX))
     {
         cameraController.TransitionTo(
-            (Vector3){0.0f, 40.0f, 0.1f},
+            Vector3{0.0f, 40.0f, 0.1f},
             GameConstants::WORLD_CENTER,
             2.0f);
         cameraController.SetMode(CAMERA_MODE_FIXED);
@@ -371,7 +371,7 @@ void Game::DrawScene()
     if (showRaycast)
         player.PlayerRayCast();
 
-    DrawPlane(GameConstants::WORLD_CENTER, (Vector2){GameConstants::PLANE_SIZE.x, GameConstants::PLANE_SIZE.y}, LIGHTGRAY);
+    DrawPlane(GameConstants::WORLD_CENTER, {GameConstants::PLANE_SIZE.x, GameConstants::PLANE_SIZE.y}, LIGHTGRAY);
 
     if (showGrid)
         DrawGrid(GameConstants::GRID_SIZE, 1.0f);
@@ -479,7 +479,7 @@ void Game::Draw3DBillboards()
 {
     const Vector3 redCubeLabel = {GameConstants::RED_CUBE_POS.x, GameConstants::RED_CUBE_POS.y + 2.0f, GameConstants::RED_CUBE_POS.z};
     const Vector3 blueTowerLabel = {GameConstants::BLUE_TOWER_POS.x, GameConstants::BLUE_TOWER_POS.y + 4.5f, GameConstants::BLUE_TOWER_POS.z};
-    const Vector3 playerLabel = Vector3Add(player.position, (Vector3){0.0f, 2.0f, 0.0f});
+    const Vector3 playerLabel = Vector3Add(player.position, {0.0f, 2.0f, 0.0f});
 
     BillboardText::DrawText3D("Red Cube", redCubeLabel, cameraController.camera, UI_TEXT_SIZE, RED);
     BillboardText::DrawText3DWithBackground("Blue Tower", blueTowerLabel, cameraController.camera, UI_TEXT_SIZE, WHITE, Fade(BLUE, 0.7f));
@@ -572,21 +572,21 @@ bool Game::ShouldClose()
 void Game::StartOverviewCutscene()
 {
     std::vector<CameraWaypoint> cutscene;
-    cutscene.push_back({(Vector3){0.0f, 30.0f, 30.0f}, GameConstants::WORLD_CENTER, 3.0f, 60.0f});
-    cutscene.push_back({(Vector3){20.0f, 25.0f, 0.0f}, GameConstants::WORLD_CENTER, 3.0f, 50.0f});
-    cutscene.push_back({(Vector3){0.0f, 25.0f, -20.0f}, GameConstants::WORLD_CENTER, 3.0f, 50.0f});
-    cutscene.push_back({(Vector3){-20.0f, 20.0f, 0.0f}, GameConstants::WORLD_CENTER, 3.0f, 55.0f});
+    cutscene.push_back({{0.0f, 30.0f, 30.0f}, GameConstants::WORLD_CENTER, 3.0f, 60.0f});
+    cutscene.push_back({{20.0f, 25.0f, 0.0f}, GameConstants::WORLD_CENTER, 3.0f, 50.0f});
+    cutscene.push_back({{0.0f, 25.0f, -20.0f}, GameConstants::WORLD_CENTER, 3.0f, 50.0f});
+    cutscene.push_back({{-20.0f, 20.0f, 0.0f}, GameConstants::WORLD_CENTER, 3.0f, 55.0f});
     cameraController.StartCutscene(cutscene);
 }
 
 void Game::StartZoomCutscene()
 {
     std::vector<CameraWaypoint> cutscene;
-    cutscene.push_back({Vector3Add(player.position, (Vector3){0.0f, 15.0f, 15.0f}),
+    cutscene.push_back({Vector3Add(player.position, {0.0f, 15.0f, 15.0f}),
                         player.position, 2.0f, 70.0f});
-    cutscene.push_back({Vector3Add(player.position, (Vector3){0.0f, 5.0f, 5.0f}),
+    cutscene.push_back({Vector3Add(player.position, {0.0f, 5.0f, 5.0f}),
                         player.position, 2.0f, 35.0f});
-    cutscene.push_back({Vector3Add(player.position, (Vector3){3.0f, 2.0f, 3.0f}),
+    cutscene.push_back({Vector3Add(player.position, {3.0f, 2.0f, 3.0f}),
                         player.position, 1.5f, 45.0f});
     cameraController.StartCutscene(cutscene);
 }

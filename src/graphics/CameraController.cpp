@@ -17,9 +17,9 @@ CameraController::CameraController()
       transitionDuration(0.0f)
 {
     camera = {0};
-    camera.position = (Vector3){0.0f, 10.0f, 10.0f};
-    camera.target = (Vector3){0.0f, 0.0f, 0.0f};
-    camera.up = (Vector3){0.0f, 1.0f, 0.0f};
+    camera.position = {0.0f, 10.0f, 10.0f};
+    camera.target = {0.0f, 0.0f, 0.0f};
+    camera.up = {0.0f, 1.0f, 0.0f};
     camera.fovy = 45.0f;
     camera.projection = CAMERA_PERSPECTIVE;
 }
@@ -28,7 +28,7 @@ void CameraController::Initialize(Vector3 position, Vector3 target, float fovy)
 {
     camera.position = position;
     camera.target = target;
-    camera.up = (Vector3){0.0f, 1.0f, 0.0f};
+    camera.up = {0.0f, 1.0f, 0.0f};
     camera.fovy = fovy;
     camera.projection = CAMERA_PERSPECTIVE;
 }
@@ -99,7 +99,7 @@ void CameraController::UpdateFollowCamera(Vector3 targetPosition, float deltaTim
     offset.z = followDistance * cosf(pitchRad) * cosf(yawRad);
 
     Vector3 desiredPosition = Vector3Add(targetPosition, offset);
-    Vector3 desiredTarget = Vector3Add(targetPosition, (Vector3){0.0f, followHeight * 0.5f, 0.0f});
+    Vector3 desiredTarget = Vector3Add(targetPosition, {0.0f, followHeight * 0.5f, 0.0f});
 
     // Smooth interpolation
     camera.position = LerpVector3(camera.position, desiredPosition, cameraSmoothness);
@@ -230,7 +230,7 @@ void CameraController::TransitionTo(Vector3 newPosition, Vector3 newTarget, floa
 
 Vector3 CameraController::LerpVector3(Vector3 start, Vector3 end, float t)
 {
-    return (Vector3){
+    return {
         Lerp(start.x, end.x, t),
         Lerp(start.y, end.y, t),
         Lerp(start.z, end.z, t)};
