@@ -6,19 +6,19 @@ void DebugMenu::Toggle()
     isVisible = !isVisible;
 }
 
-void DebugMenu::AddBool(const std::string &name, bool *value)
+void DebugMenu::AddBool(std::string name, bool *value)
 {
-    boolSettings.push_back({name, value});
+    boolSettings.emplace_back(BoolSetting{std::move(name), value});
 }
 
-void DebugMenu::AddFloat(const std::string &name, float *value, float min, float max, float step)
+void DebugMenu::AddFloat(std::string name, float *value, float min, float max, float step)
 {
-    floatSettings.push_back({name, value, min, max, step});
+    floatSettings.emplace_back(FloatSetting{std::move(name), value, min, max, step});
 }
 
-void DebugMenu::AddString(const std::string &name, int *selectedIndex, const std::vector<std::string> &options)
+void DebugMenu::AddString(std::string name, int *selectedIndex, std::vector<std::string> options)
 {
-    stringSettings.push_back({name, selectedIndex, options});
+    stringSettings.emplace_back(StringSetting{std::move(name), selectedIndex, std::move(options)});
 }
 
 void DebugMenu::Update()

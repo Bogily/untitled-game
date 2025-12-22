@@ -198,6 +198,7 @@ void Game::SetupDebugMenu()
     debugMenu.AddFloat("Eye Height", &player.eyeHeight, 0.5f, 2.5f, 0.1f);
 
     std::vector<std::string> modelNames;
+    modelNames.reserve(customModel.getModelCount());
     for (int i = 0; i < customModel.getModelCount(); i++)
         modelNames.push_back(customModel.getModelName(i));
     debugMenu.AddString("Player Model", &currentModelIndex, modelNames);
@@ -571,23 +572,20 @@ bool Game::ShouldClose()
 // Camera cutscene helper methods
 void Game::StartOverviewCutscene()
 {
-    std::vector<CameraWaypoint> cutscene;
-    cutscene.push_back({{0.0f, 30.0f, 30.0f}, GameConstants::WORLD_CENTER, 3.0f, 60.0f});
-    cutscene.push_back({{20.0f, 25.0f, 0.0f}, GameConstants::WORLD_CENTER, 3.0f, 50.0f});
-    cutscene.push_back({{0.0f, 25.0f, -20.0f}, GameConstants::WORLD_CENTER, 3.0f, 50.0f});
-    cutscene.push_back({{-20.0f, 20.0f, 0.0f}, GameConstants::WORLD_CENTER, 3.0f, 55.0f});
+    std::vector<CameraWaypoint> cutscene = {
+        {{0.0f, 30.0f, 30.0f}, GameConstants::WORLD_CENTER, 3.0f, 60.0f},
+        {{20.0f, 25.0f, 0.0f}, GameConstants::WORLD_CENTER, 3.0f, 50.0f},
+        {{0.0f, 25.0f, -20.0f}, GameConstants::WORLD_CENTER, 3.0f, 50.0f},
+        {{-20.0f, 20.0f, 0.0f}, GameConstants::WORLD_CENTER, 3.0f, 55.0f}};
     cameraController.StartCutscene(cutscene);
 }
 
 void Game::StartZoomCutscene()
 {
-    std::vector<CameraWaypoint> cutscene;
-    cutscene.push_back({Vector3Add(player.position, {0.0f, 15.0f, 15.0f}),
-                        player.position, 2.0f, 70.0f});
-    cutscene.push_back({Vector3Add(player.position, {0.0f, 5.0f, 5.0f}),
-                        player.position, 2.0f, 35.0f});
-    cutscene.push_back({Vector3Add(player.position, {3.0f, 2.0f, 3.0f}),
-                        player.position, 1.5f, 45.0f});
+    std::vector<CameraWaypoint> cutscene = {
+        {Vector3Add(player.position, {0.0f, 15.0f, 15.0f}), player.position, 2.0f, 70.0f},
+        {Vector3Add(player.position, {0.0f, 5.0f, 5.0f}), player.position, 2.0f, 35.0f},
+        {Vector3Add(player.position, {3.0f, 2.0f, 3.0f}), player.position, 1.5f, 45.0f}};
     cameraController.StartCutscene(cutscene);
 }
 

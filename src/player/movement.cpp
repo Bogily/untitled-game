@@ -36,26 +36,18 @@ void Player::UpdatePlayerMovement(Camera3D &camera)
     if (IsKeyDown(KEY_W))
     {
         moveDirection = Vector3Add(moveDirection, forward);
-        if (IsKeyDown(KEY_LEFT_SHIFT))
-            moveAmount;
     }
     if (IsKeyDown(KEY_S))
     {
         moveDirection = Vector3Subtract(moveDirection, forward);
-        if (IsKeyDown(KEY_LEFT_SHIFT))
-            moveAmount;
     }
     if (IsKeyDown(KEY_A))
     {
         moveDirection = Vector3Add(moveDirection, sideways);
-        if (IsKeyDown(KEY_LEFT_SHIFT))
-            moveAmount;
     }
     if (IsKeyDown(KEY_D))
     {
         moveDirection = Vector3Subtract(moveDirection, sideways);
-        if (IsKeyDown(KEY_LEFT_SHIFT))
-            moveAmount;
     }
 
     // Normalize and apply movement

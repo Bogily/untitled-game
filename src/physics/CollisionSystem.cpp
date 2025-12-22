@@ -5,60 +5,37 @@
 
 CollisionSystem::CollisionSystem()
 {
+    objects.reserve(32); // Reserve space for typical number of collision objects
 }
 
 void CollisionSystem::AddBox(Vector3 position, Vector3 size, const std::string &name, Color debugColor, Vector3 rotation)
 {
-    CollisionObject obj;
-    obj.shape = COLLISION_BOX;
-    obj.position = position;
-    obj.size = size;
+    CollisionObject obj(COLLISION_BOX, position, size, debugColor, name);
     obj.rotation = rotation;
-    obj.debugColor = debugColor;
-    obj.name = name;
-    obj.isActive = true;
-    objects.push_back(obj);
+    objects.push_back(std::move(obj));
 }
 
 void CollisionSystem::AddSphere(Vector3 position, float radius, const std::string &name, Color debugColor)
 {
-    CollisionObject obj;
-    obj.shape = COLLISION_SPHERE;
-    obj.position = position;
+    CollisionObject obj(COLLISION_SPHERE, position, {radius * 2, radius * 2, radius * 2}, debugColor, name);
     obj.radius = radius;
-    obj.size = {radius * 2, radius * 2, radius * 2};
-    obj.debugColor = debugColor;
-    obj.name = name;
-    obj.isActive = true;
-    objects.push_back(obj);
+    objects.push_back(std::move(obj));
 }
 
 void CollisionSystem::AddCapsule(Vector3 position, float radius, float height, const std::string &name, Color debugColor)
 {
-    CollisionObject obj;
-    obj.shape = COLLISION_CAPSULE;
-    obj.position = position;
+    CollisionObject obj(COLLISION_CAPSULE, position, {radius * 2, height, radius * 2}, debugColor, name);
     obj.radius = radius;
     obj.height = height;
-    obj.size = {radius * 2, height, radius * 2};
-    obj.debugColor = debugColor;
-    obj.name = name;
-    obj.isActive = true;
-    objects.push_back(obj);
+    objects.push_back(std::move(obj));
 }
 
 void CollisionSystem::AddCylinder(Vector3 position, float radius, float height, const std::string &name, Color debugColor)
 {
-    CollisionObject obj;
-    obj.shape = COLLISION_CYLINDER;
-    obj.position = position;
+    CollisionObject obj(COLLISION_CYLINDER, position, {radius * 2, height, radius * 2}, debugColor, name);
     obj.radius = radius;
     obj.height = height;
-    obj.size = {radius * 2, height, radius * 2};
-    obj.debugColor = debugColor;
-    obj.name = name;
-    obj.isActive = true;
-    objects.push_back(obj);
+    objects.push_back(std::move(obj));
 }
 
 bool CollisionSystem::CheckPlayerCollision(Vector3 playerPosition, float playerRadius, float playerHeight)
