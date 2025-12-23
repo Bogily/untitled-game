@@ -1,4 +1,6 @@
 #include "Game.h"
+#include "../graphics/PBRSystem.h"
+#include "rlgl.h"
 
 // Constants
 namespace GameConstants
@@ -27,9 +29,9 @@ void Game::Init()
 
     SetupCamera();
     SetupPlayer();
-    SetupModels();
+    SetupRenderer(); // Initialize renderer and PBR first
+    SetupModels();   // Then setup models that need PBR
     SetupSkybox();
-    SetupRenderer();
     SetupCollisions();
     SetupDebugMenu();
 }
@@ -58,6 +60,16 @@ void Game::SetupModels()
     customModel.addModel("Rat", "assets/models/rat.obj", "assets/textures/rat.png", {0.04f, 0.04f, 0.04f}, {0.0f, 0.0f, 0.0f});
     customModel.addModel("Miku", "assets/models/miku/scene.gltf", "", {1.8f, 1.8f, 1.8f}, {90.0f, 0.0f, 0.0f});
     customModel.loadPlayerModel(player, currentModelIndex);
+
+    // Create PBR test sphere
+    Mesh sphereMesh = GenMeshSphere(1.0f, 64, 64);
+    pbrTestSphere = LoadModelFromMesh(sphereMesh);
+
+    // Apply PBR shader with material properties
+    Vector4 albedo = {0.8f, 0.2f, 0.2f, 1.0f}; // Red color
+    float metallic = 0.0f;
+    float roughness = 0.3f;
+    gPBR.ApplyToModel(pbrTestSphere, albedo, metallic, roughness);
 }
 
 void Game::SetupSkybox()
@@ -70,9 +82,9 @@ void Game::SetupSkybox()
 void Game::SetupRenderer()
 {
     renderer.Init(SCREEN_WIDTH, SCREEN_HEIGHT);
-    renderer.SetFogEnabled(true);
-    renderer.SetFogDistance(10.0f);
-    renderer.SetFogDensity(0.15f);
+
+    // Initialize PBR system
+    gPBR.Init();
 }
 
 void Game::SetupCollisions()
@@ -187,9 +199,6 @@ void Game::SetupDebugMenu()
     debugMenu.AddBool("Show FPS", &showFPS);
     debugMenu.AddBool("Show Collision Boxes", &showCollisionBoxes);
     debugMenu.AddBool("Show Player Hitbox", &showPlayerHitbox);
-    debugMenu.AddBool("Fog Enabled", &fogEnabled);
-    debugMenu.AddFloat("Fog Distance", &fogDistance, 0.0f, 200.0f, 5.0f);
-    debugMenu.AddFloat("Fog Density", &fogDensity, 0.001f, 0.2f, 0.005f);
     debugMenu.AddFloat("Jump Strength", &player.jumpStrength, 1.0f, 20.0f, 0.1f);
     debugMenu.AddFloat("Gravity", &player.gravity, -50.0f, -5.0f, 0.1f);
     debugMenu.AddFloat("Sprint Multiplier", &player.sprintMultiplier, 1.0f, 5.0f, 0.1f);
@@ -212,10 +221,8 @@ void Game::Update()
 
     debugMenu.Update();
 
-    // Sync fog settings from debug menu
-    renderer.SetFogEnabled(fogEnabled);
-    renderer.SetFogDistance(fogDistance);
-    renderer.SetFogDensity(fogDensity);
+    // Update PBR system with camera position
+    gPBR.Update(cameraController.camera);
 
     if (currentModelIndex != previousModelIndex)
     {
@@ -240,16 +247,6 @@ void Game::HandleInput(float deltaTime)
         else
             DisableCursor();
     }
-
-    // Debug buffer views (F1-F3 to view different buffers, F4 for normal render)
-    if (IsKeyPressed(KEY_F1))
-        debugBufferView = 0; // Color
-    if (IsKeyPressed(KEY_F2))
-        debugBufferView = 1; // Depth
-    if (IsKeyPressed(KEY_F3))
-        debugBufferView = 2; // Normals
-    if (IsKeyPressed(KEY_F4))
-        debugBufferView = -1; // Normal render with fog
 }
 
 void Game::HandleCameraControls()
@@ -337,28 +334,14 @@ void Game::UpdatePlayerInFixedCamera(float deltaTime)
 void Game::Draw()
 {
     BeginDrawing();
-
-    // === SCENE CAPTURE PASS ===
-    // Render the entire scene to a texture (with depth)
-    renderer.BeginSceneCapture();
+    ClearBackground(RAYWHITE);
 
     BeginMode3D(cameraController.camera);
     DrawScene();
+
+    // Draw PBR debug lights
+    gPBR.DrawDebugLights();
     EndMode3D();
-
-    renderer.EndSceneCapture();
-
-    // === FOG AND COMPOSITE PASS ===
-    ClearBackground(BLACK);
-
-    if (debugBufferView >= 0)
-    {
-        renderer.DrawDebugBuffer(debugBufferView, cameraController.camera);
-    }
-    else
-    {
-        renderer.ApplyFogAndRender(cameraController.camera);
-    }
 
     DrawUI();
 
@@ -376,6 +359,9 @@ void Game::DrawScene()
 
     if (showGrid)
         DrawGrid(GameConstants::GRID_SIZE, 1.0f);
+
+    // Draw PBR test sphere at origin
+    DrawModel(pbrTestSphere, (Vector3){0, 1, 0}, 1.0f, WHITE);
 
     customModel.drawPlayerModel(player);
 
@@ -496,10 +482,6 @@ void Game::Draw2DUI()
     DrawText("WASD: Move | Mouse: Look | TAB: Toggle Cursor | DELETE: Exit", UI_MARGIN, yPos, UI_TEXT_SIZE, DARKGRAY);
     yPos += UI_LINE_SPACING;
 
-    // Debug view info
-    DrawText("F1: Color | F2: Depth | F3: Normals | F4: Full View", UI_MARGIN, yPos, UI_SMALL_TEXT_SIZE, DARKGRAY);
-    yPos += UI_LINE_SPACING - 5;
-
     // Camera mode (always shown)
     const char *modeText = "";
     switch (cameraController.mode)
@@ -555,11 +537,14 @@ void Game::Draw2DUI()
 
 void Game::Shutdown()
 {
+    gPBR.Shutdown();
     renderer.Shutdown();
     skybox.Unload();
 
     if (player.modelLoaded)
         UnloadModel(player.model);
+
+    UnloadModel(pbrTestSphere);
 
     CloseWindow();
 }

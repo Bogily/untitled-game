@@ -38,20 +38,15 @@ private:
     CollisionSystem collisionSystem;
     Mesh slopeMesh;
     Model slopeModel;
+    Model pbrTestSphere;
 
     // Debug flags
     bool showGrid = true;
     bool showRaycast = true;
     bool showPlayerPos = false;
     bool showFPS = true;
-    bool fogEnabled = true;
     bool showCollisionBoxes = true;
     bool showPlayerHitbox = true;
-    int debugBufferView = -1; // -1 = normal, 0-1 = debug buffers
-
-    // Fog settings
-    float fogDistance = 10.0f;
-    float fogDensity = 0.15f;
 
     // Model selection
     int currentModelIndex = 0;
