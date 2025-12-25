@@ -32,6 +32,7 @@ void Game::Init()
     SetupRenderer(); // Initialize renderer and PBR first
     SetupModels();   // Then setup models that need PBR
     SetupSkybox();
+    SetupGrass();
     SetupCollisions();
     SetupDebugMenu();
 }
@@ -85,6 +86,17 @@ void Game::SetupRenderer()
 
     // Initialize PBR system
     gPBR.Init();
+}
+
+void Game::SetupGrass()
+{
+    // Initialize grass renderer with 5000 grass blades over a 30x30 area
+    grassRenderer.Init(200000, 30.0f);
+    
+    // Optional: customize wind parameters
+    grassRenderer.SetWindDirection({1.0f, 0.5f});
+    grassRenderer.SetWindStrength(0.5f);
+    grassRenderer.SetWindSpeed(2.0f);
 }
 
 void Game::SetupCollisions()
@@ -199,6 +211,7 @@ void Game::SetupDebugMenu()
     debugMenu.AddBool("Show FPS", &showFPS);
     debugMenu.AddBool("Show Collision Boxes", &showCollisionBoxes);
     debugMenu.AddBool("Show Player Hitbox", &showPlayerHitbox);
+    debugMenu.AddBool("Show Grass", &showGrass);
     debugMenu.AddFloat("Jump Strength", &player.jumpStrength, 1.0f, 20.0f, 0.1f);
     debugMenu.AddFloat("Gravity", &player.gravity, -50.0f, -5.0f, 0.1f);
     debugMenu.AddFloat("Sprint Multiplier", &player.sprintMultiplier, 1.0f, 5.0f, 0.1f);
@@ -231,6 +244,7 @@ void Game::Update()
     }
 
     cameraController.Update(deltaTime);
+    grassRenderer.Update(deltaTime, cameraController.camera);
     skybox.Update(deltaTime);
 
     HandleInput(deltaTime);
@@ -356,7 +370,7 @@ void Game::DrawScene()
         player.PlayerRayCast();
 
     DrawPlane(GameConstants::WORLD_CENTER, {GameConstants::PLANE_SIZE.x, GameConstants::PLANE_SIZE.y}, LIGHTGRAY);
-
+    
     if (showGrid)
         DrawGrid(GameConstants::GRID_SIZE, 1.0f);
 
@@ -454,6 +468,10 @@ void Game::DrawScene()
     // Draw collision boxes for debugging
     if (showCollisionBoxes)
         collisionSystem.DrawDebug(false);
+    
+    // Draw grass LAST (after all opaque geometry, for proper depth testing)
+    if (showGrass)
+        grassRenderer.Draw(cameraController.camera);
 }
 
 void Game::DrawUI()
@@ -537,7 +555,7 @@ void Game::Draw2DUI()
 
 void Game::Shutdown()
 {
-    gPBR.Shutdown();
+    grassRenderer.Shutdown();
     renderer.Shutdown();
     skybox.Unload();
 

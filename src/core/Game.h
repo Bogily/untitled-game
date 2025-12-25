@@ -9,6 +9,7 @@
 #include "../graphics/BillboardText.h"
 #include "../graphics/CameraController.h"
 #include "../graphics/Renderer.h"
+#include "../graphics/GrassRenderer.h"
 #include <vector>
 
 class Game
@@ -36,6 +37,7 @@ private:
     DebugMenu debugMenu;
     Renderer renderer;
     CollisionSystem collisionSystem;
+    GrassRenderer grassRenderer;
     Mesh slopeMesh;
     Model slopeModel;
     Model pbrTestSphere;
@@ -47,6 +49,7 @@ private:
     bool showFPS = true;
     bool showCollisionBoxes = true;
     bool showPlayerHitbox = true;
+    bool showGrass = true;
 
     // Model selection
     int currentModelIndex = 0;
@@ -58,6 +61,7 @@ private:
     void SetupModels();
     void SetupSkybox();
     void SetupRenderer();
+    void SetupGrass();
     void SetupCollisions();
 
     void SetupDebugMenu();
