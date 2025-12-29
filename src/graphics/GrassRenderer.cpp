@@ -90,8 +90,15 @@ void GrassRenderer::SetupInstanceBuffer()
     // Use rlgl cross-platform functions for instancing
     // Create instance buffer using raylib's rlgl (works on all platforms)
     // Create two instance buffers for double-buffering to avoid GPU sync stalls
-    instanceVBOs[0] = rlLoadVertexBuffer(nullptr, totalGrassCount * sizeof(InstanceData), true);
-    instanceVBOs[1] = rlLoadVertexBuffer(nullptr, totalGrassCount * sizeof(InstanceData), true);
+    // Instance GPU layout: vec4 instance (x,y,z,scale) + vec4 wind (windX, windZ, pad, pad)
+    struct InstanceGPU
+    {
+        float x, y, z, scale;
+        float windX, windZ, pad0, pad1;
+    };
+
+    instanceVBOs[0] = rlLoadVertexBuffer(nullptr, totalGrassCount * sizeof(InstanceGPU), true);
+    instanceVBOs[1] = rlLoadVertexBuffer(nullptr, totalGrassCount * sizeof(InstanceGPU), true);
     instanceVBO = instanceVBOs[0];
     currentVBOIndex = 0;
 }
@@ -211,9 +218,10 @@ void GrassRenderer::Init(int grassCount, float size)
             glBufferData(GL_SHADER_STORAGE_BUFFER, totalGrassCount * sizeof(InstanceData), allInstances.data(), GL_STATIC_DRAW);
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssboAllInstances);
 
-            // Create SSBO for visible instances (output). Reserve space for a counter (uint) + padding to 16 bytes + max instances
-            // std430 requires array elements to be 16-byte aligned; ensure array starts at offset 16
-            size_t visSize = 16 + (size_t)totalGrassCount * sizeof(InstanceData);
+            // Create SSBO for visible instances (output). Reserve space for a counter (uint) + padding to 16 bytes + max VisibleEntry
+            // VisibleEntry = vec4 instance + vec4 wind = 8 floats = 32 bytes
+            size_t visibleEntrySize = 32;
+            size_t visSize = 16 + (size_t)totalGrassCount * visibleEntrySize;
             glGenBuffers(1, &ssboVisibleInstances);
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboVisibleInstances);
             glBufferData(GL_SHADER_STORAGE_BUFFER, visSize, NULL, GL_DYNAMIC_COPY);
@@ -270,6 +278,19 @@ void GrassRenderer::Update(float deltaTime, Camera3D camera)
         GLint icloc = glGetUniformLocation(computeProgram, "instanceCount");
         if (icloc >= 0)
             glUniform1ui(icloc, (unsigned int)totalGrassCount);
+        // set wind/time uniforms
+        GLint timeloc = glGetUniformLocation(computeProgram, "time");
+        if (timeloc >= 0)
+            glUniform1f(timeloc, currentTime);
+        GLint windDirLocC = glGetUniformLocation(computeProgram, "windDirection");
+        if (windDirLocC >= 0)
+            glUniform2f(windDirLocC, windDirection.x, windDirection.y);
+        GLint windStrLocC = glGetUniformLocation(computeProgram, "windStrength");
+        if (windStrLocC >= 0)
+            glUniform1f(windStrLocC, windStrength);
+        GLint windSpLocC = glGetUniformLocation(computeProgram, "windSpeed");
+        if (windSpLocC >= 0)
+            glUniform1f(windSpLocC, windSpeed);
 
         // Bind SSBOs to the binding points used in shader
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssboAllInstances);
@@ -343,13 +364,39 @@ void GrassRenderer::Update(float deltaTime, Camera3D camera)
         // Update instance buffer on GPU using rlgl (cross-platform)
         if (visibleCount > 0)
         {
+            // Prepare interleaved CPU-side buffer with wind data
+            struct InstanceGPU
+            {
+                float x, y, z, scale;
+                float windX, windZ, pad0, pad1;
+            };
+
             // Avoid redundant uploads when visible count didn't change (common when camera static)
             if (visibleCount != lastUploadedCount)
             {
+                std::vector<InstanceGPU> cpuBuf;
+                cpuBuf.resize(visibleCount);
+                for (int i = 0; i < visibleCount; ++i)
+                {
+                    const InstanceData &src = visibleInstances[i];
+                    InstanceGPU &dst = cpuBuf[i];
+                    dst.x = src.x;
+                    dst.y = src.y;
+                    dst.z = src.z;
+                    dst.scale = src.scale;
+                    // compute wind on CPU to match compute shader behavior
+                    float windWave = sinf(currentTime * windSpeed + src.x * 0.5f + src.z * 0.3f) * 0.5f + 0.5f;
+                    windWave += sinf(currentTime * windSpeed * 1.3f + src.x * 0.3f + src.z * 0.5f) * 0.3f;
+                    dst.windX = windDirection.x * windWave * windStrength;
+                    dst.windZ = windDirection.y * windWave * windStrength;
+                    dst.pad0 = 0.0f;
+                    dst.pad1 = 0.0f;
+                }
+
                 // Upload into next VBO to avoid GPU sync with currently used buffer
                 currentVBOIndex = (currentVBOIndex + 1) % 2;
                 unsigned int uploadVBO = instanceVBOs[currentVBOIndex];
-                rlUpdateVertexBuffer(uploadVBO, visibleInstances.data(), visibleCount * sizeof(InstanceData), 0);
+                rlUpdateVertexBuffer(uploadVBO, cpuBuf.data(), visibleCount * sizeof(InstanceGPU), 0);
                 lastUploadedCount = visibleCount;
             }
             // else: skip upload
@@ -416,14 +463,20 @@ void GrassRenderer::Draw(Camera3D camera)
     if (gpuCullingEnabled && ssboVisibleInstances != 0)
     {
         // When using GPU culling, bind the visible SSBO as the instance vertex buffer
-        // Buffer layout: [uint counter padding (16 bytes)][vec4 instance0][vec4 instance1]...
+        // Buffer layout: [uint counter + padding (16 bytes)][VisibleEntry{vec4 instance; vec4 wind;}...]
         unsigned int activeVBO = ssboVisibleInstances;
         rlEnableVertexBuffer(activeVBO);
-        // Attribute offset: skip the 16-byte header (counter + padding)
+        // Attribute offset: skip the 16-byte header (counter + padding). Stride is size of VisibleEntry (32 bytes)
         int ssboHeaderOffset = 16; // std430 alignment ensures array starts at 16
-        rlSetVertexAttribute(4, 4, RL_FLOAT, false, sizeof(InstanceData), ssboHeaderOffset);
+        int visibleEntryStride = 32;
+        // instance attribute (location 4)
+        rlSetVertexAttribute(4, 4, RL_FLOAT, false, visibleEntryStride, ssboHeaderOffset + 0);
         rlEnableVertexAttribute(4);
         rlSetVertexAttributeDivisor(4, 1);
+        // wind attribute (location 5) - wind.x, wind.z stored in .xy of the vec4
+        rlSetVertexAttribute(5, 4, RL_FLOAT, false, visibleEntryStride, ssboHeaderOffset + 16);
+        rlEnableVertexAttribute(5);
+        rlSetVertexAttributeDivisor(5, 1);
         rlDisableVertexBuffer();
 
         // Draw using instances written by compute shader
@@ -434,9 +487,15 @@ void GrassRenderer::Draw(Camera3D camera)
         // Bind current instance VBO and set instance attribute before drawing
         unsigned int activeVBO = instanceVBOs[currentVBOIndex];
         rlEnableVertexBuffer(activeVBO);
-        rlSetVertexAttribute(4, 4, RL_FLOAT, false, sizeof(InstanceData), 0);
+        // InstanceGPU layout: vec4 instance + vec4 wind, stride = 32
+        int gpuStride = 32;
+        rlSetVertexAttribute(4, 4, RL_FLOAT, false, gpuStride, 0);
         rlEnableVertexAttribute(4);
         rlSetVertexAttributeDivisor(4, 1);
+        // wind attribute (location 5) at byte offset 16
+        rlSetVertexAttribute(5, 4, RL_FLOAT, false, gpuStride, 16);
+        rlEnableVertexAttribute(5);
+        rlSetVertexAttributeDivisor(5, 1);
         rlDisableVertexBuffer();
 
         // Draw all instances with a single call! (cross-platform)

@@ -8,6 +8,7 @@ layout (location = 3) in vec4 vertexColor;
 
 // Instance attributes (per-instance data)
 layout (location = 4) in vec4 instanceData; // xyz = position, w = scale
+layout (location = 5) in vec4 instanceWind; // xy = windOffset.xz, zw unused
 
 // Uniforms
 uniform mat4 mvp;
@@ -43,17 +44,9 @@ void main()
     billboardPos += camRight * scaledVertex.x;
     billboardPos.y += scaledVertex.y;
     
-    // Wind animation - only affects top of grass (based on Y/height)
+    // Wind animation provided per-instance in instanceWind.xy (precomputed by CPU or compute shader)
     float heightFactor = vertexTexCoord.y; // 0 at bottom, 1 at top
-    float windWave = sin(time * windSpeed + instancePos.x * 0.5 + instancePos.z * 0.3) * 0.5 + 0.5;
-    windWave += sin(time * windSpeed * 1.3 + instancePos.x * 0.3 + instancePos.z * 0.5) * 0.3;
-    
-    vec3 windOffset = vec3(
-        windDirection.x * windWave * windStrength * heightFactor * heightFactor,
-        0.0,
-        windDirection.y * windWave * windStrength * heightFactor * heightFactor
-    );
-    
+    vec3 windOffset = vec3(instanceWind.x * (heightFactor * heightFactor), 0.0, instanceWind.y * (heightFactor * heightFactor));
     billboardPos += windOffset;
     
     // Calculate final position

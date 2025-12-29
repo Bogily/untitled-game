@@ -90,8 +90,8 @@ void Game::SetupRenderer()
 
 void Game::SetupGrass()
 {
-    // Initialize grass renderer with 5000 grass blades over a 30x30 area
-    grassRenderer.Init(200000, 30.0f);
+    // Initialize grass renderer with 2000000 grass blades over a 30x30 area
+    grassRenderer.Init(2000000, 30.0f);
 
     // Optional: customize wind parameters
     grassRenderer.SetWindDirection({1.0f, 0.5f});

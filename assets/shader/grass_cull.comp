@@ -7,15 +7,26 @@ layout(std430, binding = 0) readonly buffer AllInstances
     vec4 instances[]; // x,y,z,scale
 } allIn;
 
+struct VisibleEntry {
+    vec4 instance; // x,y,z,scale
+    vec4 wind;     // wind.x, wind.z, unused, unused
+};
+
 layout(std430, binding = 1) buffer VisibleOut
 {
     uint counter;
-    vec4 instances[]; // compacted visible instances
+    // padding to 16 bytes for std430 alignment
+    uint pad0; uint pad1; uint pad2;
+    VisibleEntry entries[];
 } outVis;
 
 uniform vec4 frustumPlanes[6]; // (xyz = normal, w = distance)
 uniform float radius;
 uniform uint instanceCount;
+uniform float time;
+uniform vec2 windDirection;
+uniform float windStrength;
+uniform float windSpeed;
 
 bool isInFrustum(vec3 p)
 {
@@ -37,7 +48,14 @@ void main()
 
     if (isInFrustum(pos))
     {
+        // compute wind for this instance
+        float heightFactor = 1.0; // per-instance height factor applied in vertex shader
+        float windWave = sin(time * windSpeed + pos.x * 0.5 + pos.z * 0.3) * 0.5 + 0.5;
+        windWave += sin(time * windSpeed * 1.3 + pos.x * 0.3 + pos.z * 0.5) * 0.3;
+        vec2 windOffset = vec2(windDirection.x * windWave * windStrength, windDirection.y * windWave * windStrength);
+
         uint idx = atomicAdd(outVis.counter, 1u);
-        outVis.instances[idx] = inst;
+        outVis.entries[idx].instance = inst;
+        outVis.entries[idx].wind = vec4(windOffset.x, windOffset.y, 0.0, 0.0);
     }
 }
