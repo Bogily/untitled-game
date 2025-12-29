@@ -92,7 +92,7 @@ void Game::SetupGrass()
 {
     // Initialize grass renderer with 5000 grass blades over a 30x30 area
     grassRenderer.Init(200000, 30.0f);
-    
+
     // Optional: customize wind parameters
     grassRenderer.SetWindDirection({1.0f, 0.5f});
     grassRenderer.SetWindStrength(0.5f);
@@ -370,12 +370,12 @@ void Game::DrawScene()
         player.PlayerRayCast();
 
     DrawPlane(GameConstants::WORLD_CENTER, {GameConstants::PLANE_SIZE.x, GameConstants::PLANE_SIZE.y}, LIGHTGRAY);
-    
+
     if (showGrid)
         DrawGrid(GameConstants::GRID_SIZE, 1.0f);
 
     // Draw PBR test sphere at origin
-    DrawModel(pbrTestSphere, (Vector3){0, 1, 0}, 1.0f, WHITE);
+    DrawModel(pbrTestSphere, Vector3{0, 1, 0}, 1.0f, WHITE);
 
     customModel.drawPlayerModel(player);
 
@@ -468,7 +468,7 @@ void Game::DrawScene()
     // Draw collision boxes for debugging
     if (showCollisionBoxes)
         collisionSystem.DrawDebug(false);
-    
+
     // Draw grass LAST (after all opaque geometry, for proper depth testing)
     if (showGrass)
         grassRenderer.Draw(cameraController.camera);

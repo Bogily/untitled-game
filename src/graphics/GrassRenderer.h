@@ -26,7 +26,7 @@ public:
     void Update(float deltaTime, Camera3D camera);
     void Draw(Camera3D camera);
     void Shutdown();
-    
+
     // Stats
     int GetVisibleCount() const { return visibleCount; }
     int GetTotalCount() const { return totalGrassCount; }
@@ -45,14 +45,16 @@ private:
     };
 
     Shader grassShader;
-    Mesh grassBladeMesh;     // Single grass blade geometry (reused for all instances)
+    Mesh grassBladeMesh; // Single grass blade geometry (reused for all instances)
     Material grassMaterial;
-    
+
     // Instance buffers
-    std::vector<InstanceData> allInstances;      // All grass positions
-    std::vector<InstanceData> visibleInstances;  // Visible after frustum culling
-    unsigned int instanceVBO;                     // OpenGL buffer for instance data
-    
+    std::vector<InstanceData> allInstances;     // All grass positions
+    std::vector<InstanceData> visibleInstances; // Visible after frustum culling
+    unsigned int instanceVBO;                   // legacy single VBO (kept for compatibility)
+    unsigned int instanceVBOs[2];               // double-buffered VBOs to reduce GPU stalls
+    int currentVBOIndex;
+
     // Shader locations
     int timeLoc;
     int windDirLoc;
@@ -66,24 +68,41 @@ private:
     int grassColorTopLoc;
     int grassColorBottomLoc;
     int ambientStrengthLoc;
-    
+
     // Wind parameters
     Vector2 windDirection;
     float windStrength;
     float windSpeed;
     float currentTime;
-    
+
     // Stats
     int visibleCount;
     int totalGrassCount;
     float areaSize;
-    
+
     // Setup functions
     void CreateGrassBladeMesh();
     void GenerateGrassPositions(int count, float size);
     void SetupInstanceBuffer();
-    
+
     // Frustum culling
     Frustum ExtractFrustum(Camera3D camera);
-    bool IsPointInFrustum(const Frustum& frustum, Vector3 point, float radius);
+    bool IsPointInFrustum(const Frustum &frustum, Vector3 point, float radius);
+    // Spatial grid for faster CPU culling
+    int gridCols;
+    int gridRows;
+    float gridCellSize;
+    float gridOriginX;
+    float gridOriginZ;
+    std::vector<std::vector<int>> gridCells; // cell -> indices into allInstances
+    void BuildSpatialGrid();
+    // Upload tracking and simple profiling
+    int lastUploadedCount;
+    double updateTimeMs;
+    double drawTimeMs;
+    // GPU culling resources
+    unsigned int computeProgram;
+    unsigned int ssboAllInstances;
+    unsigned int ssboVisibleInstances;
+    bool gpuCullingEnabled;
 };
