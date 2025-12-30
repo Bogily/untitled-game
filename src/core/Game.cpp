@@ -25,7 +25,12 @@ void Game::Init()
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Zelda-like 3D Game Structure skid");
     SetTargetFPS(TARGET_FPS);
     SetExitKey(KEY_NULL);
-    DisableCursor();
+
+    // Start with cursor enabled for main menu
+    EnableCursor();
+
+    // Initialize menus first
+    SetupMenus();
 
     SetupCamera();
     SetupPlayer();
@@ -35,6 +40,26 @@ void Game::Init()
     SetupGrass();
     SetupCollisions();
     SetupDebugMenu();
+
+    // Start in main menu state
+    currentState = GameState::MAIN_MENU;
+}
+
+void Game::SetupMenus()
+{
+    // Setup main menu callbacks
+    mainMenu.Init(SCREEN_WIDTH, SCREEN_HEIGHT,
+        [this]() { ChangeState(GameState::PLAYING); },      // Play
+        [this]() { /* Settings - not implemented yet */ },   // Settings
+        [this]() { ChangeState(GameState::QUIT); }          // Quit
+    );
+
+    // Setup pause menu callbacks
+    pauseMenu.Init(SCREEN_WIDTH, SCREEN_HEIGHT,
+        [this]() { ChangeState(GameState::PLAYING); },      // Resume
+        [this]() { ChangeState(GameState::MAIN_MENU); },    // Main Menu
+        [this]() { ChangeState(GameState::QUIT); }          // Quit
+    );
 }
 
 void Game::SetupCamera()
@@ -91,7 +116,7 @@ void Game::SetupRenderer()
 void Game::SetupGrass()
 {
     // Initialize grass renderer with 2000000 grass blades over a 30x30 area
-    grassRenderer.Init(2000000, 30.0f);
+    grassRenderer.Init(200000, 30.0f);
 
     // Optional: customize wind parameters
     grassRenderer.SetWindDirection({1.0f, 0.5f});
@@ -230,7 +255,41 @@ void Game::SetupDebugMenu()
 
 void Game::Update()
 {
+    switch (currentState)
+    {
+    case GameState::MAIN_MENU:
+        UpdateMainMenu();
+        break;
+    case GameState::PLAYING:
+        UpdatePlaying();
+        break;
+    case GameState::PAUSED:
+        UpdatePaused();
+        break;
+    case GameState::SETTINGS:
+        // Settings menu not implemented yet
+        break;
+    case GameState::QUIT:
+        // Will be handled in ShouldClose()
+        break;
+    }
+}
+
+void Game::UpdateMainMenu()
+{
+    mainMenu.Update();
+}
+
+void Game::UpdatePlaying()
+{
     float deltaTime = GetFrameTime();
+
+    // Check for pause
+    if (IsKeyPressed(KEY_ESCAPE))
+    {
+        ChangeState(GameState::PAUSED);
+        return;
+    }
 
     debugMenu.Update();
 
@@ -250,6 +309,44 @@ void Game::Update()
     HandleInput(deltaTime);
     HandleCameraControls();
     UpdatePlayer(deltaTime);
+}
+
+void Game::UpdatePaused()
+{
+    pauseMenu.Update();
+
+    // Also allow ESC to resume
+    if (IsKeyPressed(KEY_ESCAPE))
+    {
+        ChangeState(GameState::PLAYING);
+    }
+}
+
+void Game::ChangeState(GameState newState)
+{
+    GameState oldState = currentState;
+    currentState = newState;
+
+    // Handle state transitions
+    switch (newState)
+    {
+    case GameState::MAIN_MENU:
+        EnableCursor();
+        mainMenu.Reset();
+        break;
+    case GameState::PLAYING:
+        DisableCursor();
+        break;
+    case GameState::PAUSED:
+        EnableCursor();
+        break;
+    case GameState::SETTINGS:
+        EnableCursor();
+        break;
+    case GameState::QUIT:
+        // Nothing special needed
+        break;
+    }
 }
 
 void Game::HandleInput(float deltaTime)
@@ -350,6 +447,35 @@ void Game::Draw()
     BeginDrawing();
     ClearBackground(RAYWHITE);
 
+    switch (currentState)
+    {
+    case GameState::MAIN_MENU:
+        DrawMainMenu();
+        break;
+    case GameState::PLAYING:
+        DrawPlaying();
+        break;
+    case GameState::PAUSED:
+        DrawPlaying(); // Draw game in background
+        DrawPaused();  // Draw pause overlay on top
+        break;
+    case GameState::SETTINGS:
+        DrawMainMenu(); // Use main menu as background for now
+        break;
+    case GameState::QUIT:
+        break;
+    }
+
+    EndDrawing();
+}
+
+void Game::DrawMainMenu()
+{
+    mainMenu.Draw();
+}
+
+void Game::DrawPlaying()
+{
     BeginMode3D(cameraController.camera);
     DrawScene();
 
@@ -358,8 +484,11 @@ void Game::Draw()
     EndMode3D();
 
     DrawUI();
+}
 
-    EndDrawing();
+void Game::DrawPaused()
+{
+    pauseMenu.Draw();
 }
 
 void Game::DrawScene()
@@ -569,7 +698,7 @@ void Game::Shutdown()
 
 bool Game::ShouldClose()
 {
-    return WindowShouldClose() || IsKeyPressed(KEY_DELETE);
+    return WindowShouldClose() || IsKeyPressed(KEY_DELETE) || currentState == GameState::QUIT;
 }
 
 // Camera cutscene helper methods

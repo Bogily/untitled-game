@@ -10,6 +10,7 @@
 #include "../graphics/CameraController.h"
 #include "../graphics/Renderer.h"
 #include "../graphics/GrassRenderer.h"
+#include "GameState.h"
 #include <vector>
 
 class Game
@@ -19,6 +20,11 @@ private:
     static const int SCREEN_WIDTH = 1280;
     static const int SCREEN_HEIGHT = 720;
     static const int TARGET_FPS = 5000;
+
+    // Game state
+    GameState currentState = GameState::MAIN_MENU;
+    MainMenu mainMenu;
+    PauseMenu pauseMenu;
 
     // Game constants
     static constexpr float FIXED_CAMERA_MOVE_SPEED = 5.0f;
@@ -79,6 +85,16 @@ private:
     void StartZoomCutscene();
     void StartOrbitCutscene(const Vector3 &target, float radius, int segments);
     std::vector<CameraWaypoint> CreateCircularOrbit(const Vector3 &center, float radius, float height, int segments, float duration, float fov);
+
+    // State management
+    void SetupMenus();
+    void UpdateMainMenu();
+    void UpdatePlaying();
+    void UpdatePaused();
+    void DrawMainMenu();
+    void DrawPlaying();
+    void DrawPaused();
+    void ChangeState(GameState newState);
 
 public:
     void Init();
