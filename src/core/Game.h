@@ -49,6 +49,17 @@ private:
     Model slopeModel;
     Model pbrTestSphere;
 
+    // PBR world objects
+    Model pbrRedCube;
+    Model pbrBlueTower;
+    Model pbrYellowSphere;
+    Model pbrOrangeSphere;
+    Model pbrCapsule;
+    Model pbrCylinder;
+    Model pbrGroundPlane;
+    Model pbrRamp;
+    Model pbrSteepRamp;
+
     // Debug flags
     bool showGrid = true;
     bool showRaycast = true;

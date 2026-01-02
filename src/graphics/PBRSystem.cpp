@@ -33,9 +33,11 @@ void PBRSystem::Init()
     int numLights = PBR_MAX_LIGHTS;
     SetShaderValue(shader, GetShaderLocation(shader, "numOfLights"), &numLights, SHADER_UNIFORM_INT);
 
-    // Create default lights (matching test_pbr)
-    CreatePointLight((Vector3){-2.0f, 2.0f, 0.0f}, (Vector4){1.0f, 0.0f, 0.0f, 1.0f}, 8.0f);
-    CreatePointLight((Vector3){2.0f, 2.0f, 0.0f}, (Vector4){1.0f, 0.0f, 0.0f, 1.0f}, 8.0f);
+    // Create default world lights for realistic illumination
+    CreatePointLight((Vector3){-5.0f, 4.0f, -5.0f}, (Vector4){1.0f, 0.9f, 0.8f, 1.0f}, 15.0f); // Warm white light
+    CreatePointLight((Vector3){5.0f, 4.0f, 5.0f}, (Vector4){0.8f, 0.9f, 1.0f, 1.0f}, 15.0f);   // Cool white light
+    CreatePointLight((Vector3){0.0f, 6.0f, 0.0f}, (Vector4){1.0f, 1.0f, 1.0f, 1.0f}, 20.0f);   // Center overhead light
+    CreatePointLight((Vector3){8.0f, 3.0f, -7.0f}, (Vector4){0.9f, 0.8f, 0.6f, 1.0f}, 12.0f);  // Light near ramp
 
     initialized = true;
     TraceLog(LOG_INFO, "PBR system initialized with %d lights", lightCount);

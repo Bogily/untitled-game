@@ -103,7 +103,7 @@ void main()
         Lo += (kD * albedo / 3.14159265 + specular) * radiance * NdotL;
     }
 
-    vec3 ambient = vec3(0.03) * albedo;
+    vec3 ambient = vec3(0.001) * albedo;  // Very dark ambient for realistic lighting
     vec3 color = ambient + Lo;
     color = color / (color + vec3(1.0));
     color = pow(color, vec3(1.0/2.2));

@@ -48,18 +48,23 @@ void Game::Init()
 void Game::SetupMenus()
 {
     // Setup main menu callbacks using current window size so menus scale correctly
-    mainMenu.Init(GetScreenWidth(), GetScreenHeight(),
-        [this]() { ChangeState(GameState::PLAYING); },      // Play
-        [this]() { ChangeState(GameState::SETTINGS); },     // Settings
-        [this]() { ChangeState(GameState::QUIT); }          // Quit
+    mainMenu.Init(GetScreenWidth(), GetScreenHeight(), [this]()
+                  { ChangeState(GameState::PLAYING); }, // Play
+                  [this]()
+                  { ChangeState(GameState::SETTINGS); }, // Settings
+                  [this]()
+                  { ChangeState(GameState::QUIT); } // Quit
     );
 
     // Setup pause menu callbacks
-    pauseMenu.Init(GetScreenWidth(), GetScreenHeight(),
-        [this]() { ChangeState(GameState::PLAYING); },      // Resume
-        [this]() { ChangeState(GameState::SETTINGS); },     // Settings
-        [this]() { ChangeState(GameState::MAIN_MENU); },    // Main Menu
-        [this]() { ChangeState(GameState::QUIT); }          // Quit
+    pauseMenu.Init(GetScreenWidth(), GetScreenHeight(), [this]()
+                   { ChangeState(GameState::PLAYING); }, // Resume
+                   [this]()
+                   { ChangeState(GameState::SETTINGS); }, // Settings
+                   [this]()
+                   { ChangeState(GameState::MAIN_MENU); }, // Main Menu
+                   [this]()
+                   { ChangeState(GameState::QUIT); } // Quit
     );
 }
 
@@ -97,6 +102,42 @@ void Game::SetupModels()
     float metallic = 0.0f;
     float roughness = 0.3f;
     gPBR.ApplyToModel(pbrTestSphere, albedo, metallic, roughness);
+
+    // Create PBR models for world objects
+    // Red cube - slightly metallic
+    pbrRedCube = LoadModelFromMesh(GenMeshCube(2.0f, 2.0f, 2.0f));
+    gPBR.ApplyToModel(pbrRedCube, {0.8f, 0.1f, 0.1f, 1.0f}, 0.2f, 0.4f);
+
+    // Blue tower - smooth plastic-like
+    pbrBlueTower = LoadModelFromMesh(GenMeshCube(1.0f, 4.0f, 1.0f));
+    gPBR.ApplyToModel(pbrBlueTower, {0.1f, 0.2f, 0.8f, 1.0f}, 0.0f, 0.3f);
+
+    // Yellow sphere - rough surface
+    pbrYellowSphere = LoadModelFromMesh(GenMeshSphere(1.5f, 32, 32));
+    gPBR.ApplyToModel(pbrYellowSphere, {0.9f, 0.9f, 0.2f, 1.0f}, 0.0f, 0.6f);
+
+    // Orange sphere - smooth
+    pbrOrangeSphere = LoadModelFromMesh(GenMeshSphere(1.0f, 32, 32));
+    gPBR.ApplyToModel(pbrOrangeSphere, {0.9f, 0.5f, 0.1f, 1.0f}, 0.1f, 0.3f);
+
+    // Capsule (cylinder with rounded ends)
+    pbrCapsule = LoadModelFromMesh(GenMeshCylinder(0.5f, 3.0f, 16));
+    gPBR.ApplyToModel(pbrCapsule, {0.3f, 0.7f, 0.9f, 1.0f}, 0.0f, 0.5f);
+
+    // Purple cylinder
+    pbrCylinder = LoadModelFromMesh(GenMeshCylinder(0.8f, 4.0f, 16));
+    gPBR.ApplyToModel(pbrCylinder, {0.5f, 0.2f, 0.8f, 1.0f}, 0.0f, 0.4f);
+
+    // Ground plane - rough concrete-like
+    pbrGroundPlane = LoadModelFromMesh(GenMeshPlane(GameConstants::PLANE_SIZE.x, GameConstants::PLANE_SIZE.y, 10, 10));
+    gPBR.ApplyToModel(pbrGroundPlane, {0.3f, 0.3f, 0.3f, 1.0f}, 0.0f, 0.8f);
+
+    // Ramps - wood-like material
+    pbrRamp = LoadModelFromMesh(GenMeshCube(4.0f, 0.5f, 6.0f));
+    gPBR.ApplyToModel(pbrRamp, {0.4f, 0.25f, 0.15f, 1.0f}, 0.0f, 0.7f);
+
+    pbrSteepRamp = LoadModelFromMesh(GenMeshCube(3.0f, 0.5f, 4.0f));
+    gPBR.ApplyToModel(pbrSteepRamp, {0.5f, 0.1f, 0.1f, 1.0f}, 0.0f, 0.6f);
 }
 
 void Game::SetupSkybox()
@@ -353,7 +394,8 @@ void Game::ChangeState(GameState newState)
         // Remember where we came from so Back returns to the appropriate state
         settingsReturnState = oldState;
         // Initialize settings menu with pointer to fullscreenMode and Back -> previous state
-        settingsMenu.Init(GetScreenWidth(), GetScreenHeight(), &fullscreenMode, [this]() { ChangeState(settingsReturnState); });
+        settingsMenu.Init(GetScreenWidth(), GetScreenHeight(), &fullscreenMode, [this]()
+                          { ChangeState(settingsReturnState); });
         break;
     case GameState::QUIT:
         // Nothing special needed
@@ -471,7 +513,8 @@ void Game::ApplyDisplayModeIfChanged()
     // If currently in settings, reinit settings menu to match new size
     if (currentState == GameState::SETTINGS)
     {
-        settingsMenu.Init(GetScreenWidth(), GetScreenHeight(), &fullscreenMode, [this]() { ChangeState(settingsReturnState); });
+        settingsMenu.Init(GetScreenWidth(), GetScreenHeight(), &fullscreenMode, [this]()
+                          { ChangeState(settingsReturnState); });
     }
 }
 
@@ -564,7 +607,8 @@ void Game::DrawScene()
     if (showRaycast)
         player.PlayerRayCast();
 
-    DrawPlane(GameConstants::WORLD_CENTER, {GameConstants::PLANE_SIZE.x, GameConstants::PLANE_SIZE.y}, LIGHTGRAY);
+    // Draw PBR ground plane
+    DrawModel(pbrGroundPlane, GameConstants::WORLD_CENTER, 1.0f, WHITE);
 
     if (showGrid)
         DrawGrid(GameConstants::GRID_SIZE, 1.0f);
@@ -586,41 +630,39 @@ void Game::DrawScene()
         DrawSphereWires({player.position.x, player.position.y + player.collisionHeight, player.position.z}, 0.15f, 8, 8, BLUE);
     }
 
-    // Draw environment objects
-    DrawCube(GameConstants::RED_CUBE_POS, 2.0f, 2.0f, 2.0f, RED);
-    DrawCube(GameConstants::BLUE_TOWER_POS, 1.0f, 4.0f, 1.0f, BLUE);
+    // Draw PBR environment objects
+    DrawModel(pbrRedCube, GameConstants::RED_CUBE_POS, 1.0f, WHITE);
+    DrawModel(pbrBlueTower, GameConstants::BLUE_TOWER_POS, 1.0f, WHITE);
 
-    // Draw additional collision objects
-    DrawSphere({-6.0f, 1.5f, 2.0f}, 1.5f, YELLOW);
-    DrawSphere({6.0f, 1.0f, -2.0f}, 1.0f, ORANGE);
+    // Draw PBR collision objects
+    DrawModel(pbrYellowSphere, {-6.0f, 1.5f, 2.0f}, 1.0f, WHITE);
+    DrawModel(pbrOrangeSphere, {6.0f, 1.0f, -2.0f}, 1.0f, WHITE);
 
-    // Draw capsule as cylinder with spheres on ends
+    // Draw PBR capsule
     Vector3 capsulePos = {0.0f, 2.0f, 6.0f};
-    DrawCylinder(capsulePos, 0.5f, 0.5f, 3.0f, 16, SKYBLUE);
+    DrawModel(pbrCapsule, capsulePos, 1.0f, WHITE);
 
-    // Draw cylinder
+    // Draw PBR cylinder
     Vector3 cylinderPos = {-2.0f, 0.0f, -6.0f};
-    DrawCylinder(cylinderPos, 0.8f, 0.8f, 4.0f, 16, PURPLE);
+    DrawModel(pbrCylinder, cylinderPos, 1.0f, WHITE);
 
-    // Draw slope/ramp with mesh
+    // Draw PBR slope/ramp
     Vector3 rampCenter = {8.0f, 1.5f, -7.0f};
-    float rampWidth = 4.0f;
     float rampLength = 6.0f;
     float rampMaxHeight = 3.0f;
-    float rampThickness = 0.5f;
-    float slopeWallThickness = 0.3f;
-
-    // Calculate slope angle
     float slopeAngle = atan2f(rampMaxHeight, rampLength) * RAD2DEG;
 
-    // Draw the angled slope surface
+    // Draw the PBR angled slope surface
     rlPushMatrix();
     rlTranslatef(rampCenter.x, rampCenter.y, rampCenter.z);
     rlRotatef(slopeAngle, 1.0f, 0.0f, 0.0f); // Pitch rotation
-    DrawCube({0.0f, 0.0f, 0.0f}, rampWidth, rampThickness, rampLength, BROWN);
+    DrawModel(pbrRamp, {0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
     rlPopMatrix();
 
-    // Draw side walls
+    // Ramp side walls (keep as basic geometry for structure)
+    float rampWidth = 4.0f;
+    float slopeWallThickness = 0.3f;
+
     // Left wall
     DrawCube(
         {rampCenter.x - rampWidth / 2.0f - slopeWallThickness / 2.0f, rampMaxHeight / 2.0f, rampCenter.z},
@@ -633,23 +675,22 @@ void Game::DrawScene()
         slopeWallThickness, rampMaxHeight, rampLength,
         DARKBROWN);
 
-    // Draw steep slope (> 45 degrees)
+    // Draw PBR steep slope
     Vector3 steepRampCenter = {-8.0f, 2.0f, -7.0f};
     float steepRampWidth = 3.0f;
     float steepRampLength = 4.0f;
     float steepRampHeight = 5.0f;
-    float steepRampThickness = 0.5f;
 
     float steepSlopeAngle = atan2f(steepRampHeight, steepRampLength) * RAD2DEG;
 
-    // Draw the steep angled slope surface
+    // Draw the PBR steep angled slope surface
     rlPushMatrix();
     rlTranslatef(steepRampCenter.x, steepRampCenter.y, steepRampCenter.z);
     rlRotatef(steepSlopeAngle, 1.0f, 0.0f, 0.0f);
-    DrawCube({0.0f, 0.0f, 0.0f}, steepRampWidth, steepRampThickness, steepRampLength, MAROON);
+    DrawModel(pbrSteepRamp, {0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
     rlPopMatrix();
 
-    // Draw steep slope side walls
+    // Steep slope side walls (keep as basic geometry for structure)
     DrawCube(
         {steepRampCenter.x - steepRampWidth / 2.0f - slopeWallThickness / 2.0f, steepRampHeight / 2.0f, steepRampCenter.z},
         slopeWallThickness, steepRampHeight, steepRampLength,
@@ -756,6 +797,15 @@ void Game::Shutdown()
         UnloadModel(player.model);
 
     UnloadModel(pbrTestSphere);
+    UnloadModel(pbrRedCube);
+    UnloadModel(pbrBlueTower);
+    UnloadModel(pbrYellowSphere);
+    UnloadModel(pbrOrangeSphere);
+    UnloadModel(pbrCapsule);
+    UnloadModel(pbrCylinder);
+    UnloadModel(pbrGroundPlane);
+    UnloadModel(pbrRamp);
+    UnloadModel(pbrSteepRamp);
 
     CloseWindow();
 }
