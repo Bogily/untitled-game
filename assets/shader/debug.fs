@@ -8,7 +8,7 @@ uniform sampler2D texture0;
 uniform sampler2D depthTexture;  // For normal reconstruction
 uniform mat4 invProjection;
 uniform vec2 screenSize;
-uniform int mode; // 0 = color, 1 = depth, 2 = ssao, 3 = normals
+uniform int mode; // 0 = color, 1 = depth, 2 = normals
 
 const float nearPlane = 0.1;
 const float farPlane = 1000.0;
@@ -69,12 +69,7 @@ void main()
         float linearDepth = LinearizeDepth(depth) / farPlane;
         fragColor = vec4(vec3(linearDepth), 1.0);
     }
-    else if (mode == 2) // SSAO - raw OpenGL FBO, NOT flipped
-    {
-        float ao = texture(texture0, fragTexCoord).r;
-        fragColor = vec4(vec3(ao), 1.0);
-    }
-    else if (mode == 3) // Normals - reconstructed from depth
+    else if (mode == 2) // Normals - reconstructed from depth
     {
         vec2 uv = vec2(fragTexCoord.x, 1.0 - fragTexCoord.y);
         float depth = texture(depthTexture, uv).r;
