@@ -41,6 +41,7 @@ private:
     CustomModel customModel;
     Skybox skybox;
     DebugMenu debugMenu;
+    SettingsMenu settingsMenu;
     Renderer renderer;
     CollisionSystem collisionSystem;
     GrassRenderer grassRenderer;
@@ -60,6 +61,9 @@ private:
     // Model selection
     int currentModelIndex = 0;
     int previousModelIndex = 0;
+    // Fullscreen/window mode: 0=Windowed,1=Fullscreen,2=Borderless (windowed fullscreen)
+    int fullscreenMode = 0;
+    int previousFullscreenMode = -1;
 
     // Helper methods
     void SetupCamera();
@@ -71,6 +75,8 @@ private:
     void SetupCollisions();
 
     void SetupDebugMenu();
+    void UpdateSettings();
+    void DrawSettings();
     void HandleInput(float deltaTime);
     void HandleCameraControls();
     void UpdatePlayer(float deltaTime);
@@ -95,6 +101,8 @@ private:
     void DrawPlaying();
     void DrawPaused();
     void ChangeState(GameState newState);
+    // Remember where Settings was opened from so Back returns appropriately
+    GameState settingsReturnState = GameState::MAIN_MENU;
 
 public:
     void Init();
@@ -102,4 +110,5 @@ public:
     void Draw();
     void Shutdown();
     bool ShouldClose();
+    void ApplyDisplayModeIfChanged();
 };

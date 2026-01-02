@@ -197,7 +197,7 @@ private:
 public:
     PauseMenu() : screenWidth(1280), screenHeight(720) {}
 
-    void Init(int width, int height, std::function<void()> onResume, std::function<void()> onMainMenu, std::function<void()> onQuit)
+    void Init(int width, int height, std::function<void()> onResume, std::function<void()> onSettings, std::function<void()> onMainMenu, std::function<void()> onQuit)
     {
         screenWidth = width;
         screenHeight = height;
@@ -206,9 +206,11 @@ public:
         float centerX = (screenWidth - BUTTON_WIDTH) / 2.0f;
         float startY = screenHeight / 2.0f - BUTTON_HEIGHT;
 
+        // Order: Resume | Settings | Main Menu | Quit
         buttons.emplace_back(centerX, startY, BUTTON_WIDTH, BUTTON_HEIGHT, "Resume", onResume);
-        buttons.emplace_back(centerX, startY + BUTTON_HEIGHT + BUTTON_SPACING, BUTTON_WIDTH, BUTTON_HEIGHT, "Main Menu", onMainMenu);
-        buttons.emplace_back(centerX, startY + (BUTTON_HEIGHT + BUTTON_SPACING) * 2, BUTTON_WIDTH, BUTTON_HEIGHT, "Quit", onQuit);
+        buttons.emplace_back(centerX, startY + BUTTON_HEIGHT + BUTTON_SPACING, BUTTON_WIDTH, BUTTON_HEIGHT, "Settings", onSettings);
+        buttons.emplace_back(centerX, startY + (BUTTON_HEIGHT + BUTTON_SPACING) * 2, BUTTON_WIDTH, BUTTON_HEIGHT, "Main Menu", onMainMenu);
+        buttons.emplace_back(centerX, startY + (BUTTON_HEIGHT + BUTTON_SPACING) * 3, BUTTON_WIDTH, BUTTON_HEIGHT, "Quit", onQuit);
     }
 
     void Update()
@@ -261,3 +263,189 @@ public:
         }
     }
 };
+
+// Settings menu class
+class SettingsMenu
+{
+private:
+    // Screen dimensions
+    int screenWidth;
+    int screenHeight;
+    
+    // Settings data
+    int *fullscreenModePtr = nullptr;
+    std::vector<std::string> displayOptions;
+    std::function<void()> onBack;
+
+    // UI elements
+    Rectangle backButton;
+    Rectangle leftArrowButton;
+    Rectangle rightArrowButton;
+    
+    // Layout constants
+    static constexpr int TITLE_FONT_SIZE = 48;
+    static constexpr int LABEL_FONT_SIZE = 28;
+    static constexpr int VALUE_FONT_SIZE = 28;
+    static constexpr int BUTTON_FONT_SIZE = 24;
+    static constexpr int ARROW_FONT_SIZE = 32;
+    
+    static constexpr int TITLE_Y = 60;
+    static constexpr int DISPLAY_MODE_Y = 160;
+    static constexpr int DISPLAY_MODE_LABEL_X = 100;
+    static constexpr int DISPLAY_MODE_VALUE_X = 360;
+    
+    static constexpr float BACK_BUTTON_MARGIN = 20.0f;
+    static constexpr float BACK_BUTTON_BOTTOM_OFFSET = 80.0f;
+    static constexpr float BACK_BUTTON_WIDTH = 200.0f;
+    static constexpr float BACK_BUTTON_HEIGHT = 50.0f;
+    
+    static constexpr float ARROW_BUTTON_SIZE = 43.0f;
+    static constexpr float ARROW_LEFT_OFFSET = 56.0f;
+    static constexpr float ARROW_RIGHT_OFFSET = 12.0f;
+    static constexpr float ARROW_VERTICAL_OFFSET = 8.0f;
+    
+    // Colors
+    static constexpr Color BACKGROUND_COLOR = {0, 0, 0, 153}; // Fade(BLACK, 0.6f)
+    static constexpr Color BUTTON_COLOR = {60, 60, 80, 255};
+    static constexpr Color BUTTON_HOVER_COLOR = {135, 206, 235, 255}; // SKYBLUE
+    static constexpr Color ARROW_BUTTON_COLOR = {80, 80, 100, 255};
+    
+    // Helper methods
+    void UpdateArrowButtonPositions();
+    void DrawArrowButton(const Rectangle& button, const char* arrow, bool isHovered) const;
+    bool IsButtonHovered(const Rectangle& button) const;
+
+public:
+    SettingsMenu() : screenWidth(1280), screenHeight(720) {}
+
+    void Init(int width, int height, int *fullscreenPtr, std::function<void()> backCallback)
+    {
+        screenWidth = width;
+        screenHeight = height;
+        fullscreenModePtr = fullscreenPtr;
+        onBack = backCallback;
+
+        displayOptions = {"Windowed", "Fullscreen", "Borderless"};
+
+        // Position back button at bottom-left
+        backButton = {
+            BACK_BUTTON_MARGIN,
+            (float)(screenHeight) - BACK_BUTTON_BOTTOM_OFFSET,
+            BACK_BUTTON_WIDTH,
+            BACK_BUTTON_HEIGHT
+        };
+
+        // Arrow buttons positioned dynamically in UpdateArrowButtonPositions()
+        leftArrowButton = {0.0f, 0.0f, ARROW_BUTTON_SIZE, ARROW_BUTTON_SIZE};
+        rightArrowButton = {0.0f, 0.0f, ARROW_BUTTON_SIZE, ARROW_BUTTON_SIZE};
+    }
+
+    void Update()
+    {
+        if (!fullscreenModePtr)
+            return;
+            
+        UpdateArrowButtonPositions();
+        Vector2 mousePos = GetMousePosition();
+
+        // Handle back button
+        if (IsButtonHovered(backButton) && IsMouseButtonReleased(MOUSE_LEFT_BUTTON))
+        {
+            if (onBack)
+                onBack();
+            return;
+        }
+
+        // Handle left arrow (previous option)
+        if (IsButtonHovered(leftArrowButton) && IsMouseButtonReleased(MOUSE_LEFT_BUTTON))
+        {
+            (*fullscreenModePtr)--;
+            if (*fullscreenModePtr < 0)
+                *fullscreenModePtr = (int)displayOptions.size() - 1;
+        }
+
+        // Handle right arrow (next option)
+        if (IsButtonHovered(rightArrowButton) && IsMouseButtonReleased(MOUSE_LEFT_BUTTON))
+        {
+            (*fullscreenModePtr)++;
+            if (*fullscreenModePtr >= (int)displayOptions.size())
+                *fullscreenModePtr = 0;
+        }
+    }
+
+    void Draw()
+    {
+        // Semi-transparent background overlay
+        DrawRectangle(0, 0, screenWidth, screenHeight, BACKGROUND_COLOR);
+
+        // Title
+        const char *title = "Settings";
+        int titleWidth = MeasureText(title, TITLE_FONT_SIZE);
+        DrawText(title, (screenWidth - titleWidth) / 2, TITLE_Y, TITLE_FONT_SIZE, WHITE);
+
+        // Display mode setting
+        DrawText("Display Mode:", DISPLAY_MODE_LABEL_X, DISPLAY_MODE_Y, LABEL_FONT_SIZE, LIGHTGRAY);
+        
+        if (fullscreenModePtr && *fullscreenModePtr >= 0 && *fullscreenModePtr < (int)displayOptions.size())
+        {
+            const char *value = displayOptions[*fullscreenModePtr].c_str();
+            DrawText(value, DISPLAY_MODE_VALUE_X, DISPLAY_MODE_Y, VALUE_FONT_SIZE, SKYBLUE);
+
+            // Draw arrow buttons
+            UpdateArrowButtonPositions();
+            DrawArrowButton(leftArrowButton, "<", IsButtonHovered(leftArrowButton));
+            DrawArrowButton(rightArrowButton, ">", IsButtonHovered(rightArrowButton));
+        }
+
+        // Back button
+        bool backHovered = IsButtonHovered(backButton);
+        Color backColor = backHovered ? BUTTON_HOVER_COLOR : BUTTON_COLOR;
+        DrawRectangleRounded(backButton, 0.2f, 8, backColor);
+        DrawRectangleRoundedLines(backButton, 0.2f, 8, WHITE);
+        
+        int backTextWidth = MeasureText("Back", BUTTON_FONT_SIZE);
+        float backTextX = backButton.x + (backButton.width - backTextWidth) / 2;
+        float backTextY = backButton.y + (backButton.height - BUTTON_FONT_SIZE) / 2;
+        DrawText("Back", (int)backTextX, (int)backTextY, BUTTON_FONT_SIZE, WHITE);
+    }
+};
+
+// SettingsMenu helper method implementations
+inline bool SettingsMenu::IsButtonHovered(const Rectangle& button) const
+{
+    return CheckCollisionPointRec(GetMousePosition(), button);
+}
+
+inline void SettingsMenu::DrawArrowButton(const Rectangle& button, const char* arrow, bool isHovered) const
+{
+    Color buttonColor = isHovered ? BUTTON_HOVER_COLOR : ARROW_BUTTON_COLOR;
+    DrawRectangleRounded(button, 0.15f, 6, buttonColor);
+    DrawRectangleRoundedLines(button, 0.15f, 6, Fade(WHITE, 0.6f));
+    
+    int arrowWidth = MeasureText(arrow, ARROW_FONT_SIZE);
+    float arrowX = button.x + (button.width - arrowWidth) / 2;
+    float arrowY = button.y + (button.height - ARROW_FONT_SIZE) / 2 + 2; // +2 for slight vertical centering
+    DrawText(arrow, (int)arrowX, (int)arrowY, ARROW_FONT_SIZE, WHITE);
+}
+
+inline void SettingsMenu::UpdateArrowButtonPositions()
+{
+    if (!fullscreenModePtr || *fullscreenModePtr < 0 || *fullscreenModePtr >= (int)displayOptions.size())
+    {
+        // Fallback: position arrows with default spacing
+        leftArrowButton.x = DISPLAY_MODE_VALUE_X - ARROW_LEFT_OFFSET;
+        leftArrowButton.y = DISPLAY_MODE_Y - ARROW_VERTICAL_OFFSET;
+        rightArrowButton.x = DISPLAY_MODE_VALUE_X + 120.0f;
+        rightArrowButton.y = DISPLAY_MODE_Y - ARROW_VERTICAL_OFFSET;
+        return;
+    }
+
+    // Position arrows based on actual text width
+    const std::string &valueText = displayOptions[*fullscreenModePtr];
+    int valueWidth = MeasureText(valueText.c_str(), VALUE_FONT_SIZE);
+
+    leftArrowButton.x = DISPLAY_MODE_VALUE_X - ARROW_LEFT_OFFSET;
+    leftArrowButton.y = DISPLAY_MODE_Y - ARROW_VERTICAL_OFFSET;
+    
+    rightArrowButton.x = DISPLAY_MODE_VALUE_X + valueWidth + ARROW_RIGHT_OFFSET;
+    rightArrowButton.y = DISPLAY_MODE_Y - ARROW_VERTICAL_OFFSET;}

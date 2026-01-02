@@ -47,16 +47,17 @@ void Game::Init()
 
 void Game::SetupMenus()
 {
-    // Setup main menu callbacks
-    mainMenu.Init(SCREEN_WIDTH, SCREEN_HEIGHT,
+    // Setup main menu callbacks using current window size so menus scale correctly
+    mainMenu.Init(GetScreenWidth(), GetScreenHeight(),
         [this]() { ChangeState(GameState::PLAYING); },      // Play
-        [this]() { /* Settings - not implemented yet */ },   // Settings
+        [this]() { ChangeState(GameState::SETTINGS); },     // Settings
         [this]() { ChangeState(GameState::QUIT); }          // Quit
     );
 
     // Setup pause menu callbacks
-    pauseMenu.Init(SCREEN_WIDTH, SCREEN_HEIGHT,
+    pauseMenu.Init(GetScreenWidth(), GetScreenHeight(),
         [this]() { ChangeState(GameState::PLAYING); },      // Resume
+        [this]() { ChangeState(GameState::SETTINGS); },     // Settings
         [this]() { ChangeState(GameState::MAIN_MENU); },    // Main Menu
         [this]() { ChangeState(GameState::QUIT); }          // Quit
     );
@@ -250,11 +251,16 @@ void Game::SetupDebugMenu()
         modelNames.push_back(customModel.getModelName(i));
     debugMenu.AddString("Player Model", &currentModelIndex, modelNames);
 
+    // Note: Display Mode moved to Settings menu (not debug menu)
+
     debugMenu.AddFloat("Camera FOV", &cameraController.camera.fovy, 20.0f, 120.0f, 1.0f);
 }
 
 void Game::Update()
 {
+    // Apply any pending display mode changes requested by menus
+    ApplyDisplayModeIfChanged();
+
     switch (currentState)
     {
     case GameState::MAIN_MENU:
@@ -267,7 +273,7 @@ void Game::Update()
         UpdatePaused();
         break;
     case GameState::SETTINGS:
-        // Settings menu not implemented yet
+        UpdateSettings();
         break;
     case GameState::QUIT:
         // Will be handled in ShouldClose()
@@ -301,6 +307,8 @@ void Game::UpdatePlaying()
         customModel.loadPlayerModel(player, currentModelIndex);
         previousModelIndex = currentModelIndex;
     }
+
+    // display mode is handled globally in ApplyDisplayModeIfChanged()
 
     cameraController.Update(deltaTime);
     grassRenderer.Update(deltaTime, cameraController.camera);
@@ -342,6 +350,10 @@ void Game::ChangeState(GameState newState)
         break;
     case GameState::SETTINGS:
         EnableCursor();
+        // Remember where we came from so Back returns to the appropriate state
+        settingsReturnState = oldState;
+        // Initialize settings menu with pointer to fullscreenMode and Back -> previous state
+        settingsMenu.Init(GetScreenWidth(), GetScreenHeight(), &fullscreenMode, [this]() { ChangeState(settingsReturnState); });
         break;
     case GameState::QUIT:
         // Nothing special needed
@@ -411,6 +423,58 @@ void Game::UpdatePlayer(float deltaTime)
     }
 }
 
+void Game::UpdateSettings()
+{
+    settingsMenu.Update();
+}
+
+void Game::DrawSettings()
+{
+    settingsMenu.Draw();
+}
+
+void Game::ApplyDisplayModeIfChanged()
+{
+    if (fullscreenMode == previousFullscreenMode)
+        return;
+
+    // 0 = Windowed, 1 = Fullscreen, 2 = Borderless (windowed fullscreen)
+    switch (fullscreenMode)
+    {
+    case 0: // Windowed
+        ClearWindowState(FLAG_FULLSCREEN_MODE);
+        ClearWindowState(FLAG_WINDOW_UNDECORATED);
+        SetWindowSize(SCREEN_WIDTH, SCREEN_HEIGHT);
+        // Center window on primary monitor
+        SetWindowPosition((GetMonitorWidth(0) - SCREEN_WIDTH) / 2, (GetMonitorHeight(0) - SCREEN_HEIGHT) / 2);
+        break;
+    case 1: // Fullscreen
+        // Ensure fullscreen flag set
+        SetWindowState(FLAG_FULLSCREEN_MODE);
+        ClearWindowState(FLAG_WINDOW_UNDECORATED);
+        break;
+    case 2: // Borderless windowed (windowed fullscreen)
+        ClearWindowState(FLAG_FULLSCREEN_MODE);
+        SetWindowState(FLAG_WINDOW_UNDECORATED);
+        SetWindowSize(GetMonitorWidth(0), GetMonitorHeight(0));
+        SetWindowPosition(0, 0);
+        break;
+    default:
+        break;
+    }
+
+    previousFullscreenMode = fullscreenMode;
+
+    // Reinitialize menus so their layouts update to the new window size
+    SetupMenus();
+
+    // If currently in settings, reinit settings menu to match new size
+    if (currentState == GameState::SETTINGS)
+    {
+        settingsMenu.Init(GetScreenWidth(), GetScreenHeight(), &fullscreenMode, [this]() { ChangeState(settingsReturnState); });
+    }
+}
+
 void Game::UpdatePlayerInFixedCamera(float deltaTime)
 {
     const float moveAmount = FIXED_CAMERA_MOVE_SPEED * deltaTime;
@@ -460,7 +524,9 @@ void Game::Draw()
         DrawPaused();  // Draw pause overlay on top
         break;
     case GameState::SETTINGS:
-        DrawMainMenu(); // Use main menu as background for now
+        // Draw game behind the settings UI
+        DrawPlaying();
+        DrawSettings();
         break;
     case GameState::QUIT:
         break;
@@ -649,10 +715,8 @@ void Game::Draw2DUI()
     DrawText(TextFormat("Camera Mode: %s", modeText), UI_MARGIN, yPos, UI_TEXT_SIZE, GREEN);
 
     // FPS (optional)
-    if (showFPS)
-    {
-        DrawFPS(SCREEN_WIDTH - 100, UI_MARGIN);
-    }
+    // FPS: always show in top-right corner using current window width
+    DrawFPS(GetScreenWidth() - 100, UI_MARGIN);
     yPos += UI_LINE_SPACING;
 
     // Player position (optional)
