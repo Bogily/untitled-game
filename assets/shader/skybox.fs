@@ -10,6 +10,8 @@ out vec4 finalColor;
 uniform float time;
 uniform vec3 skyColor;
 uniform vec3 cloudColor;
+uniform vec3 sunDirection;
+uniform vec3 sunColor;
 
 // Simple hash function for pseudo-random numbers
 float hash(vec2 p)
@@ -88,11 +90,16 @@ void main()
     // Blend sky and clouds
     vec3 finalSkyColor = mix(finalSkyColorBase, cloudColor, clouds * 0.7);
     
-    // Add sun glow (optional)
-    vec3 sunDir = normalize(vec3(0.3, 0.5, 0.8));
+    // Add sun glow using uniform sun direction and color
+    vec3 sunDir = normalize(sunDirection);
     float sun = max(0.0, dot(direction, sunDir));
-    sun = pow(sun, 32.0);
-    finalSkyColor += vec3(1.0, 0.9, 0.7) * sun * 0.5;
+    
+    // Large sun disc
+    float sunDisc = pow(sun, 128.0) * 2.0;
+    // Sun glow/corona
+    float sunGlow = pow(sun, 16.0) * 0.5;
+    
+    finalSkyColor += sunColor * (sunDisc + sunGlow);
     
     finalColor = vec4(finalSkyColor, 1.0);
 }

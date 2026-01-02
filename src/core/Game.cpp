@@ -1,5 +1,6 @@
 #include "Game.h"
 #include "../graphics/PBRSystem.h"
+#include "../graphics/PostProcessingSystem.h"
 #include "rlgl.h"
 
 // Constants
@@ -40,6 +41,7 @@ void Game::Init()
     SetupGrass();
     SetupCollisions();
     SetupDebugMenu();
+    SetupPostProcessingMenu();
 
     // Start in main menu state
     currentState = GameState::MAIN_MENU;
@@ -145,6 +147,12 @@ void Game::SetupSkybox()
     skybox.Load("assets/shader/skybox.vs", "assets/shader/skybox.fs");
     skybox.SetSkyColor({0.0f, 0.0f, 0.0f});
     skybox.SetCloudColor({1.0f, 1.0f, 0.0f});
+
+    // Configure sun to match directional light
+    Vector3 sunDirection = {0.3f, 0.5f, 0.8f};
+    skybox.SetSunDirection(sunDirection);
+    skybox.SetSunColor({1.0f, 0.95f, 0.8f});
+    renderPipeline.SetSunDirection(sunDirection);
 }
 
 void Game::SetupRenderer()
@@ -153,6 +161,13 @@ void Game::SetupRenderer()
 
     // Initialize PBR system
     gPBR.Init();
+
+    // Initialize render pipeline with post-processing
+    renderPipeline.Init(SCREEN_WIDTH, SCREEN_HEIGHT);
+
+    // Create sun directional light
+    Vector3 sunDirection = {0.3f, 0.5f, 0.8f};
+    gPBR.CreateDirectionalLight(sunDirection, {1.0f, 0.95f, 0.8f, 1.0f}, 2.0f);
 }
 
 void Game::SetupGrass()
@@ -297,6 +312,12 @@ void Game::SetupDebugMenu()
     debugMenu.AddFloat("Camera FOV", &cameraController.camera.fovy, 20.0f, 120.0f, 1.0f);
 }
 
+void Game::SetupPostProcessingMenu()
+{
+    postProcessingMenu.AddBool("Enable Post-Processing", &enablePostProcessing);
+    postProcessingMenu.AddBool("Enable Grayscale", &enableGrayscale);
+}
+
 void Game::Update()
 {
     // Apply any pending display mode changes requested by menus
@@ -339,9 +360,17 @@ void Game::UpdatePlaying()
     }
 
     debugMenu.Update();
+    postProcessingMenu.Update();
 
     // Update PBR system with camera position
     gPBR.Update(cameraController.camera);
+
+    // Sync render pipeline settings
+    renderPipeline.EnablePostProcessing(enablePostProcessing);
+    if (renderPipeline.GetPostProcessing())
+    {
+        renderPipeline.GetPostProcessing()->SetGrayscaleEnabled(enableGrayscale);
+    }
 
     if (currentModelIndex != previousModelIndex)
     {
@@ -552,15 +581,15 @@ void Game::UpdatePlayerInFixedCamera(float deltaTime)
 void Game::Draw()
 {
     BeginDrawing();
-    ClearBackground(RAYWHITE);
 
     switch (currentState)
     {
     case GameState::MAIN_MENU:
+        ClearBackground(RAYWHITE);
         DrawMainMenu();
         break;
     case GameState::PLAYING:
-        DrawPlaying();
+        DrawPlaying(); // Post-processing handles its own clearing
         break;
     case GameState::PAUSED:
         DrawPlaying(); // Draw game in background
@@ -585,13 +614,20 @@ void Game::DrawMainMenu()
 
 void Game::DrawPlaying()
 {
-    BeginMode3D(cameraController.camera);
-    DrawScene();
+    // Use render pipeline to handle rendering with optional post-processing
+    renderPipeline.BeginFrame();
 
-    // Draw PBR debug lights
-    gPBR.DrawDebugLights();
-    EndMode3D();
+    // Render 3D scene using a lambda callback
+    renderPipeline.RenderScene([this]()
+                               {
+        BeginMode3D(cameraController.camera);
+        DrawScene();
+        gPBR.DrawDebugLights();
+        EndMode3D(); }, cameraController.camera);
 
+    renderPipeline.EndFrame();
+
+    // Draw UI on top
     DrawUI();
 }
 
@@ -783,12 +819,14 @@ void Game::Draw2DUI()
     yPos += UI_LINE_SPACING - 5;
     DrawText("1: Follow Player | 2: Overview | 3: Zoom | 4: Red Cube | 5: Orbit Tower | 6: Bird's Eye", UI_MARGIN, yPos, UI_SMALL_TEXT_SIZE, DARKGRAY);
 
-    // Debug menu
+    // Debug menus
     debugMenu.Draw();
+    postProcessingMenu.Draw();
 }
 
 void Game::Shutdown()
 {
+    renderPipeline.Shutdown();
     grassRenderer.Shutdown();
     renderer.Shutdown();
     skybox.Unload();

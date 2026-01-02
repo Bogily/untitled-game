@@ -3,7 +3,11 @@
 #include "raymath.h"
 #include "rlgl.h"
 
-Skybox::Skybox() : time(0.0f), skyColor({0.3f, 0.5f, 0.9f}), cloudColor({1.0f, 1.0f, 1.0f})
+Skybox::Skybox() : time(0.0f),
+                   skyColor({0.3f, 0.5f, 0.9f}),
+                   cloudColor({1.0f, 1.0f, 1.0f}),
+                   sunDirection({0.3f, 0.5f, 0.8f}),
+                   sunColor({1.0f, 0.95f, 0.8f})
 {
     // Constructor - initialization happens in Load()
 }
@@ -22,6 +26,8 @@ void Skybox::Load(const char *vsPath, const char *fsPath)
     timeLoc = GetShaderLocation(shader, "time");
     skyColorLoc = GetShaderLocation(shader, "skyColor");
     cloudColorLoc = GetShaderLocation(shader, "cloudColor");
+    sunDirectionLoc = GetShaderLocation(shader, "sunDirection");
+    sunColorLoc = GetShaderLocation(shader, "sunColor");
 
     // Generate a cube mesh for the skybox
     cube = LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f));
@@ -40,6 +46,16 @@ void Skybox::SetCloudColor(Vector3 color)
     cloudColor = color;
 }
 
+void Skybox::SetSunDirection(Vector3 direction)
+{
+    sunDirection = Vector3Normalize(direction);
+}
+
+void Skybox::SetSunColor(Vector3 color)
+{
+    sunColor = color;
+}
+
 void Skybox::Update(float deltaTime)
 {
     time += deltaTime;
@@ -51,6 +67,8 @@ void Skybox::Draw(Camera3D camera)
     SetShaderValue(shader, timeLoc, &time, SHADER_UNIFORM_FLOAT);
     SetShaderValue(shader, skyColorLoc, &skyColor, SHADER_UNIFORM_VEC3);
     SetShaderValue(shader, cloudColorLoc, &cloudColor, SHADER_UNIFORM_VEC3);
+    SetShaderValue(shader, sunDirectionLoc, &sunDirection, SHADER_UNIFORM_VEC3);
+    SetShaderValue(shader, sunColorLoc, &sunColor, SHADER_UNIFORM_VEC3);
 
     // Disable depth writing for skybox (it should always be behind everything)
     rlDisableDepthMask();

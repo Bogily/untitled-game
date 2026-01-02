@@ -5,11 +5,13 @@
 #include "../physics/CollisionSystem.h"
 #include "../utils/custommodel.h"
 #include "../utils/DebugMenu.h"
+#include "../utils/PostProcessingMenu.h"
 #include "../graphics/Skybox.h"
 #include "../graphics/BillboardText.h"
 #include "../graphics/CameraController.h"
 #include "../graphics/Renderer.h"
 #include "../graphics/GrassRenderer.h"
+#include "../graphics/RenderPipeline.h"
 #include "GameState.h"
 #include <vector>
 
@@ -41,10 +43,12 @@ private:
     CustomModel customModel;
     Skybox skybox;
     DebugMenu debugMenu;
+    PostProcessingMenu postProcessingMenu;
     SettingsMenu settingsMenu;
     Renderer renderer;
     CollisionSystem collisionSystem;
     GrassRenderer grassRenderer;
+    RenderPipeline renderPipeline;
     Mesh slopeMesh;
     Model slopeModel;
     Model pbrTestSphere;
@@ -69,6 +73,10 @@ private:
     bool showPlayerHitbox = true;
     bool showGrass = true;
 
+    // Post-processing settings (controlled by PostProcessingMenu)
+    bool enablePostProcessing = true;
+    bool enableGrayscale = false;
+
     // Model selection
     int currentModelIndex = 0;
     int previousModelIndex = 0;
@@ -86,6 +94,7 @@ private:
     void SetupCollisions();
 
     void SetupDebugMenu();
+    void SetupPostProcessingMenu();
     void UpdateSettings();
     void DrawSettings();
     void HandleInput(float deltaTime);

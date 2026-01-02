@@ -6,9 +6,9 @@
 
 struct PBRLight
 {
-    int type = 1; // 1 = point light
+    int type = 1; // 1 = point light, 2 = directional light
     int enabled = 1;
-    Vector3 position = {0, 0, 0};
+    Vector3 position = {0, 0, 0}; // For point lights OR direction for directional lights
     Vector4 color = {1.0f, 1.0f, 1.0f, 1.0f};
     float intensity = 1.0f;
 };
@@ -33,11 +33,13 @@ public:
 
     // Light management
     void CreatePointLight(const Vector3 &pos, const Vector4 &color, float intensity);
+    void CreateDirectionalLight(const Vector3 &direction, const Vector4 &color, float intensity);
     void UpdateLight(int index, const Vector3 &pos, const Vector4 &color, float intensity);
     void DrawDebugLights();
 
     // Get light count
     int GetLightCount() const { return lightCount; }
+    Vector3 GetSunDirection() const;
 
 private:
     Shader shader;

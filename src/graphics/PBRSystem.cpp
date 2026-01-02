@@ -34,10 +34,9 @@ void PBRSystem::Init()
     SetShaderValue(shader, GetShaderLocation(shader, "numOfLights"), &numLights, SHADER_UNIFORM_INT);
 
     // Create default world lights for realistic illumination
-    CreatePointLight((Vector3){-5.0f, 4.0f, -5.0f}, (Vector4){1.0f, 0.9f, 0.8f, 1.0f}, 15.0f); // Warm white light
-    CreatePointLight((Vector3){5.0f, 4.0f, 5.0f}, (Vector4){0.8f, 0.9f, 1.0f, 1.0f}, 15.0f);   // Cool white light
-    CreatePointLight((Vector3){0.0f, 6.0f, 0.0f}, (Vector4){1.0f, 1.0f, 1.0f, 1.0f}, 20.0f);   // Center overhead light
-    CreatePointLight((Vector3){8.0f, 3.0f, -7.0f}, (Vector4){0.9f, 0.8f, 0.6f, 1.0f}, 12.0f);  // Light near ramp
+    CreatePointLight((Vector3){-5.0f, 4.0f, -5.0f}, (Vector4){1.0f, 0.9f, 0.8f, 1.0f}, 12.0f); // Warm white light (reduced intensity)
+    CreatePointLight((Vector3){5.0f, 4.0f, 5.0f}, (Vector4){0.8f, 0.9f, 1.0f, 1.0f}, 12.0f);   // Cool white light (reduced intensity)
+    CreatePointLight((Vector3){0.0f, 6.0f, 0.0f}, (Vector4){1.0f, 1.0f, 1.0f, 1.0f}, 15.0f);   // Center overhead light (reduced intensity)
 
     initialized = true;
     TraceLog(LOG_INFO, "PBR system initialized with %d lights", lightCount);
@@ -118,6 +117,27 @@ void PBRSystem::CreatePointLight(const Vector3 &pos, const Vector4 &color, float
              lightCount - 1, pos.x, pos.y, pos.z, intensity);
 }
 
+void PBRSystem::CreateDirectionalLight(const Vector3 &direction, const Vector4 &color, float intensity)
+{
+    if (lightCount >= PBR_MAX_LIGHTS)
+    {
+        TraceLog(LOG_WARNING, "Cannot create more lights, max %d reached", PBR_MAX_LIGHTS);
+        return;
+    }
+
+    lights[lightCount].type = 2; // directional light
+    lights[lightCount].enabled = 1;
+    lights[lightCount].position = Vector3Normalize(direction); // Store normalized direction in position field
+    lights[lightCount].color = color;
+    lights[lightCount].intensity = intensity;
+
+    UploadLightData(lightCount);
+    lightCount++;
+
+    TraceLog(LOG_INFO, "Created directional light %d in direction (%.2f, %.2f, %.2f) with intensity %.2f",
+             lightCount - 1, direction.x, direction.y, direction.z, intensity);
+}
+
 void PBRSystem::UpdateLight(int index, const Vector3 &pos, const Vector4 &color, float intensity)
 {
     if (index < 0 || index >= lightCount)
@@ -178,6 +198,25 @@ void PBRSystem::DrawDebugLights()
             (unsigned char)(lights[i].color.z * 255),
             (unsigned char)(lights[i].color.w * 255)};
 
-        DrawSphere(lights[i].position, 0.1f, c);
+        // Only draw debug spheres for point lights
+        if (lights[i].type == 1)
+        {
+            DrawSphere(lights[i].position, 0.1f, c);
+        }
     }
+}
+
+Vector3 PBRSystem::GetSunDirection() const
+{
+    // Find first directional light (type 2) and return its direction
+    for (int i = 0; i < lightCount; ++i)
+    {
+        if (lights[i].type == 2 && lights[i].enabled)
+        {
+            return lights[i].position; // Direction is stored in position field
+        }
+    }
+
+    // Default sun direction if no directional light found
+    return Vector3Normalize((Vector3){0.3f, 0.5f, 0.8f});
 }

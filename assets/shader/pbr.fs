@@ -78,10 +78,22 @@ void main()
     for (int i = 0; i < numOfLights; ++i)
     {
         if (lights[i].enabled == 0) continue;
-        vec3 L = normalize(lights[i].position - fragPosition);
+        
+        vec3 L;
+        float attenuation;
+        
+        if (lights[i].type == 2) {
+            // Directional light (sun) - position field stores direction
+            L = normalize(-lights[i].position);  // Negate because we store the direction TO the light
+            attenuation = 1.0;  // No attenuation for directional lights
+        } else {
+            // Point light
+            L = normalize(lights[i].position - fragPosition);
+            float distance = length(lights[i].position - fragPosition);
+            attenuation = 1.0 / (distance * distance);
+        }
+        
         vec3 H = normalize(V + L);
-        float distance = length(lights[i].position - fragPosition);
-        float attenuation = 1.0 / (distance * distance);
 
         float NDF = DistributionGGX(N, H, roughness);
         float G   = GeometrySmith(N, V, L, roughness);
@@ -105,7 +117,9 @@ void main()
 
     vec3 ambient = vec3(0.001) * albedo;  // Very dark ambient for realistic lighting
     vec3 color = ambient + Lo;
-    color = color / (color + vec3(1.0));
-    color = pow(color, vec3(1.0/2.2));
+    
+    // Remove tone mapping - will be done in post-processing
+    // color = color / (color + vec3(1.0));
+    // color = pow(color, vec3(1.0/2.2));
     finalColor = vec4(color, 1.0);
 }
