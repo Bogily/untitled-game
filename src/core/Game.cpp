@@ -39,6 +39,7 @@ void Game::Init()
     SetupModels();   // Then setup models that need PBR
     SetupSkybox();
     SetupGrass();
+    SetupWater();
     SetupCollisions();
     SetupDebugMenu();
     SetupPostProcessingMenu();
@@ -179,6 +180,18 @@ void Game::SetupGrass()
     grassRenderer.SetWindDirection({1.0f, 0.5f});
     grassRenderer.SetWindStrength(0.5f);
     grassRenderer.SetWindSpeed(2.0f);
+}
+
+void Game::SetupWater()
+{
+    // Initialize water renderer with a large water plane beneath the map
+    waterRenderer.SetWaterSize(50.0f, 50.0f); // 50x50 meter water surface
+    waterRenderer.SetWaterLevel(-0.5f);       // Place slightly below ground plane (y=0)
+    waterRenderer.Init();
+
+    // Set light direction to match the sun
+    Vector3 sunDirection = {0.3f, 0.5f, 0.8f};
+    waterRenderer.SetLightDirection(sunDirection);
 }
 
 void Game::SetupCollisions()
@@ -382,6 +395,7 @@ void Game::UpdatePlaying()
 
     cameraController.Update(deltaTime);
     grassRenderer.Update(deltaTime, cameraController.camera);
+    waterRenderer.Update(deltaTime, cameraController.camera);
     skybox.Update(deltaTime);
 
     HandleInput(deltaTime);
@@ -740,6 +754,9 @@ void Game::DrawScene()
     // Draw collision boxes for debugging
     if (showCollisionBoxes)
         collisionSystem.DrawDebug(false);
+
+    // Draw water (semi-transparent, after opaque geometry)
+    waterRenderer.Draw();
 
     // Draw grass LAST (after all opaque geometry, for proper depth testing)
     if (showGrass)

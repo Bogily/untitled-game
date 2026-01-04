@@ -11,6 +11,7 @@
 #include "../graphics/CameraController.h"
 #include "../graphics/Renderer.h"
 #include "../graphics/GrassRenderer.h"
+#include "../graphics/WaterRenderer.h"
 #include "../graphics/RenderPipeline.h"
 #include "GameState.h"
 #include <vector>
@@ -48,6 +49,7 @@ private:
     Renderer renderer;
     CollisionSystem collisionSystem;
     GrassRenderer grassRenderer;
+    WaterRenderer waterRenderer;
     RenderPipeline renderPipeline;
     Mesh slopeMesh;
     Model slopeModel;
@@ -91,6 +93,7 @@ private:
     void SetupSkybox();
     void SetupRenderer();
     void SetupGrass();
+    void SetupWater();
     void SetupCollisions();
 
     void SetupDebugMenu();
