@@ -145,8 +145,8 @@ void Game::SetupModels()
 void Game::SetupSkybox()
 {
     skybox.Load("assets/shader/skybox.vs", "assets/shader/skybox.fs");
-    skybox.SetSkyColor({0.0f, 0.0f, 0.0f});
-    skybox.SetCloudColor({1.0f, 1.0f, 0.0f});
+    skybox.SetSkyColor({0.5f, 0.5f, 1.0f});
+    skybox.SetCloudColor({1.0f, 1.0f, 1.0f});
 
     // Configure sun to match directional light
     Vector3 sunDirection = {0.3f, 0.5f, 0.8f};
