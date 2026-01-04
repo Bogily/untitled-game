@@ -35,6 +35,7 @@ public:
     void SetWindDirection(Vector2 direction) { windDirection = direction; }
     void SetWindStrength(float strength) { windStrength = strength; }
     void SetWindSpeed(float speed) { windSpeed = speed; }
+    void SetFOVCullingMultiplier(float multiplier) { fovCullingMultiplier = multiplier; }
 
 private:
     // Instance data: xyz = position, w = scale
@@ -74,6 +75,9 @@ private:
     float windStrength;
     float windSpeed;
     float currentTime;
+
+    // Culling parameters
+    float fovCullingMultiplier; // Multiplier for FOV during culling (>1.0 = less aggressive)
 
     // Stats
     int visibleCount;

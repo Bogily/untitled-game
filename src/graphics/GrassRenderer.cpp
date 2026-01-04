@@ -11,7 +11,7 @@
 // No platform-specific code needed!
 
 GrassRenderer::GrassRenderer()
-    : windDirection({1.0f, 0.5f}), windStrength(0.5f), windSpeed(2.0f), currentTime(0.0f), timeLoc(-1), windDirLoc(-1), windStrengthLoc(-1), windSpeedLoc(-1), viewPosLoc(-1), matViewLoc(-1), matProjLoc(-1), lightDirLoc(-1), lightColorLoc(-1), grassColorTopLoc(-1), grassColorBottomLoc(-1), ambientStrengthLoc(-1), visibleCount(0), totalGrassCount(0), areaSize(0.0f), grassBladeMesh({0}), instanceVBO(0), lastUploadedCount(0), updateTimeMs(0.0), drawTimeMs(0.0), computeProgram(0), ssboAllInstances(0), ssboVisibleInstances(0), gpuCullingEnabled(true)
+    : windDirection({1.0f, 0.5f}), windStrength(0.5f), windSpeed(2.0f), currentTime(0.0f), fovCullingMultiplier(1.3f), timeLoc(-1), windDirLoc(-1), windStrengthLoc(-1), windSpeedLoc(-1), viewPosLoc(-1), matViewLoc(-1), matProjLoc(-1), lightDirLoc(-1), lightColorLoc(-1), grassColorTopLoc(-1), grassColorBottomLoc(-1), ambientStrengthLoc(-1), visibleCount(0), totalGrassCount(0), areaSize(0.0f), grassBladeMesh({0}), instanceVBO(0), lastUploadedCount(0), updateTimeMs(0.0), drawTimeMs(0.0), computeProgram(0), ssboAllInstances(0), ssboVisibleInstances(0), gpuCullingEnabled(true)
 {
 }
 
@@ -623,7 +623,9 @@ Frustum GrassRenderer::ExtractFrustum(Camera3D camera)
 
     float aspect = (float)GetScreenWidth() / (float)GetScreenHeight();
     Matrix matView = MatrixLookAt(camera.position, camera.target, camera.up);
-    Matrix matProj = MatrixPerspective(camera.fovy * DEG2RAD, aspect, 0.1f, 1000.0f);
+    // Widen FOV for culling to be less aggressive
+    float cullingFOV = camera.fovy * fovCullingMultiplier;
+    Matrix matProj = MatrixPerspective(cullingFOV * DEG2RAD, aspect, 0.1f, 1000.0f);
     Matrix matViewProj = MatrixMultiply(matView, matProj);
 
     // Left plane
