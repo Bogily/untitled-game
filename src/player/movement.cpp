@@ -277,3 +277,18 @@ void Player::UpdatePlayerMovementWithCollision(Camera3D &camera, CollisionSystem
     camera.position.z = position.z - cosf(yawRad) * cosf(pitchRad) * distance;
     camera.target = Vector3Add(position, {0.0f, 1.0f, 0.0f});
 }
+Ray Player::GetForwardRay() const
+{
+    Ray ray = {0};
+    ray.position = Vector3Add(position, {0.0f, eyeHeight, 0.0f}); // Eye level
+
+    // Calculate forward direction based on PLAYER BODY rotation (where character is facing)
+    float yawRad = playerYaw * DEG2RAD;
+    
+    // Calculate the 3D direction vector from yaw
+    ray.direction.x = sinf(yawRad);
+    ray.direction.y = 0.0f;
+    ray.direction.z = cosf(yawRad);
+    
+    return ray;
+}

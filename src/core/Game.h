@@ -8,11 +8,13 @@
 #include "../utils/PostProcessingMenu.h"
 #include "../graphics/Skybox.h"
 #include "../graphics/BillboardText.h"
+#include "../graphics/SpeechBubble.h"
 #include "../graphics/CameraController.h"
 #include "../graphics/Renderer.h"
 #include "../graphics/GrassRenderer.h"
 #include "../graphics/WaterRenderer.h"
 #include "../graphics/RenderPipeline.h"
+#include "../world/NPC.h"
 #include "GameState.h"
 #include <vector>
 
@@ -55,6 +57,10 @@ private:
     Model slopeModel;
     Model pbrTestSphere;
 
+    // NPCs and speech bubbles
+    std::vector<NPC> npcs;
+    Graphics::SpeechBubbleManager speechBubbleManager;
+
     // PBR world objects
     Model pbrRedCube;
     Model pbrBlueTower;
@@ -74,6 +80,9 @@ private:
     bool showCollisionBoxes = true;
     bool showPlayerHitbox = true;
     bool showGrass = true;
+    
+    // Gameplay tweakables
+    float npcInteractionRange = 3.0f;
 
     // Post-processing settings (controlled by PostProcessingMenu)
     bool enablePostProcessing = true;
@@ -95,6 +104,7 @@ private:
     void SetupGrass();
     void SetupWater();
     void SetupCollisions();
+    void SetupNPCs();
 
     void SetupDebugMenu();
     void SetupPostProcessingMenu();

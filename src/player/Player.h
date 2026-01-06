@@ -35,4 +35,5 @@ public:
     void UpdatePlayerMovement(Camera3D &camera);
     void UpdatePlayerMovementWithCollision(Camera3D &camera, CollisionSystem *collisionSystem);
     void PlayerRayCast();
+    Ray GetForwardRay() const;
 };

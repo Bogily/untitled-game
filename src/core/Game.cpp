@@ -41,6 +41,7 @@ void Game::Init()
     SetupGrass();
     SetupWater();
     SetupCollisions();
+    SetupNPCs();
     SetupDebugMenu();
     SetupPostProcessingMenu();
 
@@ -298,6 +299,34 @@ void Game::SetupCollisions()
     collisionSystem.AddBox({-worldSize, wallHeight / 2, 0.0f}, {wallThickness, wallHeight, worldSize * 2}, "West Wall", Fade(GREEN, 0.3f));
 }
 
+void Game::SetupNPCs()
+{
+    // Create some NPCs with different dialogue
+    std::vector<std::string> dialogue1 = {
+        "Hello, adventurer!",
+        "Nice weather today!",
+        "Have you seen the tower?"
+    };
+    npcs.push_back(NPC({5.0f, 0.0f, 5.0f}, "Bob", dialogue1, BLUE));
+
+    std::vector<std::string> dialogue2 = {
+        "Greetings!",
+        "This world is amazing!",
+        "Try jumping around!"
+    };
+    npcs.push_back(NPC({-5.0f, 0.0f, -5.0f}, "Alice", dialogue2, PURPLE));
+
+    std::vector<std::string> dialogue3 = {
+        "Watch out for slopes!",
+        "Press E to talk!",
+        "I love speech bubbles!"
+    };
+    npcs.push_back(NPC({0.0f, 0.0f, 8.0f}, "Charlie", dialogue3, GREEN));
+
+    // Initialize speech bubble manager
+    speechBubbleManager = Graphics::SpeechBubbleManager(10);
+}
+
 void Game::SetupDebugMenu()
 {
     debugMenu.AddBool("Show Grid", &showGrid);
@@ -313,6 +342,7 @@ void Game::SetupDebugMenu()
     debugMenu.AddFloat("Collision Radius", &player.collisionRadius, 0.1f, 2.0f, 0.05f);
     debugMenu.AddFloat("Collision Height", &player.collisionHeight, 0.5f, 3.0f, 0.1f);
     debugMenu.AddFloat("Eye Height", &player.eyeHeight, 0.5f, 2.5f, 0.1f);
+    debugMenu.AddFloat("Interaction Range", &npcInteractionRange, 1.0f, 10.0f, 0.5f);
 
     std::vector<std::string> modelNames;
     modelNames.reserve(customModel.getModelCount());
@@ -397,6 +427,56 @@ void Game::UpdatePlaying()
     grassRenderer.Update(deltaTime, cameraController.camera);
     waterRenderer.Update(deltaTime, cameraController.camera);
     skybox.Update(deltaTime);
+
+    // Update NPCs
+    for (auto& npc : npcs)
+    {
+        npc.SetInteractionRange(npcInteractionRange); // Sync with global setting
+        npc.Update(player.position);
+    }
+
+    speechBubbleManager.UpdateAll(deltaTime);
+
+    // Handle NPC interaction (E key to talk)
+    // Interaction requires:
+    // 1. Player within interaction radius (npc.IsInteractable())
+    // 2. Player looking at NPC (Raycast hit)
+    // 3. No active speech bubbles (Spam prevention)
+    if (IsKeyPressed(KEY_E))
+    {
+        if (speechBubbleManager.GetActiveCount() == 0)
+        {
+            Ray playerRay = player.GetForwardRay();
+
+            for (auto& npc : npcs)
+            {
+                // Check distance (IsInteractable)
+                if (npc.IsInteractable()) 
+                {
+                    // Check if player is facing NPC (Dot Product)
+                    Vector3 toNpc = Vector3Subtract(npc.GetPosition(), player.position);
+                    toNpc.y = 0; // Ignore height difference
+                    
+                    if (Vector3LengthSqr(toNpc) > 0.001f)
+                    {
+                        toNpc = Vector3Normalize(toNpc);
+                        Vector3 playerDir = { playerRay.direction.x, 0, playerRay.direction.z }; // Player body forward
+                        
+                        // Check alignment (dot > 0.5 means roughly within 60 degrees cone)
+                        float dot = Vector3DotProduct(playerDir, toNpc);
+                        
+                        if (dot > 0.5f) 
+                        {
+                            std::string dialogue = npc.GetNextDialogue();
+                            // Pass reference to position so bubble follows NPC
+                            speechBubbleManager.ShowBubble(dialogue, npc.GetPosition(), &npc.GetPositionRef(), 4.0f);
+                            break; // Interact with only one
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     HandleInput(deltaTime);
     HandleCameraControls();
@@ -755,12 +835,21 @@ void Game::DrawScene()
     if (showCollisionBoxes)
         collisionSystem.DrawDebug(false);
 
+    // Draw NPCs
+    for (auto& npc : npcs)
+    {
+        npc.Draw();
+    }
+
     // Draw water (semi-transparent, after opaque geometry)
     waterRenderer.Draw();
 
     // Draw grass LAST (after all opaque geometry, for proper depth testing)
     if (showGrass)
         grassRenderer.Draw(cameraController.camera);
+
+    // Draw speech bubble backgrounds (must be in 3D mode)
+    speechBubbleManager.DrawBackgrounds(cameraController.camera);
 }
 
 void Game::DrawUI()
@@ -779,6 +868,9 @@ void Game::Draw3DBillboards()
     BillboardText::DrawText3DWithBackground("Blue Tower", blueTowerLabel, cameraController.camera, UI_TEXT_SIZE, WHITE, Fade(BLUE, 0.7f));
     BillboardText::DrawText3DScaled("Player", playerLabel, cameraController.camera, 40.0f, 20.0f, GREEN);
     BillboardText::DrawText3DWithLine("Target", GameConstants::WORLD_CENTER, cameraController.camera, 18, YELLOW, ORANGE, 40.0f);
+
+    // Draw NPC speech bubble TEXT (must be in 2D/UI mode)
+    speechBubbleManager.DrawText(cameraController.camera);
 }
 
 void Game::Draw2DUI()
@@ -786,8 +878,19 @@ void Game::Draw2DUI()
     int yPos = UI_MARGIN;
 
     // Controls help
-    DrawText("WASD: Move | Mouse: Look | TAB: Toggle Cursor | DELETE: Exit", UI_MARGIN, yPos, UI_TEXT_SIZE, DARKGRAY);
+    DrawText("WASD: Move | Mouse: Look | E: Talk to NPC | TAB: Toggle Cursor | DELETE: Exit", UI_MARGIN, yPos, UI_TEXT_SIZE, DARKGRAY);
     yPos += UI_LINE_SPACING;
+
+    // NPC interaction hint
+    for (const auto& npc : npcs)
+    {
+        if (npc.IsInteractable())
+        {
+            DrawText(TextFormat("[E] Talk to %s", npc.GetName().c_str()), UI_MARGIN, yPos, UI_TEXT_SIZE, YELLOW);
+            yPos += UI_LINE_SPACING;
+            break; // Only show one hint at a time
+        }
+    }
 
     // Camera mode (always shown)
     const char *modeText = "";
