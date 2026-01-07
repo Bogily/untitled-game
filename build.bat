@@ -28,6 +28,15 @@ if not exist "build" mkdir build
 :: Navigate to build directory
 cd build
 
+:: Clean CMake cache to avoid generator conflicts
+if exist "CMakeCache.txt" (
+    echo Cleaning CMake cache...
+    del /F /Q CMakeCache.txt >nul 2>&1
+)
+if exist "CMakeFiles" (
+    rmdir /S /Q CMakeFiles >nul 2>&1
+)
+
 :: Run CMake to generate MinGW Makefiles
 echo Running CMake...
 cmake -G "MinGW Makefiles" -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ ..
