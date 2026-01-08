@@ -80,13 +80,17 @@ private:
     bool showCollisionBoxes = true;
     bool showPlayerHitbox = true;
     bool showGrass = true;
-    
+
     // Gameplay tweakables
     float npcInteractionRange = 3.0f;
 
     // Post-processing settings (controlled by PostProcessingMenu)
     bool enablePostProcessing = true;
     bool enableGrayscale = false;
+
+    // Rendering settings
+    bool enableForwardPlus = false;
+    bool previousForwardPlus = false;
 
     // Model selection
     int currentModelIndex = 0;
@@ -110,6 +114,7 @@ private:
     void SetupPostProcessingMenu();
     void UpdateSettings();
     void DrawSettings();
+    void ApplyRenderingMode(); // Apply Forward+ or standard PBR shaders to models
     void HandleInput(float deltaTime);
     void HandleCameraControls();
     void UpdatePlayer(float deltaTime);

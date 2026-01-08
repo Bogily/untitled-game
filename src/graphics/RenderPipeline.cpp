@@ -1,12 +1,15 @@
 #include "RenderPipeline.h"
 #include "PostProcessingSystem.h"
+#include "ForwardPlusSystem.h"
 
 RenderPipeline::RenderPipeline()
     : screenWidth(0),
       screenHeight(0),
       postProcessingEnabled(true),
+      forwardPlusEnabled(false),
       initialized(false),
       postProcessing(nullptr),
+      forwardPlus(nullptr),
       sunDirection({0.3f, 0.5f, 0.8f})
 {
 }
@@ -31,6 +34,10 @@ void RenderPipeline::Init(int width, int height)
     postProcessing = new PostProcessingSystem();
     postProcessing->Init(width, height);
 
+    // Create Forward+ system
+    forwardPlus = new ForwardPlusSystem();
+    forwardPlus->Init(width, height);
+
     initialized = true;
     TraceLog(LOG_INFO, "RenderPipeline: Initialized (%dx%d)", width, height);
 }
@@ -42,6 +49,13 @@ void RenderPipeline::Shutdown()
         postProcessing->Cleanup();
         delete postProcessing;
         postProcessing = nullptr;
+    }
+
+    if (forwardPlus)
+    {
+        forwardPlus->Shutdown();
+        delete forwardPlus;
+        forwardPlus = nullptr;
     }
 
     initialized = false;

@@ -1,5 +1,6 @@
 #include "Game.h"
 #include "../graphics/PBRSystem.h"
+#include "../graphics/ForwardPlusSystem.h"
 #include "../graphics/PostProcessingSystem.h"
 #include "rlgl.h"
 
@@ -101,9 +102,9 @@ void Game::SetupModels()
     Mesh sphereMesh = GenMeshSphere(1.0f, 64, 64);
     pbrTestSphere = LoadModelFromMesh(sphereMesh);
 
-    // Apply PBR shader with material properties
+    // Apply PBR shader with material properties (will be updated when switching rendering modes)
     Vector4 albedo = {0.8f, 0.2f, 0.2f, 1.0f}; // Red color
-    float metallic = 0.0f;
+    float metallic = 1.0f;
     float roughness = 0.3f;
     gPBR.ApplyToModel(pbrTestSphere, albedo, metallic, roughness);
 
@@ -142,6 +143,8 @@ void Game::SetupModels()
 
     pbrSteepRamp = LoadModelFromMesh(GenMeshCube(3.0f, 0.5f, 4.0f));
     gPBR.ApplyToModel(pbrSteepRamp, {0.5f, 0.1f, 0.1f, 1.0f}, 0.0f, 0.6f);
+
+    TraceLog(LOG_INFO, "Game: Models setup complete");
 }
 
 void Game::SetupSkybox()
@@ -164,12 +167,27 @@ void Game::SetupRenderer()
     // Initialize PBR system
     gPBR.Init();
 
-    // Initialize render pipeline with post-processing
+    // Initialize render pipeline with post-processing and Forward+
     renderPipeline.Init(SCREEN_WIDTH, SCREEN_HEIGHT);
 
+    // Setup lights for standard PBR (from PBRSystem.cpp, already done in PBRSystem::Init)
     // Create sun directional light
     Vector3 sunDirection = {0.3f, 0.5f, 0.8f};
     gPBR.CreateDirectionalLight(sunDirection, {1.0f, 0.95f, 0.8f, 1.0f}, 2.0f);
+
+    // Setup lights for Forward+ system with the same configuration
+    if (renderPipeline.GetForwardPlus() && renderPipeline.GetForwardPlus()->IsInitialized())
+    {
+        // Add directional light (sun)
+        gForwardPlus.CreateDirectionalLight(sunDirection, {1.0f, 0.95f, 0.8f, 1.0f}, 2.0f);
+
+        // Add point lights matching PBRSystem configuration
+        gForwardPlus.CreatePointLight({-5.0f, 4.0f, -5.0f}, {1.0f, 0.9f, 0.8f, 1.0f}, 12.0f, 15.0f);
+        gForwardPlus.CreatePointLight({5.0f, 4.0f, 5.0f}, {0.8f, 0.9f, 1.0f, 1.0f}, 12.0f, 15.0f);
+        gForwardPlus.CreatePointLight({0.0f, 6.0f, 0.0f}, {1.0f, 1.0f, 1.0f, 1.0f}, 15.0f, 20.0f);
+
+        TraceLog(LOG_INFO, "Game: Forward+ lights configured");
+    }
 }
 
 void Game::SetupGrass()
@@ -305,22 +323,19 @@ void Game::SetupNPCs()
     std::vector<std::string> dialogue1 = {
         "Hello, adventurer!",
         "Nice weather today!",
-        "Have you seen the tower?"
-    };
+        "Have you seen the tower?"};
     npcs.push_back(NPC({5.0f, 0.0f, 5.0f}, "Bob", dialogue1, BLUE));
 
     std::vector<std::string> dialogue2 = {
         "Greetings!",
         "This world is amazing!",
-        "Try jumping around!"
-    };
+        "Try jumping around!"};
     npcs.push_back(NPC({-5.0f, 0.0f, -5.0f}, "Alice", dialogue2, PURPLE));
 
     std::vector<std::string> dialogue3 = {
         "Watch out for slopes!",
         "Press E to talk!",
-        "I love speech bubbles!"
-    };
+        "I love speech bubbles!"};
     npcs.push_back(NPC({0.0f, 0.0f, 8.0f}, "Charlie", dialogue3, GREEN));
 
     // Initialize speech bubble manager
@@ -336,6 +351,7 @@ void Game::SetupDebugMenu()
     debugMenu.AddBool("Show Collision Boxes", &showCollisionBoxes);
     debugMenu.AddBool("Show Player Hitbox", &showPlayerHitbox);
     debugMenu.AddBool("Show Grass", &showGrass);
+    debugMenu.AddBool("Enable Forward+ Rendering", &enableForwardPlus);
     debugMenu.AddFloat("Jump Strength", &player.jumpStrength, 1.0f, 20.0f, 0.1f);
     debugMenu.AddFloat("Gravity", &player.gravity, -50.0f, -5.0f, 0.1f);
     debugMenu.AddFloat("Sprint Multiplier", &player.sprintMultiplier, 1.0f, 5.0f, 0.1f);
@@ -406,10 +422,18 @@ void Game::UpdatePlaying()
     postProcessingMenu.Update();
 
     // Update PBR system with camera position
-    gPBR.Update(cameraController.camera);
+    if (enableForwardPlus && renderPipeline.GetForwardPlus() && renderPipeline.GetForwardPlus()->IsInitialized())
+    {
+        gForwardPlus.Update(cameraController.camera);
+    }
+    else
+    {
+        gPBR.Update(cameraController.camera);
+    }
 
     // Sync render pipeline settings
     renderPipeline.EnablePostProcessing(enablePostProcessing);
+    renderPipeline.EnableForwardPlus(enableForwardPlus);
     if (renderPipeline.GetPostProcessing())
     {
         renderPipeline.GetPostProcessing()->SetGrayscaleEnabled(enableGrayscale);
@@ -421,6 +445,13 @@ void Game::UpdatePlaying()
         previousModelIndex = currentModelIndex;
     }
 
+    // Check if rendering mode changed and re-apply shaders
+    if (enableForwardPlus != previousForwardPlus)
+    {
+        ApplyRenderingMode();
+        previousForwardPlus = enableForwardPlus;
+    }
+
     // display mode is handled globally in ApplyDisplayModeIfChanged()
 
     cameraController.Update(deltaTime);
@@ -429,7 +460,7 @@ void Game::UpdatePlaying()
     skybox.Update(deltaTime);
 
     // Update NPCs
-    for (auto& npc : npcs)
+    for (auto &npc : npcs)
     {
         npc.SetInteractionRange(npcInteractionRange); // Sync with global setting
         npc.Update(player.position);
@@ -448,24 +479,24 @@ void Game::UpdatePlaying()
         {
             Ray playerRay = player.GetForwardRay();
 
-            for (auto& npc : npcs)
+            for (auto &npc : npcs)
             {
                 // Check distance (IsInteractable)
-                if (npc.IsInteractable()) 
+                if (npc.IsInteractable())
                 {
                     // Check if player is facing NPC (Dot Product)
                     Vector3 toNpc = Vector3Subtract(npc.GetPosition(), player.position);
                     toNpc.y = 0; // Ignore height difference
-                    
+
                     if (Vector3LengthSqr(toNpc) > 0.001f)
                     {
                         toNpc = Vector3Normalize(toNpc);
-                        Vector3 playerDir = { playerRay.direction.x, 0, playerRay.direction.z }; // Player body forward
-                        
+                        Vector3 playerDir = {playerRay.direction.x, 0, playerRay.direction.z}; // Player body forward
+
                         // Check alignment (dot > 0.5 means roughly within 60 degrees cone)
                         float dot = Vector3DotProduct(playerDir, toNpc);
-                        
-                        if (dot > 0.5f) 
+
+                        if (dot > 0.5f)
                         {
                             std::string dialogue = npc.GetNextDialogue();
                             // Pass reference to position so bubble follows NPC
@@ -591,6 +622,41 @@ void Game::UpdatePlayer(float deltaTime)
 void Game::UpdateSettings()
 {
     settingsMenu.Update();
+}
+
+void Game::ApplyRenderingMode()
+{
+    // Re-apply shaders to all PBR models based on current rendering mode
+    if (enableForwardPlus && renderPipeline.GetForwardPlus() && renderPipeline.GetForwardPlus()->IsInitialized())
+    {
+        // Apply Forward+ shaders
+        gForwardPlus.ApplyToModel(pbrTestSphere, {0.8f, 0.2f, 0.2f, 1.0f}, 0.0f, 0.3f);
+        gForwardPlus.ApplyToModel(pbrRedCube, {0.8f, 0.1f, 0.1f, 1.0f}, 0.2f, 0.4f);
+        gForwardPlus.ApplyToModel(pbrBlueTower, {0.1f, 0.2f, 0.8f, 1.0f}, 0.0f, 0.3f);
+        gForwardPlus.ApplyToModel(pbrYellowSphere, {0.9f, 0.9f, 0.2f, 1.0f}, 0.0f, 0.6f);
+        gForwardPlus.ApplyToModel(pbrOrangeSphere, {0.9f, 0.5f, 0.1f, 1.0f}, 0.1f, 0.3f);
+        gForwardPlus.ApplyToModel(pbrCapsule, {0.3f, 0.7f, 0.9f, 1.0f}, 0.0f, 0.5f);
+        gForwardPlus.ApplyToModel(pbrCylinder, {0.5f, 0.2f, 0.8f, 1.0f}, 0.0f, 0.4f);
+        gForwardPlus.ApplyToModel(pbrGroundPlane, {0.3f, 0.3f, 0.3f, 1.0f}, 0.0f, 0.8f);
+        gForwardPlus.ApplyToModel(pbrRamp, {0.4f, 0.25f, 0.15f, 1.0f}, 0.0f, 0.7f);
+        gForwardPlus.ApplyToModel(pbrSteepRamp, {0.5f, 0.1f, 0.1f, 1.0f}, 0.0f, 0.6f);
+        TraceLog(LOG_INFO, "Game: Applied Forward+ shaders to all models");
+    }
+    else
+    {
+        // Apply standard PBR shaders
+        gPBR.ApplyToModel(pbrTestSphere, {0.8f, 0.2f, 0.2f, 1.0f}, 0.0f, 0.3f);
+        gPBR.ApplyToModel(pbrRedCube, {0.8f, 0.1f, 0.1f, 1.0f}, 0.2f, 0.4f);
+        gPBR.ApplyToModel(pbrBlueTower, {0.1f, 0.2f, 0.8f, 1.0f}, 0.0f, 0.3f);
+        gPBR.ApplyToModel(pbrYellowSphere, {0.9f, 0.9f, 0.2f, 1.0f}, 0.0f, 0.6f);
+        gPBR.ApplyToModel(pbrOrangeSphere, {0.9f, 0.5f, 0.1f, 1.0f}, 0.1f, 0.3f);
+        gPBR.ApplyToModel(pbrCapsule, {0.3f, 0.7f, 0.9f, 1.0f}, 0.0f, 0.5f);
+        gPBR.ApplyToModel(pbrCylinder, {0.5f, 0.2f, 0.8f, 1.0f}, 0.0f, 0.4f);
+        gPBR.ApplyToModel(pbrGroundPlane, {0.3f, 0.3f, 0.3f, 1.0f}, 0.0f, 0.8f);
+        gPBR.ApplyToModel(pbrRamp, {0.4f, 0.25f, 0.15f, 1.0f}, 0.0f, 0.7f);
+        gPBR.ApplyToModel(pbrSteepRamp, {0.5f, 0.1f, 0.1f, 1.0f}, 0.0f, 0.6f);
+        TraceLog(LOG_INFO, "Game: Applied standard PBR shaders to all models");
+    }
 }
 
 void Game::DrawSettings()
@@ -836,7 +902,7 @@ void Game::DrawScene()
         collisionSystem.DrawDebug(false);
 
     // Draw NPCs
-    for (auto& npc : npcs)
+    for (auto &npc : npcs)
     {
         npc.Draw();
     }
@@ -882,7 +948,7 @@ void Game::Draw2DUI()
     yPos += UI_LINE_SPACING;
 
     // NPC interaction hint
-    for (const auto& npc : npcs)
+    for (const auto &npc : npcs)
     {
         if (npc.IsInteractable())
         {
