@@ -33,9 +33,9 @@ if exist "CMakeCache.txt" (
     echo Cleaning CMake cache...
     del /F /Q CMakeCache.txt >nul 2>&1
 )
-if exist "CMakeFiles" (
-    rmdir /S /Q CMakeFiles >nul 2>&1
-)
+::if exist "CMakeFiles" (
+::    rmdir /S /Q CMakeFiles >nul 2>&1
+::)
 
 :: Run CMake to generate MinGW Makefiles
 echo Running CMake...
