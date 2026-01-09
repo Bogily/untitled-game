@@ -138,7 +138,134 @@ void Game::SetupModels()
     modelID_Ramp = geoRenderer->RegisterModel("Ramp", &pbrRamp);
     modelID_SteepRamp = geoRenderer->RegisterModel("SteepRamp", &pbrSteepRamp);
 
-    TraceLog(LOG_INFO, "Game: Models setup complete");
+    // Create world entities
+    using namespace World;
+
+    // Ground plane - render only
+    {
+        Entity e = world.CreateEntity();
+        world.AddMetadata(e, "GroundPlane", true);
+        world.AddTransform(e, GameConstants::WORLD_CENTER);
+        world.AddRender(e, &pbrGroundPlane, modelID_GroundPlane, {77, 77, 77, 255}, 0.0f, 0.8f);
+    }
+
+    // Test sphere at origin
+    {
+        Entity e = world.CreateEntity();
+        world.AddMetadata(e, "TestSphere", true);
+        world.AddTransform(e, {0.0f, 1.0f, 0.0f});
+        world.AddRender(e, &pbrTestSphere, modelID_TestSphere, {204, 51, 51, 255}, 1.0f, 0.3f);
+    }
+
+    // Red cube - render + collision
+    {
+        Entity e = world.CreateEntity();
+        world.AddMetadata(e, "RedCube", true);
+        world.AddTransform(e, GameConstants::RED_CUBE_POS);
+        world.AddRender(e, &pbrRedCube, modelID_RedCube, {204, 26, 26, 255}, 0.2f, 0.4f);
+        world.AddCollision(e, COLLISION_BOX, {2.0f, 2.0f, 2.0f}, 0.0f, 0.0f, {0.0f, 0.0f, 0.0f}, RED);
+    }
+
+    // Blue tower - render + collision
+    {
+        Entity e = world.CreateEntity();
+        world.AddMetadata(e, "BlueTower", true);
+        world.AddTransform(e, GameConstants::BLUE_TOWER_POS);
+        world.AddRender(e, &pbrBlueTower, modelID_BlueTower, {26, 51, 204, 255}, 0.0f, 0.3f);
+        world.AddCollision(e, COLLISION_BOX, {1.0f, 4.0f, 1.0f}, 0.0f, 0.0f, {0.0f, 0.0f, 0.0f}, BLUE);
+    }
+
+    // Yellow sphere - render + collision
+    {
+        Entity e = world.CreateEntity();
+        world.AddMetadata(e, "YellowSphere", true);
+        world.AddTransform(e, {-6.0f, 1.5f, 2.0f});
+        world.AddRender(e, &pbrYellowSphere, modelID_YellowSphere, {230, 230, 51, 255}, 0.0f, 0.6f);
+        world.AddCollision(e, COLLISION_SPHERE, {0.0f, 0.0f, 0.0f}, 1.5f, 0.0f, {0.0f, 0.0f, 0.0f}, YELLOW);
+    }
+
+    // Orange sphere - render + collision
+    {
+        Entity e = world.CreateEntity();
+        world.AddMetadata(e, "OrangeSphere", true);
+        world.AddTransform(e, {6.0f, 1.0f, -2.0f});
+        world.AddRender(e, &pbrOrangeSphere, modelID_OrangeSphere, {230, 128, 26, 255}, 0.1f, 0.3f);
+        world.AddCollision(e, COLLISION_SPHERE, {0.0f, 0.0f, 0.0f}, 1.0f, 0.0f, {0.0f, 0.0f, 0.0f}, ORANGE);
+    }
+
+    // Capsule pillar - render + collision
+    {
+        Entity e = world.CreateEntity();
+        world.AddMetadata(e, "Capsule", true);
+        world.AddTransform(e, {0.0f, 2.0f, 6.0f});
+        world.AddRender(e, &pbrCapsule, modelID_Capsule, {77, 179, 230, 255}, 0.0f, 0.5f);
+        world.AddCollision(e, COLLISION_CAPSULE, {0.0f, 0.0f, 0.0f}, 0.5f, 3.0f, {0.0f, 0.0f, 0.0f}, SKYBLUE);
+    }
+
+    // Cylinder column - render + collision
+    {
+        Entity e = world.CreateEntity();
+        world.AddMetadata(e, "Cylinder", true);
+        world.AddTransform(e, {-2.0f, 2.0f, -6.0f});
+        world.AddRender(e, &pbrCylinder, modelID_Cylinder, {128, 51, 204, 255}, 0.0f, 0.4f);
+        world.AddCollision(e, COLLISION_CYLINDER, {0.0f, 0.0f, 0.0f}, 0.8f, 4.0f, {0.0f, 0.0f, 0.0f}, PURPLE);
+    }
+
+    // Main ramp - render + collision
+    {
+        Vector3 rampCenter = {8.0f, 1.5f, -7.0f};
+        float rampWidth = 4.0f;
+        float rampLength = 6.0f;
+        float rampMaxHeight = 3.0f;
+        float slopeAngle = atan2f(rampMaxHeight, rampLength) * RAD2DEG;
+
+        Entity e = world.CreateEntity();
+        world.AddMetadata(e, "MainRamp", true);
+        world.AddTransform(e, rampCenter);
+        world.AddRender(e, &pbrRamp, modelID_Ramp, {102, 64, 38, 255}, 0.0f, 0.7f);
+        world.AddCollision(e, COLLISION_BOX, {rampWidth, 0.5f, rampLength}, 0.0f, 0.0f, {slopeAngle, 0.0f, 0.0f}, Fade(BROWN, 0.5f));
+
+        // Side walls for main ramp
+        float slopeWallThickness = 0.3f;
+        Entity leftWall = world.CreateEntity();
+        world.AddMetadata(leftWall, "Slope Wall Left", true);
+        world.AddTransform(leftWall, {rampCenter.x - rampWidth / 2.0f - slopeWallThickness / 2.0f, rampMaxHeight / 2.0f, rampCenter.z});
+        world.AddCollision(leftWall, COLLISION_BOX, {slopeWallThickness, rampMaxHeight, rampLength}, 0.0f, 0.0f, {0.0f, 0.0f, 0.0f}, DARKBROWN);
+
+        Entity rightWall = world.CreateEntity();
+        world.AddMetadata(rightWall, "Slope Wall Right", true);
+        world.AddTransform(rightWall, {rampCenter.x + rampWidth / 2.0f + slopeWallThickness / 2.0f, rampMaxHeight / 2.0f, rampCenter.z});
+        world.AddCollision(rightWall, COLLISION_BOX, {slopeWallThickness, rampMaxHeight, rampLength}, 0.0f, 0.0f, {0.0f, 0.0f, 0.0f}, DARKBROWN);
+    }
+
+    // Steep ramp - collision only (visual shown via debug collision boxes)
+    {
+        Vector3 steepRampCenter = {-8.0f, 2.0f, -7.0f};
+        float steepRampWidth = 3.0f;
+        float steepRampLength = 4.0f;
+        float steepRampHeight = 5.0f;
+        float steepSlopeAngle = atan2f(steepRampHeight, steepRampLength) * RAD2DEG;
+
+        Entity e = world.CreateEntity();
+        world.AddMetadata(e, "SteepRamp", true);
+        world.AddTransform(e, steepRampCenter);
+        world.AddRender(e, &pbrSteepRamp, modelID_SteepRamp, {128, 26, 26, 255}, 0.0f, 0.6f);
+        world.AddCollision(e, COLLISION_BOX, {steepRampWidth, 0.5f, steepRampLength}, 0.0f, 0.0f, {steepSlopeAngle, 0.0f, 0.0f}, Fade(MAROON, 0.5f));
+
+        // Side walls for steep ramp
+        float slopeWallThickness = 0.3f;
+        Entity leftWall = world.CreateEntity();
+        world.AddMetadata(leftWall, "Steep Slope Wall Left", true);
+        world.AddTransform(leftWall, {steepRampCenter.x - steepRampWidth / 2.0f - slopeWallThickness / 2.0f, steepRampHeight / 2.0f, steepRampCenter.z});
+        world.AddCollision(leftWall, COLLISION_BOX, {slopeWallThickness, steepRampHeight, steepRampLength}, 0.0f, 0.0f, {0.0f, 0.0f, 0.0f}, DARKBROWN);
+
+        Entity rightWall = world.CreateEntity();
+        world.AddMetadata(rightWall, "Steep Slope Wall Right", true);
+        world.AddTransform(rightWall, {steepRampCenter.x + steepRampWidth / 2.0f + slopeWallThickness / 2.0f, steepRampHeight / 2.0f, steepRampCenter.z});
+        world.AddCollision(rightWall, COLLISION_BOX, {slopeWallThickness, steepRampHeight, steepRampLength}, 0.0f, 0.0f, {0.0f, 0.0f, 0.0f}, DARKBROWN);
+    }
+
+    TraceLog(LOG_INFO, "Game: Models setup complete with %d entities", world.GetEntityCount());
 }
 
 void Game::SetupSkybox()
@@ -180,92 +307,49 @@ void Game::SetupWater()
 
 void Game::SetupCollisions()
 {
-    // Add collision boxes for world objects
-    // Red cube at (-4, 1, -4) with size 2x2x2
-    collisionSystem.AddBox(GameConstants::RED_CUBE_POS, {2.0f, 2.0f, 2.0f}, "Red Cube", RED);
+    // Populate collision system from entities
+    const auto &transforms = world.GetTransforms();
+    const auto &collisions = world.GetCollisions();
+    const auto &metadata = world.GetMetadata();
 
-    // Blue tower at (4, 1, 4) with size 1x4x1
-    collisionSystem.AddBox(GameConstants::BLUE_TOWER_POS, {1.0f, 4.0f, 1.0f}, "Blue Tower", BLUE);
+    // Get all entities with Transform + Collision components
+    auto entities = world.GetEntitiesWithComponents(World::COMPONENT_TRANSFORM | World::COMPONENT_COLLISION);
 
-    // Add some spherical obstacles
-    collisionSystem.AddSphere({-6.0f, 1.5f, 2.0f}, 1.5f, "Ball 1", YELLOW);
-    collisionSystem.AddSphere({6.0f, 1.0f, -2.0f}, 1.0f, "Ball 2", ORANGE);
+    for (World::Entity e : entities)
+    {
+        int transformIdx = world.GetTransformIndex(e);
+        int collisionIdx = world.GetCollisionIndex(e);
+        int metadataIdx = world.GetMetadataIndex(e);
 
-    // Add a capsule obstacle
-    collisionSystem.AddCapsule({0.0f, 2.0f, 6.0f}, 0.5f, 3.0f, "Pillar", SKYBLUE);
+        if (transformIdx < 0 || collisionIdx < 0)
+            continue;
 
-    // Add a cylinder
-    collisionSystem.AddCylinder({-2.0f, 2.0f, -6.0f}, 0.8f, 4.0f, "Column", PURPLE);
+        const Vector3 &pos = transforms.positions[transformIdx];
+        CollisionShape shape = collisions.shapes[collisionIdx];
+        const Vector3 &size = collisions.sizes[collisionIdx];
+        float radius = collisions.radii[collisionIdx];
+        float height = collisions.heights[collisionIdx];
+        const Vector3 &rotation = collisions.rotations[collisionIdx];
+        Color debugColor = collisions.debugColors[collisionIdx];
+        std::string name = (metadataIdx >= 0) ? metadata.names[metadataIdx] : "Unknown";
 
-    // Add a slope/ramp
-    // Ramp at position (8, 0, -8) going upward in the +Z direction
-    Vector3 rampCenter = {8.0f, 1.5f, -7.0f};
-    float rampWidth = 4.0f;
-    float rampLength = 6.0f;
-    float rampMaxHeight = 3.0f;
-    float rampThickness = 0.5f;
-
-    // Calculate rotation angle for the slope
-    // atan2(rise, run) gives us the angle
-    float slopeAngle = atan2f(rampMaxHeight, rampLength) * RAD2DEG; // Convert to degrees
-
-    // Main slope collision box - rotated around X axis (pitch)
-    collisionSystem.AddBox(
-        rampCenter,
-        {rampWidth, rampThickness, rampLength},
-        "Main Slope",
-        Fade(BROWN, 0.5f),
-        {slopeAngle, 0, 0} // Pitch rotation
-    );
-
-    // Add side walls for the slope
-    float slopeWallThickness = 0.3f;
-    float slopeWallHeight = rampMaxHeight;
-
-    // Left wall
-    collisionSystem.AddBox(
-        {rampCenter.x - rampWidth / 2.0f - slopeWallThickness / 2.0f, slopeWallHeight / 2.0f, rampCenter.z},
-        {slopeWallThickness, slopeWallHeight, rampLength},
-        "Slope Wall Left",
-        DARKBROWN);
-
-    // Right wall
-    collisionSystem.AddBox(
-        {rampCenter.x + rampWidth / 2.0f + slopeWallThickness / 2.0f, slopeWallHeight / 2.0f, rampCenter.z},
-        {slopeWallThickness, slopeWallHeight, rampLength},
-        "Slope Wall Right",
-        DARKBROWN);
-
-    // Add a steep slope (> 45 degrees) to test non-walkable surfaces
-    // This will be at position (-8, 1.5, -7)
-    Vector3 steepRampCenter = {-8.0f, 2.0f, -7.0f};
-    float steepRampWidth = 3.0f;
-    float steepRampLength = 4.0f;
-    float steepRampHeight = 5.0f; // Steep: 5 units rise over 4 units run = ~51 degrees
-    float steepRampThickness = 0.5f;
-
-    float steepSlopeAngle = atan2f(steepRampHeight, steepRampLength) * RAD2DEG;
-
-    // Steep slope collision (> 45 degrees - not walkable, player should slide down)
-    collisionSystem.AddBox(
-        steepRampCenter,
-        {steepRampWidth, steepRampThickness, steepRampLength},
-        "Steep Slope (Not Walkable)",
-        Fade(MAROON, 0.5f),
-        {steepSlopeAngle, 0, 0});
-
-    // Side walls for steep slope
-    collisionSystem.AddBox(
-        {steepRampCenter.x - steepRampWidth / 2.0f - slopeWallThickness / 2.0f, steepRampHeight / 2.0f, steepRampCenter.z},
-        {slopeWallThickness, steepRampHeight, steepRampLength},
-        "Steep Slope Wall Left",
-        DARKBROWN);
-
-    collisionSystem.AddBox(
-        {steepRampCenter.x + steepRampWidth / 2.0f + slopeWallThickness / 2.0f, steepRampHeight / 2.0f, steepRampCenter.z},
-        {slopeWallThickness, steepRampHeight, steepRampLength},
-        "Steep Slope Wall Right",
-        DARKBROWN);
+        // Add to collision system based on shape type
+        switch (shape)
+        {
+        case COLLISION_BOX:
+            collisionSystem.AddBox(pos, size, name, debugColor, rotation);
+            break;
+        case COLLISION_SPHERE:
+            collisionSystem.AddSphere(pos, radius, name, debugColor);
+            break;
+        case COLLISION_CAPSULE:
+            collisionSystem.AddCapsule(pos, radius, height, name, debugColor);
+            break;
+        case COLLISION_CYLINDER:
+            collisionSystem.AddCylinder(pos, radius, height, name, debugColor);
+            break;
+        }
+    }
 
     // World boundaries (invisible walls)
     float worldSize = 16.0f;
@@ -428,15 +512,26 @@ void Game::UpdatePlaying()
     geoRenderer->SetCullingRadiusMultiplier(geometryCullMargin);
     renderManager.GetGrassRenderer()->SetCullingRadiusMultiplier(grassCullMargin);
 
-    // Add all static geometry instances (positions from DrawScene)
-    geoRenderer->AddInstance(modelID_GroundPlane, GameConstants::WORLD_CENTER, 1.0f);
-    geoRenderer->AddInstance(modelID_TestSphere, {0, 1, 0}, 1.0f);
-    geoRenderer->AddInstance(modelID_RedCube, GameConstants::RED_CUBE_POS, 1.0f);
-    geoRenderer->AddInstance(modelID_BlueTower, GameConstants::BLUE_TOWER_POS, 1.0f);
-    geoRenderer->AddInstance(modelID_YellowSphere, {-6.0f, 1.5f, 2.0f}, 1.0f);
-    geoRenderer->AddInstance(modelID_OrangeSphere, {6.0f, 1.0f, -2.0f}, 1.0f);
-    geoRenderer->AddInstance(modelID_Capsule, {0.0f, 2.0f, 6.0f}, 1.0f);
-    geoRenderer->AddInstance(modelID_Cylinder, {-2.0f, 0.0f, -6.0f}, 1.0f);
+    // Add all renderable entities
+    const auto &transforms = world.GetTransforms();
+    const auto &renders = world.GetRenders();
+
+    auto renderableEntities = world.GetEntitiesWithComponents(World::COMPONENT_TRANSFORM | World::COMPONENT_RENDER);
+
+    for (World::Entity e : renderableEntities)
+    {
+        int transformIdx = world.GetTransformIndex(e);
+        int renderIdx = world.GetRenderIndex(e);
+
+        if (transformIdx >= 0 && renderIdx >= 0)
+        {
+            const Vector3 &pos = transforms.positions[transformIdx];
+            const Vector3 &scale = transforms.scales[transformIdx];
+            int geoModelID = renders.geometryModelIDs[renderIdx];
+
+            geoRenderer->AddInstance(geoModelID, pos, scale.x); // Uniform scale
+        }
+    }
 
     // Update geometry renderer to perform culling
     renderManager.UpdateGeometry(deltaTime, cameraController.camera);
@@ -791,61 +886,6 @@ void Game::DrawScene()
 
     // Draw culled geometry using GeometryRenderer (GPU frustum culling)
     renderManager.GetGeometryRenderer()->Draw(cameraController.camera);
-
-    // Draw PBR slope/ramp (needs transformation, so drawn manually)
-    Vector3 rampCenter = {8.0f, 1.5f, -7.0f};
-    float rampLength = 6.0f;
-    float rampMaxHeight = 3.0f;
-    float slopeAngle = atan2f(rampMaxHeight, rampLength) * RAD2DEG;
-
-    // Draw the PBR angled slope surface
-    rlPushMatrix();
-    rlTranslatef(rampCenter.x, rampCenter.y, rampCenter.z);
-    rlRotatef(slopeAngle, 1.0f, 0.0f, 0.0f); // Pitch rotation
-    DrawModel(pbrRamp, {0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
-    rlPopMatrix();
-
-    // Ramp side walls (keep as basic geometry for structure)
-    float rampWidth = 4.0f;
-    float slopeWallThickness = 0.3f;
-
-    // Left wall
-    DrawCube(
-        {rampCenter.x - rampWidth / 2.0f - slopeWallThickness / 2.0f, rampMaxHeight / 2.0f, rampCenter.z},
-        slopeWallThickness, rampMaxHeight, rampLength,
-        DARKBROWN);
-
-    // Right wall
-    DrawCube(
-        {rampCenter.x + rampWidth / 2.0f + slopeWallThickness / 2.0f, rampMaxHeight / 2.0f, rampCenter.z},
-        slopeWallThickness, rampMaxHeight, rampLength,
-        DARKBROWN);
-
-    // Draw PBR steep slope
-    Vector3 steepRampCenter = {-8.0f, 2.0f, -7.0f};
-    float steepRampWidth = 3.0f;
-    float steepRampLength = 4.0f;
-    float steepRampHeight = 5.0f;
-
-    float steepSlopeAngle = atan2f(steepRampHeight, steepRampLength) * RAD2DEG;
-
-    // Draw the PBR steep angled slope surface
-    rlPushMatrix();
-    rlTranslatef(steepRampCenter.x, steepRampCenter.y, steepRampCenter.z);
-    rlRotatef(steepSlopeAngle, 1.0f, 0.0f, 0.0f);
-    DrawModel(pbrSteepRamp, {0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
-    rlPopMatrix();
-
-    // Steep slope side walls (keep as basic geometry for structure)
-    DrawCube(
-        {steepRampCenter.x - steepRampWidth / 2.0f - slopeWallThickness / 2.0f, steepRampHeight / 2.0f, steepRampCenter.z},
-        slopeWallThickness, steepRampHeight, steepRampLength,
-        DARKBROWN);
-
-    DrawCube(
-        {steepRampCenter.x + steepRampWidth / 2.0f + slopeWallThickness / 2.0f, steepRampHeight / 2.0f, steepRampCenter.z},
-        slopeWallThickness, steepRampHeight, steepRampLength,
-        DARKBROWN);
 
     // Draw collision boxes for debugging
     if (showCollisionBoxes)

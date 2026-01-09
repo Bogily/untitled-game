@@ -11,6 +11,7 @@
 #include "../graphics/CameraController.h"
 #include "../graphics/RenderManager.h"
 #include "../world/NPC.h"
+#include "../world/World.h"
 #include "GameState.h"
 #include <vector>
 
@@ -45,6 +46,7 @@ private:
     SettingsMenu settingsMenu;
     RenderManager renderManager;
     CollisionSystem collisionSystem;
+    World::WorldManager world; // ECS world manager
     Mesh slopeMesh;
     Model slopeModel;
     Model pbrTestSphere;
