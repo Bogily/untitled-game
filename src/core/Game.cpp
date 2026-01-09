@@ -211,7 +211,7 @@ void Game::SetupModels()
         world.AddCollision(e, COLLISION_CYLINDER, {0.0f, 0.0f, 0.0f}, 0.8f, 4.0f, {0.0f, 0.0f, 0.0f}, PURPLE);
     }
 
-    // Main ramp - render + collision
+    // Main ramp - collision only (visual shown via debug collision boxes)
     {
         Vector3 rampCenter = {8.0f, 1.5f, -7.0f};
         float rampWidth = 4.0f;
@@ -222,7 +222,6 @@ void Game::SetupModels()
         Entity e = world.CreateEntity();
         world.AddMetadata(e, "MainRamp", true);
         world.AddTransform(e, rampCenter);
-        world.AddRender(e, &pbrRamp, modelID_Ramp, {102, 64, 38, 255}, 0.0f, 0.7f);
         world.AddCollision(e, COLLISION_BOX, {rampWidth, 0.5f, rampLength}, 0.0f, 0.0f, {slopeAngle, 0.0f, 0.0f}, Fade(BROWN, 0.5f));
 
         // Side walls for main ramp
@@ -249,7 +248,6 @@ void Game::SetupModels()
         Entity e = world.CreateEntity();
         world.AddMetadata(e, "SteepRamp", true);
         world.AddTransform(e, steepRampCenter);
-        world.AddRender(e, &pbrSteepRamp, modelID_SteepRamp, {128, 26, 26, 255}, 0.0f, 0.6f);
         world.AddCollision(e, COLLISION_BOX, {steepRampWidth, 0.5f, steepRampLength}, 0.0f, 0.0f, {steepSlopeAngle, 0.0f, 0.0f}, Fade(MAROON, 0.5f));
 
         // Side walls for steep ramp
