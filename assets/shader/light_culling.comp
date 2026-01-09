@@ -9,11 +9,11 @@ layout(local_size_x = TILE_SIZE, local_size_y = TILE_SIZE, local_size_z = 1) in;
 struct Light {
     int type;           // 1 = point light, 2 = directional light
     int enabled;
-    vec3 position;      // For point lights OR direction for directional lights
-    float radius;       // Light radius for culling (point lights only)
+    vec2 pad0;          // Align to 16 bytes
+    vec4 positionRadius;// xyz = position/direction, w = radius
     vec4 color;
     float intensity;
-    vec2 padding;       // Alignment padding
+    vec3 pad1;          // Pad to 64 bytes (std430 rule)
 };
 
 struct Plane {
@@ -28,6 +28,7 @@ struct Frustum {
 // Input uniforms
 uniform mat4 viewMatrix;
 uniform mat4 projectionMatrix;
+uniform mat4 inverseProjectionMatrix;
 uniform vec2 screenSize;
 uniform int numLights;
 
@@ -45,117 +46,34 @@ layout(std430, binding = 2) buffer LightGridBuffer {
 };
 
 // Shared memory for tile processing
-shared uint minDepthInt;
-shared uint maxDepthInt;
-shared Frustum tileFrustum;
 shared uint visibleLightCount;
 shared uint visibleLightIndices_shared[MAX_LIGHTS_PER_TILE];
-
-// Convert depth to view space Z
-float depthToViewZ(float depth) {
-    float near = 0.1;
-    float far = 1000.0;
-    float z_ndc = depth * 2.0 - 1.0;
-    return (2.0 * near * far) / (far + near - z_ndc * (far - near));
-}
-
-// Create a plane from three points
-Plane createPlane(vec3 p1, vec3 p2, vec3 p3) {
-    vec3 v1 = p2 - p1;
-    vec3 v2 = p3 - p1;
-    vec3 normal = normalize(cross(v1, v2));
-    float dist = dot(normal, p1);
-    return Plane(normal, dist);
-}
-
-// Check if a sphere intersects the frustum
-bool sphereInFrustum(vec3 center, float radius, Frustum frustum) {
-    for (int i = 0; i < 4; i++) {
-        float distance = dot(frustum.planes[i].normal, center) - frustum.planes[i].distance;
-        if (distance < -radius) {
-            return false;
-        }
-    }
-    return true;
-}
 
 void main() {
     uvec3 tileID = gl_WorkGroupID;
     uvec3 localID = gl_LocalInvocationID;
     uint localIndex = localID.y * TILE_SIZE + localID.x;
     
-    // Initialize shared variables
+    // Initialize shared counter
     if (localIndex == 0) {
-        minDepthInt = 0xFFFFFFFF;
-        maxDepthInt = 0;
         visibleLightCount = 0;
     }
     
     barrier();
     
-    // Calculate tile bounds in screen space
-    vec2 tileMin = vec2(tileID.xy) * TILE_SIZE;
-    vec2 tileMax = tileMin + vec2(TILE_SIZE);
-    
-    // Normalize to [0, 1]
-    vec2 tileMinNorm = tileMin / screenSize;
-    vec2 tileMaxNorm = tileMax / screenSize;
-    
-    // Convert to [-1, 1] NDC
-    vec4 corners[4];
-    corners[0] = vec4(tileMinNorm * 2.0 - 1.0, -1.0, 1.0); // Near bottom-left
-    corners[1] = vec4(vec2(tileMaxNorm.x, tileMinNorm.y) * 2.0 - 1.0, -1.0, 1.0); // Near bottom-right
-    corners[2] = vec4(vec2(tileMinNorm.x, tileMaxNorm.y) * 2.0 - 1.0, -1.0, 1.0); // Near top-left
-    corners[3] = vec4(tileMaxNorm * 2.0 - 1.0, -1.0, 1.0); // Near top-right
-    
-    // Transform corners to view space
-    mat4 invProj = inverse(projectionMatrix);
-    vec3 viewCorners[4];
-    for (int i = 0; i < 4; i++) {
-        vec4 viewCorner = invProj * corners[i];
-        viewCorners[i] = viewCorner.xyz / viewCorner.w;
-    }
-    
-    // Create frustum planes in view space
-    if (localIndex == 0) {
-        vec3 origin = vec3(0.0, 0.0, 0.0);
-        tileFrustum.planes[0] = createPlane(origin, viewCorners[2], viewCorners[0]); // Left
-        tileFrustum.planes[1] = createPlane(origin, viewCorners[1], viewCorners[3]); // Right
-        tileFrustum.planes[2] = createPlane(origin, viewCorners[3], viewCorners[2]); // Top
-        tileFrustum.planes[3] = createPlane(origin, viewCorners[0], viewCorners[1]); // Bottom
-    }
-    
-    barrier();
-    
-    // Cull lights for this tile
+    // Process lights: each thread handles one light at a time
     uint threadCount = TILE_SIZE * TILE_SIZE;
-    uint passCount = (numLights + threadCount - 1) / threadCount;
+    uint passCount = (uint(numLights) + threadCount - 1) / threadCount;
     
     for (uint pass = 0; pass < passCount; pass++) {
         uint lightIndex = pass * threadCount + localIndex;
         
-        if (lightIndex < numLights && lights[lightIndex].enabled == 1) {
-            // Skip directional lights in culling (they affect all tiles)
-            if (lights[lightIndex].type == 2) {
-                // Add directional lights to all tiles
-                uint offset = atomicAdd(visibleLightCount, 1);
-                if (offset < MAX_LIGHTS_PER_TILE) {
-                    visibleLightIndices_shared[offset] = lightIndex;
-                }
-            }
-            else {
-                // Point light culling in view space
-                vec4 lightPosView = viewMatrix * vec4(lights[lightIndex].position, 1.0);
-                vec3 lightViewPos = lightPosView.xyz / lightPosView.w;
-                float lightRadius = lights[lightIndex].radius;
-                
-                // Check if light intersects tile frustum
-                if (sphereInFrustum(lightViewPos, lightRadius, tileFrustum)) {
-                    uint offset = atomicAdd(visibleLightCount, 1);
-                    if (offset < MAX_LIGHTS_PER_TILE) {
-                        visibleLightIndices_shared[offset] = lightIndex;
-                    }
-                }
+        // Only process if this is a valid light index
+        if (lightIndex < uint(numLights) && lights[lightIndex].enabled == 1) {
+            // Add enabled light to this tile (simplified - no spatial culling yet)
+            uint offset = atomicAdd(visibleLightCount, 1);
+            if (offset < MAX_LIGHTS_PER_TILE) {
+                visibleLightIndices_shared[offset] = lightIndex;
             }
         }
     }

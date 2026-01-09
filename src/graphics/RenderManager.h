@@ -1,0 +1,111 @@
+#pragma once
+
+#include "raylib.h"
+#include "raymath.h"
+#include "LightRenderer.h"
+#include "PostProcessingRenderer.h"
+#include "SkyboxRenderer.h"
+#include "GrassRenderer.h"
+#include "WaterRenderer.h"
+#include "GeometryRenderer.h"
+#include <functional>
+#include <vector>
+
+// Centralized rendering manager that handles ALL rendering operations
+// This is the single source of truth for rendering state and operations
+class RenderManager
+{
+public:
+    RenderManager();
+    ~RenderManager();
+
+    // Initialization and shutdown
+    void Init(int width, int height);
+    void Shutdown();
+
+    // Window management - all window operations go through here
+    void SetWindowSize(int width, int height);
+    void ApplyDisplayMode(int mode); // 0=Windowed, 1=Fullscreen, 2=Borderless
+    int GetScreenWidth() const { return screenWidth; }
+    int GetScreenHeight() const { return screenHeight; }
+
+    // Main rendering entry point
+    void BeginFrame();
+    void RenderScene(std::function<void()> sceneRenderer, Camera3D camera);
+    void EndFrame();
+
+    // Rendering configuration - single place to configure all rendering settings
+    void EnablePostProcessing(bool enable);
+    void EnableGrayscale(bool enable);
+    void SetSunDirection(Vector3 direction);
+
+    bool IsPostProcessingEnabled() const { return postProcessingEnabled; }
+    bool IsGrayscaleEnabled() const { return grayscaleEnabled; }
+    Vector3 GetSunDirection() const { return sunDirection; }
+
+    // Subsystem access for configuration and updates
+    LightRenderer *GetLightRenderer() { return &lightRenderer; }
+    PostProcessingRenderer *GetPostProcessingRenderer() { return &postProcessingRenderer; }
+    SkyboxRenderer *GetSkyboxRenderer() { return &skyboxRenderer; }
+    GrassRenderer *GetGrassRenderer() { return &grassRenderer; }
+    WaterRenderer *GetWaterRenderer() { return &waterRenderer; }
+    GeometryRenderer *GetGeometryRenderer() { return &geometryRenderer; }
+
+    // Update methods - centralized update for all rendering subsystems
+    void UpdateCamera(Camera3D camera);
+    void UpdateGrass(float deltaTime, Camera3D camera);
+    void UpdateWater(float deltaTime, Camera3D camera);
+    void UpdateGeometry(float deltaTime, Camera3D camera);
+    void UpdateSkybox(float deltaTime);
+
+    // Model shader management - apply appropriate shaders based on rendering mode
+    void ApplyShaderToModel(Model &model, Vector4 albedo, float metallic, float roughness);
+
+    // Batch apply shaders to multiple models at once
+    struct ModelMaterial
+    {
+        Model *model;
+        Vector4 albedo;
+        float metallic;
+        float roughness;
+    };
+    void ApplyShaders(const std::vector<ModelMaterial> &models);
+
+    // Subsystem initialization helpers
+    void InitializeSkybox(const char *vertexShader, const char *fragmentShader);
+    void ConfigureSkybox(Vector3 skyColor, Vector3 cloudColor, Vector3 sunColor);
+    void InitializeGrass(int bladeCount, float area);
+    void ConfigureGrass(Vector2 windDirection, float windStrength, float windSpeed);
+    void InitializeWater(float width, float height, float waterLevel);
+
+    // Light management - centralized light configuration
+    void CreateDirectionalLight(Vector3 direction, Vector4 color, float intensity);
+    void CreatePointLight(Vector3 position, Vector4 color, float intensity, float radius = 10.0f);
+    void ClearLights();
+
+    bool IsInitialized() const { return initialized; }
+
+private:
+    // Screen configuration
+    int screenWidth;
+    int screenHeight;
+    int currentDisplayMode; // 0=Windowed, 1=Fullscreen, 2=Borderless
+
+    // Rendering state
+    bool initialized;
+    bool postProcessingEnabled;
+    bool grayscaleEnabled;
+    Vector3 sunDirection;
+
+    // Rendering subsystems - all managed here (standardized naming)
+    LightRenderer lightRenderer;
+    PostProcessingRenderer postProcessingRenderer;
+    SkyboxRenderer skyboxRenderer;
+    GrassRenderer grassRenderer;
+    GeometryRenderer geometryRenderer;
+    WaterRenderer waterRenderer;
+
+    // Internal rendering methods
+    void RenderDirect(std::function<void()> sceneRenderer);
+    void RenderWithPostProcessing(std::function<void()> sceneRenderer);
+};

@@ -11,7 +11,7 @@
 // No platform-specific code needed!
 
 GrassRenderer::GrassRenderer()
-    : windDirection({1.0f, 0.5f}), windStrength(0.5f), windSpeed(2.0f), currentTime(0.0f), fovCullingMultiplier(1.3f), timeLoc(-1), windDirLoc(-1), windStrengthLoc(-1), windSpeedLoc(-1), viewPosLoc(-1), matViewLoc(-1), matProjLoc(-1), lightDirLoc(-1), lightColorLoc(-1), grassColorTopLoc(-1), grassColorBottomLoc(-1), ambientStrengthLoc(-1), visibleCount(0), totalGrassCount(0), areaSize(0.0f), grassBladeMesh({0}), instanceVBO(0), lastUploadedCount(0), updateTimeMs(0.0), drawTimeMs(0.0), computeProgram(0), ssboAllInstances(0), ssboVisibleInstances(0), gpuCullingEnabled(true)
+    : windDirection({1.0f, 0.5f}), windStrength(0.5f), windSpeed(2.0f), currentTime(0.0f), fovCullingMultiplier(1.3f), timeLoc(-1), windDirLoc(-1), windStrengthLoc(-1), windSpeedLoc(-1), viewPosLoc(-1), matViewLoc(-1), matProjLoc(-1), lightDirLoc(-1), lightColorLoc(-1), grassColorTopLoc(-1), grassColorBottomLoc(-1), ambientStrengthLoc(-1), visibleCount(0), totalGrassCount(0), areaSize(0.0f), grassBladeMesh({0}), instanceVBO(0), lastUploadedCount(0), updateTimeMs(0.0), drawTimeMs(0.0), computeProgram(0), ssboAllInstances(0), ssboVisibleInstances(0), gpuCullingEnabled(true), cullRadiusMultiplier(1.15f)
 {
 }
 
@@ -275,6 +275,9 @@ void GrassRenderer::Update(float deltaTime, Camera3D camera)
         GLint rloc = glGetUniformLocation(computeProgram, "radius");
         if (rloc >= 0)
             glUniform1f(rloc, 1.5f);
+        GLint rmuloc = glGetUniformLocation(computeProgram, "radiusMultiplier");
+        if (rmuloc >= 0)
+            glUniform1f(rmuloc, cullRadiusMultiplier);
         GLint icloc = glGetUniformLocation(computeProgram, "instanceCount");
         if (icloc >= 0)
             glUniform1ui(icloc, (unsigned int)totalGrassCount);
@@ -622,47 +625,32 @@ Frustum GrassRenderer::ExtractFrustum(Camera3D camera)
     Frustum frustum;
 
     float aspect = (float)GetScreenWidth() / (float)GetScreenHeight();
-    Matrix matView = MatrixLookAt(camera.position, camera.target, camera.up);
-    // Widen FOV for culling to be less aggressive
-    float cullingFOV = camera.fovy * fovCullingMultiplier;
-    Matrix matProj = MatrixPerspective(cullingFOV * DEG2RAD, aspect, 0.1f, 1000.0f);
-    Matrix matViewProj = MatrixMultiply(matView, matProj);
+    Matrix viewProj = MatrixMultiply(GetCameraMatrix(camera),
+                                     MatrixPerspective(camera.fovy * DEG2RAD, aspect, 0.1f, 1000.0f));
 
     // Left plane
-    frustum.planes[0].normal.x = matViewProj.m3 + matViewProj.m0;
-    frustum.planes[0].normal.y = matViewProj.m7 + matViewProj.m4;
-    frustum.planes[0].normal.z = matViewProj.m11 + matViewProj.m8;
-    frustum.planes[0].distance = matViewProj.m15 + matViewProj.m12;
+    frustum.planes[0].normal = {viewProj.m3 + viewProj.m0, viewProj.m7 + viewProj.m4, viewProj.m11 + viewProj.m8};
+    frustum.planes[0].distance = viewProj.m15 + viewProj.m12;
 
     // Right plane
-    frustum.planes[1].normal.x = matViewProj.m3 - matViewProj.m0;
-    frustum.planes[1].normal.y = matViewProj.m7 - matViewProj.m4;
-    frustum.planes[1].normal.z = matViewProj.m11 - matViewProj.m8;
-    frustum.planes[1].distance = matViewProj.m15 - matViewProj.m12;
+    frustum.planes[1].normal = {viewProj.m3 - viewProj.m0, viewProj.m7 - viewProj.m4, viewProj.m11 - viewProj.m8};
+    frustum.planes[1].distance = viewProj.m15 - viewProj.m12;
 
     // Bottom plane
-    frustum.planes[2].normal.x = matViewProj.m3 + matViewProj.m1;
-    frustum.planes[2].normal.y = matViewProj.m7 + matViewProj.m5;
-    frustum.planes[2].normal.z = matViewProj.m11 + matViewProj.m9;
-    frustum.planes[2].distance = matViewProj.m15 + matViewProj.m13;
+    frustum.planes[2].normal = {viewProj.m3 + viewProj.m1, viewProj.m7 + viewProj.m5, viewProj.m11 + viewProj.m9};
+    frustum.planes[2].distance = viewProj.m15 + viewProj.m13;
 
     // Top plane
-    frustum.planes[3].normal.x = matViewProj.m3 - matViewProj.m1;
-    frustum.planes[3].normal.y = matViewProj.m7 - matViewProj.m5;
-    frustum.planes[3].normal.z = matViewProj.m11 - matViewProj.m9;
-    frustum.planes[3].distance = matViewProj.m15 - matViewProj.m13;
+    frustum.planes[3].normal = {viewProj.m3 - viewProj.m1, viewProj.m7 - viewProj.m5, viewProj.m11 - viewProj.m9};
+    frustum.planes[3].distance = viewProj.m15 - viewProj.m13;
 
     // Near plane
-    frustum.planes[4].normal.x = matViewProj.m3 + matViewProj.m2;
-    frustum.planes[4].normal.y = matViewProj.m7 + matViewProj.m6;
-    frustum.planes[4].normal.z = matViewProj.m11 + matViewProj.m10;
-    frustum.planes[4].distance = matViewProj.m15 + matViewProj.m14;
+    frustum.planes[4].normal = {viewProj.m3 + viewProj.m2, viewProj.m7 + viewProj.m6, viewProj.m11 + viewProj.m10};
+    frustum.planes[4].distance = viewProj.m15 + viewProj.m14;
 
     // Far plane
-    frustum.planes[5].normal.x = matViewProj.m3 - matViewProj.m2;
-    frustum.planes[5].normal.y = matViewProj.m7 - matViewProj.m6;
-    frustum.planes[5].normal.z = matViewProj.m11 - matViewProj.m10;
-    frustum.planes[5].distance = matViewProj.m15 - matViewProj.m14;
+    frustum.planes[5].normal = {viewProj.m3 - viewProj.m2, viewProj.m7 - viewProj.m6, viewProj.m11 - viewProj.m10};
+    frustum.planes[5].distance = viewProj.m15 - viewProj.m14;
 
     // Normalize all planes
     for (int i = 0; i < 6; i++)
@@ -674,6 +662,9 @@ Frustum GrassRenderer::ExtractFrustum(Camera3D camera)
             frustum.planes[i].distance /= length;
         }
     }
+
+    // Push near plane back to prevent early culling (match geometry)
+    frustum.planes[4].distance -= 5.0f;
 
     return frustum;
 }

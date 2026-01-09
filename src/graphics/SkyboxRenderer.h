@@ -1,7 +1,7 @@
 #pragma once
 #include "raylib.h"
 
-class Skybox
+class SkyboxRenderer
 {
 private:
     Shader shader;
@@ -35,8 +35,8 @@ private:
     Vector3 cloudOffset; // 3D offset for cloud animation
 
 public:
-    Skybox();
-    ~Skybox();
+    SkyboxRenderer();
+    ~SkyboxRenderer();
 
     void Load(const char *vsPath, const char *fsPath);
     void SetSkyColor(Vector3 color);

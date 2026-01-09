@@ -1,17 +1,17 @@
-#include "PostProcessingSystem.h"
+#include "PostProcessingRenderer.h"
 
-PostProcessingSystem::PostProcessingSystem()
+PostProcessingRenderer::PostProcessingRenderer()
     : width(0), height(0),
       enableGrayscale(false)
 {
 }
 
-PostProcessingSystem::~PostProcessingSystem()
+PostProcessingRenderer::~PostProcessingRenderer()
 {
-    Cleanup();
+    Shutdown();
 }
 
-void PostProcessingSystem::Init(int screenWidth, int screenHeight)
+void PostProcessingRenderer::Init(int screenWidth, int screenHeight)
 {
     width = screenWidth;
     height = screenHeight;
@@ -19,33 +19,35 @@ void PostProcessingSystem::Init(int screenWidth, int screenHeight)
     // Create render texture
     sceneTexture = LoadRenderTexture(width, height);
 
-    TraceLog(LOG_INFO, "PostProcessing: Render texture created (%dx%d)", width, height);
+    TraceLog(LOG_INFO, "PostProcessingRenderer: Render texture created (%dx%d)", width, height);
 
     // Load shader
     grayscaleShader = LoadShader(0, "assets/shader/grayscale.fs");
 
-    TraceLog(LOG_INFO, "PostProcessing: Grayscale shader loaded successfully");
+    TraceLog(LOG_INFO, "PostProcessingRenderer: Grayscale shader loaded successfully");
 }
 
-void PostProcessingSystem::Cleanup()
+void PostProcessingRenderer::Shutdown()
 {
     if (sceneTexture.id > 0)
         UnloadRenderTexture(sceneTexture);
     if (grayscaleShader.id > 0)
         UnloadShader(grayscaleShader);
+
+    TraceLog(LOG_INFO, "PostProcessingRenderer: Shutdown complete");
 }
 
-void PostProcessingSystem::BeginSceneCapture()
+void PostProcessingRenderer::BeginSceneCapture()
 {
     BeginTextureMode(sceneTexture);
 }
 
-void PostProcessingSystem::EndSceneCapture()
+void PostProcessingRenderer::EndSceneCapture()
 {
     EndTextureMode();
 }
 
-void PostProcessingSystem::ApplyEffects()
+void PostProcessingRenderer::ApplyEffects()
 {
     // Apply grayscale if enabled, otherwise just render scene texture
     if (enableGrayscale)
@@ -61,7 +63,7 @@ void PostProcessingSystem::ApplyEffects()
     }
 }
 
-void PostProcessingSystem::RenderFullscreenQuad(Shader shader, RenderTexture2D source)
+void PostProcessingRenderer::RenderFullscreenQuad(Shader shader, RenderTexture2D source)
 {
     BeginShaderMode(shader);
 
