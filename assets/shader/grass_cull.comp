@@ -27,13 +27,16 @@ uniform float time;
 uniform vec2 windDirection;
 uniform float windStrength;
 uniform float windSpeed;
+uniform float radiusMultiplier; // >1.0 retains instances longer
 
 bool isInFrustum(vec3 p)
 {
     for (int i = 0; i < 6; ++i)
     {
+        // Skip near plane to prevent popping under camera
+        if (i == 4) continue;
         float d = dot(frustumPlanes[i].xyz, p) + frustumPlanes[i].w;
-        if (d < -radius) return false;
+        if (d < -(radius * radiusMultiplier)) return false;
     }
     return true;
 }

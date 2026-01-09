@@ -3,14 +3,14 @@
 #include "raylib.h"
 #include "raymath.h"
 
-class PostProcessingSystem
+class PostProcessingRenderer
 {
 public:
-    PostProcessingSystem();
-    ~PostProcessingSystem();
+    PostProcessingRenderer();
+    ~PostProcessingRenderer();
 
     void Init(int screenWidth, int screenHeight);
-    void Cleanup();
+    void Shutdown();
 
     // Start rendering to texture
     void BeginSceneCapture();
@@ -22,6 +22,9 @@ public:
     // Configuration
     void SetGrayscaleEnabled(bool enable) { enableGrayscale = enable; }
     bool GetGrayscaleEnabled() const { return enableGrayscale; }
+
+    // Get render texture for reading if needed
+    RenderTexture2D GetSceneTexture() const { return sceneTexture; }
 
 private:
     // Render textures

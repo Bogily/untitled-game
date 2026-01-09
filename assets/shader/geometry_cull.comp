@@ -1,0 +1,71 @@
+#version 430
+
+layout(local_size_x = 256) in;
+
+struct ModelInstance
+{
+    vec4 positionScale;   // xyz = position, w = uniform scale
+    vec4 boundsMin;       // AABB min in local space
+    vec4 boundsMax;       // AABB max in local space
+    uint modelID;         // Which model to draw
+    uint pad0, pad1, pad2; // Padding for alignment
+};
+
+layout(std430, binding = 0) readonly buffer AllInstances
+{
+    ModelInstance instances[];
+} allIn;
+
+layout(std430, binding = 1) buffer VisibleOut
+{
+    uint counter;
+    uint pad0, pad1, pad2; // Padding to 16 bytes
+    uint visibleIndices[]; // Indices into allIn.instances
+} outVis;
+
+uniform vec4 frustumPlanes[6]; // (xyz = normal, w = distance)
+uniform uint instanceCount;
+uniform float radiusMultiplier; // >1.0 retains objects longer
+
+// Conservative test: use bounding sphere of AABB
+// Culls only when the entire sphere is outside a plane
+bool isAABBInFrustum(vec3 center, vec3 extents)
+{
+    float radius = length(extents) * radiusMultiplier; // conservative sphere
+    for (int i = 0; i < 6; ++i)
+    {
+        // Skip near plane to avoid popping when camera is very close
+        if (i == 4) continue;
+
+        vec3 normal = frustumPlanes[i].xyz;
+        float dist = frustumPlanes[i].w;
+        float planeDist = dot(normal, center) + dist;
+        if (planeDist < -radius)
+            return false; // fully outside this plane
+    }
+    return true;
+}
+
+void main()
+{
+    uint id = gl_GlobalInvocationID.x;
+    if (id >= instanceCount) return;
+
+    ModelInstance inst = allIn.instances[id];
+    
+    // Calculate world-space AABB
+    vec3 worldPos = inst.positionScale.xyz;
+    float scale = inst.positionScale.w;
+    
+    vec3 localMin = inst.boundsMin.xyz * scale;
+    vec3 localMax = inst.boundsMax.xyz * scale;
+    
+    vec3 center = worldPos + (localMin + localMax) * 0.5;
+    vec3 extents = (localMax - localMin) * 0.5;
+    
+    if (isAABBInFrustum(center, extents))
+    {
+        uint idx = atomicAdd(outVis.counter, 1u);
+        outVis.visibleIndices[idx] = id;
+    }
+}

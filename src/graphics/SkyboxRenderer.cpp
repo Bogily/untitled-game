@@ -1,29 +1,27 @@
-#include "Skybox.h"
+#include "SkyboxRenderer.h"
 #include "raylib.h"
 #include "raymath.h"
 #include "rlgl.h"
 
-Skybox::Skybox() : time(0.0f),
-                   skyColor({0.1f, 0.2f, 0.9f}),
-                   cloudColor({1.0f, 1.0f, 1.0f}),
-                   sunDirection({0.3f, 0.5f, 0.8f}),
-                   sunColor({1.0f, 0.3f, 0.3f}),
-                   cloudDensity(0.6f),
-                   cloudHeight(200.0f),
-                   cloudScale(0.4f),
-                   cloudSpeed(0.3f),
-                   cloudCoverage(0.5f),
-                   cloudOffset({0.0f, 0.0f, 0.0f})
+SkyboxRenderer::SkyboxRenderer() : time(0.0f),
+                                   skyColor({0.1f, 0.2f, 0.9f}),
+                                   cloudColor({1.0f, 1.0f, 1.0f}),
+                                   sunDirection({0.3f, 0.5f, 0.8f}),
+                                   sunColor({1.0f, 0.3f, 0.3f}),
+                                   cloudDensity(0.6f),
+                                   cloudHeight(200.0f),
+                                   cloudScale(0.4f),
+                                   cloudSpeed(0.3f),
+                                   cloudCoverage(0.5f),
+                                   cloudOffset({0.0f, 0.0f, 0.0f})
 {
-    // Constructor - initialization happens in Load()
 }
 
-Skybox::~Skybox()
+SkyboxRenderer::~SkyboxRenderer()
 {
-    // Destructor
 }
 
-void Skybox::Load(const char *vsPath, const char *fsPath)
+void SkyboxRenderer::Load(const char *vsPath, const char *fsPath)
 {
     // Load skybox shader
     shader = LoadShader(vsPath, fsPath);
@@ -47,55 +45,55 @@ void Skybox::Load(const char *vsPath, const char *fsPath)
     cube = LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f));
     cube.materials[0].shader = shader;
 
-    TraceLog(LOG_INFO, "Skybox loaded successfully");
+    TraceLog(LOG_INFO, "SkyboxRenderer: Loaded successfully");
 }
 
-void Skybox::SetSkyColor(Vector3 color)
+void SkyboxRenderer::SetSkyColor(Vector3 color)
 {
     skyColor = color;
 }
 
-void Skybox::SetCloudColor(Vector3 color)
+void SkyboxRenderer::SetCloudColor(Vector3 color)
 {
     cloudColor = color;
 }
 
-void Skybox::SetSunDirection(Vector3 direction)
+void SkyboxRenderer::SetSunDirection(Vector3 direction)
 {
     sunDirection = Vector3Normalize(direction);
 }
 
-void Skybox::SetSunColor(Vector3 color)
+void SkyboxRenderer::SetSunColor(Vector3 color)
 {
     sunColor = color;
 }
 
-void Skybox::SetCloudDensity(float density)
+void SkyboxRenderer::SetCloudDensity(float density)
 {
     cloudDensity = density;
 }
 
-void Skybox::SetCloudHeight(float height)
+void SkyboxRenderer::SetCloudHeight(float height)
 {
     cloudHeight = height;
 }
 
-void Skybox::SetCloudScale(float scale)
+void SkyboxRenderer::SetCloudScale(float scale)
 {
     cloudScale = scale;
 }
 
-void Skybox::SetCloudSpeed(float speed)
+void SkyboxRenderer::SetCloudSpeed(float speed)
 {
     cloudSpeed = speed;
 }
 
-void Skybox::SetCloudCoverage(float coverage)
+void SkyboxRenderer::SetCloudCoverage(float coverage)
 {
     cloudCoverage = coverage;
 }
 
-void Skybox::Update(float deltaTime)
+void SkyboxRenderer::Update(float deltaTime)
 {
     time += deltaTime;
 
@@ -104,7 +102,7 @@ void Skybox::Update(float deltaTime)
     cloudOffset.z += deltaTime * cloudSpeed * 1.5f;
 }
 
-void Skybox::Draw(Camera3D camera)
+void SkyboxRenderer::Draw(Camera3D camera)
 {
     // Update shader uniforms
     SetShaderValue(shader, timeLoc, &time, SHADER_UNIFORM_FLOAT);
@@ -146,9 +144,9 @@ void Skybox::Draw(Camera3D camera)
     rlEnableDepthMask();
 }
 
-void Skybox::Unload()
+void SkyboxRenderer::Unload()
 {
-    UnloadShader(shader);
     UnloadModel(cube);
-    TraceLog(LOG_INFO, "Skybox unloaded");
+    UnloadShader(shader);
+    TraceLog(LOG_INFO, "SkyboxRenderer: Unloaded");
 }

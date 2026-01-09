@@ -1,6 +1,4 @@
 #include "Game.h"
-#include "../graphics/PBRSystem.h"
-#include "../graphics/PostProcessingSystem.h"
 #include "rlgl.h"
 
 // Constants
@@ -23,6 +21,7 @@ namespace GameConstants
 
 void Game::Init()
 {
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Zelda-like 3D Game Structure skid");
     SetTargetFPS(TARGET_FPS);
     SetExitKey(KEY_NULL);
@@ -101,98 +100,82 @@ void Game::SetupModels()
     Mesh sphereMesh = GenMeshSphere(1.0f, 64, 64);
     pbrTestSphere = LoadModelFromMesh(sphereMesh);
 
-    // Apply PBR shader with material properties
-    Vector4 albedo = {0.8f, 0.2f, 0.2f, 1.0f}; // Red color
-    float metallic = 0.0f;
-    float roughness = 0.3f;
-    gPBR.ApplyToModel(pbrTestSphere, albedo, metallic, roughness);
-
     // Create PBR models for world objects
-    // Red cube - slightly metallic
     pbrRedCube = LoadModelFromMesh(GenMeshCube(2.0f, 2.0f, 2.0f));
-    gPBR.ApplyToModel(pbrRedCube, {0.8f, 0.1f, 0.1f, 1.0f}, 0.2f, 0.4f);
-
-    // Blue tower - smooth plastic-like
     pbrBlueTower = LoadModelFromMesh(GenMeshCube(1.0f, 4.0f, 1.0f));
-    gPBR.ApplyToModel(pbrBlueTower, {0.1f, 0.2f, 0.8f, 1.0f}, 0.0f, 0.3f);
-
-    // Yellow sphere - rough surface
     pbrYellowSphere = LoadModelFromMesh(GenMeshSphere(1.5f, 32, 32));
-    gPBR.ApplyToModel(pbrYellowSphere, {0.9f, 0.9f, 0.2f, 1.0f}, 0.0f, 0.6f);
-
-    // Orange sphere - smooth
     pbrOrangeSphere = LoadModelFromMesh(GenMeshSphere(1.0f, 32, 32));
-    gPBR.ApplyToModel(pbrOrangeSphere, {0.9f, 0.5f, 0.1f, 1.0f}, 0.1f, 0.3f);
-
-    // Capsule (cylinder with rounded ends)
     pbrCapsule = LoadModelFromMesh(GenMeshCylinder(0.5f, 3.0f, 16));
-    gPBR.ApplyToModel(pbrCapsule, {0.3f, 0.7f, 0.9f, 1.0f}, 0.0f, 0.5f);
-
-    // Purple cylinder
     pbrCylinder = LoadModelFromMesh(GenMeshCylinder(0.8f, 4.0f, 16));
-    gPBR.ApplyToModel(pbrCylinder, {0.5f, 0.2f, 0.8f, 1.0f}, 0.0f, 0.4f);
-
-    // Ground plane - rough concrete-like
     pbrGroundPlane = LoadModelFromMesh(GenMeshPlane(GameConstants::PLANE_SIZE.x, GameConstants::PLANE_SIZE.y, 10, 10));
-    gPBR.ApplyToModel(pbrGroundPlane, {0.3f, 0.3f, 0.3f, 1.0f}, 0.0f, 0.8f);
-
-    // Ramps - wood-like material
     pbrRamp = LoadModelFromMesh(GenMeshCube(4.0f, 0.5f, 6.0f));
-    gPBR.ApplyToModel(pbrRamp, {0.4f, 0.25f, 0.15f, 1.0f}, 0.0f, 0.7f);
-
     pbrSteepRamp = LoadModelFromMesh(GenMeshCube(3.0f, 0.5f, 4.0f));
-    gPBR.ApplyToModel(pbrSteepRamp, {0.5f, 0.1f, 0.1f, 1.0f}, 0.0f, 0.6f);
+
+    // Apply shaders to all models using RenderManager (centralized)
+    std::vector<RenderManager::ModelMaterial> models = {
+        {&pbrTestSphere, {0.8f, 0.2f, 0.2f, 1.0f}, 1.0f, 0.3f},
+        {&pbrRedCube, {0.8f, 0.1f, 0.1f, 1.0f}, 0.2f, 0.4f},
+        {&pbrBlueTower, {0.1f, 0.2f, 0.8f, 1.0f}, 0.0f, 0.3f},
+        {&pbrYellowSphere, {0.9f, 0.9f, 0.2f, 1.0f}, 0.0f, 0.6f},
+        {&pbrOrangeSphere, {0.9f, 0.5f, 0.1f, 1.0f}, 0.1f, 0.3f},
+        {&pbrCapsule, {0.3f, 0.7f, 0.9f, 1.0f}, 0.0f, 0.5f},
+        {&pbrCylinder, {0.5f, 0.2f, 0.8f, 1.0f}, 0.0f, 0.4f},
+        {&pbrGroundPlane, {0.3f, 0.3f, 0.3f, 1.0f}, 0.0f, 0.8f},
+        {&pbrRamp, {0.4f, 0.25f, 0.15f, 1.0f}, 0.0f, 0.7f},
+        {&pbrSteepRamp, {0.5f, 0.1f, 0.1f, 1.0f}, 0.0f, 0.6f}};
+    renderManager.ApplyShaders(models);
+
+    // Register models with GeometryRenderer for GPU culling
+    GeometryRenderer *geoRenderer = renderManager.GetGeometryRenderer();
+    modelID_TestSphere = geoRenderer->RegisterModel("TestSphere", &pbrTestSphere);
+    modelID_RedCube = geoRenderer->RegisterModel("RedCube", &pbrRedCube);
+    modelID_BlueTower = geoRenderer->RegisterModel("BlueTower", &pbrBlueTower);
+    modelID_YellowSphere = geoRenderer->RegisterModel("YellowSphere", &pbrYellowSphere);
+    modelID_OrangeSphere = geoRenderer->RegisterModel("OrangeSphere", &pbrOrangeSphere);
+    modelID_Capsule = geoRenderer->RegisterModel("Capsule", &pbrCapsule);
+    modelID_Cylinder = geoRenderer->RegisterModel("Cylinder", &pbrCylinder);
+    modelID_GroundPlane = geoRenderer->RegisterModel("GroundPlane", &pbrGroundPlane);
+    modelID_Ramp = geoRenderer->RegisterModel("Ramp", &pbrRamp);
+    modelID_SteepRamp = geoRenderer->RegisterModel("SteepRamp", &pbrSteepRamp);
+
+    TraceLog(LOG_INFO, "Game: Models setup complete");
 }
 
 void Game::SetupSkybox()
 {
-    skybox.Load("assets/shader/skybox.vs", "assets/shader/skybox.fs");
-    skybox.SetSkyColor({0.5f, 0.5f, 1.0f});
-    skybox.SetCloudColor({1.0f, 1.0f, 1.0f});
-
-    // Configure sun to match directional light
-    Vector3 sunDirection = {0.3f, 0.5f, 0.8f};
-    skybox.SetSunDirection(sunDirection);
-    skybox.SetSunColor({1.0f, 0.95f, 0.8f});
-    renderPipeline.SetSunDirection(sunDirection);
+    renderManager.InitializeSkybox("assets/shader/skybox.vs", "assets/shader/skybox.fs");
+    renderManager.ConfigureSkybox({0.5f, 0.5f, 1.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.95f, 0.8f});
 }
 
 void Game::SetupRenderer()
 {
-    renderer.Init(SCREEN_WIDTH, SCREEN_HEIGHT);
+    // Initialize render manager - single entry point for all rendering
+    renderManager.Init(SCREEN_WIDTH, SCREEN_HEIGHT);
 
-    // Initialize PBR system
-    gPBR.Init();
-
-    // Initialize render pipeline with post-processing
-    renderPipeline.Init(SCREEN_WIDTH, SCREEN_HEIGHT);
-
-    // Create sun directional light
+    // Setup sun direction
     Vector3 sunDirection = {0.3f, 0.5f, 0.8f};
-    gPBR.CreateDirectionalLight(sunDirection, {1.0f, 0.95f, 0.8f, 1.0f}, 2.0f);
+    renderManager.SetSunDirection(sunDirection);
+
+    // Create lights (used by the PBR renderer)
+    renderManager.CreateDirectionalLight(sunDirection, {1.0f, 0.95f, 0.8f, 1.0f}, 2.0f);
+    renderManager.CreatePointLight({-5.0f, 4.0f, -5.0f}, {1.0f, 0.9f, 0.8f, 1.0f}, 12.0f, 15.0f);
+    renderManager.CreatePointLight({5.0f, 4.0f, 5.0f}, {0.8f, 0.9f, 1.0f, 1.0f}, 12.0f, 15.0f);
+    renderManager.CreatePointLight({0.0f, 6.0f, 0.0f}, {1.0f, 1.0f, 1.0f, 1.0f}, 15.0f, 20.0f);
+
+    TraceLog(LOG_INFO, "Game: RenderManager initialized with all lights");
 }
 
 void Game::SetupGrass()
 {
-    // Initialize grass renderer with 2000000 grass blades over a 30x30 area
-    grassRenderer.Init(200000, 30.0f);
-
-    // Optional: customize wind parameters
-    grassRenderer.SetWindDirection({1.0f, 0.5f});
-    grassRenderer.SetWindStrength(0.5f);
-    grassRenderer.SetWindSpeed(2.0f);
+    // Initialize grass renderer with 200000 grass blades over a 30x30 area
+    renderManager.InitializeGrass(200000, 30.0f);
+    renderManager.ConfigureGrass({1.0f, 0.5f}, 0.5f, 2.0f);
 }
 
 void Game::SetupWater()
 {
     // Initialize water renderer with a large water plane beneath the map
-    waterRenderer.SetWaterSize(50.0f, 50.0f); // 50x50 meter water surface
-    waterRenderer.SetWaterLevel(-0.5f);       // Place slightly below ground plane (y=0)
-    waterRenderer.Init();
-
-    // Set light direction to match the sun
-    Vector3 sunDirection = {0.3f, 0.5f, 0.8f};
-    waterRenderer.SetLightDirection(sunDirection);
+    renderManager.InitializeWater(50.0f, 50.0f, -0.5f);
 }
 
 void Game::SetupCollisions()
@@ -305,22 +288,19 @@ void Game::SetupNPCs()
     std::vector<std::string> dialogue1 = {
         "Hello, adventurer!",
         "Nice weather today!",
-        "Have you seen the tower?"
-    };
+        "Have you seen the tower?"};
     npcs.push_back(NPC({5.0f, 0.0f, 5.0f}, "Bob", dialogue1, BLUE));
 
     std::vector<std::string> dialogue2 = {
         "Greetings!",
         "This world is amazing!",
-        "Try jumping around!"
-    };
+        "Try jumping around!"};
     npcs.push_back(NPC({-5.0f, 0.0f, -5.0f}, "Alice", dialogue2, PURPLE));
 
     std::vector<std::string> dialogue3 = {
         "Watch out for slopes!",
         "Press E to talk!",
-        "I love speech bubbles!"
-    };
+        "I love speech bubbles!"};
     npcs.push_back(NPC({0.0f, 0.0f, 8.0f}, "Charlie", dialogue3, GREEN));
 
     // Initialize speech bubble manager
@@ -343,7 +323,10 @@ void Game::SetupDebugMenu()
     debugMenu.AddFloat("Collision Height", &player.collisionHeight, 0.5f, 3.0f, 0.1f);
     debugMenu.AddFloat("Eye Height", &player.eyeHeight, 0.5f, 2.5f, 0.1f);
     debugMenu.AddFloat("Interaction Range", &npcInteractionRange, 1.0f, 10.0f, 0.5f);
+    debugMenu.AddFloat("Geometry Cull Margin", &geometryCullMargin, 1.0f, 2.0f, 0.05f);
+    debugMenu.AddFloat("Grass Cull Margin", &grassCullMargin, 1.0f, 2.0f, 0.05f);
 
+    // Geometry culling aggressiveness (radius multiplier)
     std::vector<std::string> modelNames;
     modelNames.reserve(customModel.getModelCount());
     for (int i = 0; i < customModel.getModelCount(); i++)
@@ -365,6 +348,9 @@ void Game::Update()
 {
     // Apply any pending display mode changes requested by menus
     ApplyDisplayModeIfChanged();
+
+    // Handle window resize in a single place
+    HandleWindowResize();
 
     switch (currentState)
     {
@@ -405,31 +391,58 @@ void Game::UpdatePlaying()
     debugMenu.Update();
     postProcessingMenu.Update();
 
-    // Update PBR system with camera position
-    gPBR.Update(cameraController.camera);
-
-    // Sync render pipeline settings
-    renderPipeline.EnablePostProcessing(enablePostProcessing);
-    if (renderPipeline.GetPostProcessing())
-    {
-        renderPipeline.GetPostProcessing()->SetGrayscaleEnabled(enableGrayscale);
-    }
-
+    // Apply player model selection from debug menu
     if (currentModelIndex != previousModelIndex)
     {
-        customModel.loadPlayerModel(player, currentModelIndex);
-        previousModelIndex = currentModelIndex;
+        int modelCount = customModel.getModelCount();
+        if (modelCount > 0)
+        {
+            // Wrap index to valid range in case debug menu underflows/overflows
+            int clampedIndex = currentModelIndex % modelCount;
+            if (clampedIndex < 0)
+                clampedIndex += modelCount;
+
+            currentModelIndex = clampedIndex;
+            customModel.loadPlayerModel(player, currentModelIndex);
+            previousModelIndex = currentModelIndex;
+        }
     }
+
+    // Update rendering through unified RenderManager
+    renderManager.UpdateCamera(cameraController.camera);
+
+    // Sync all render settings to the manager (single source of truth)
+    renderManager.EnablePostProcessing(enablePostProcessing);
+    renderManager.EnableGrayscale(enableGrayscale);
 
     // display mode is handled globally in ApplyDisplayModeIfChanged()
 
     cameraController.Update(deltaTime);
-    grassRenderer.Update(deltaTime, cameraController.camera);
-    waterRenderer.Update(deltaTime, cameraController.camera);
-    skybox.Update(deltaTime);
+    renderManager.UpdateGrass(deltaTime, cameraController.camera);
+    renderManager.UpdateWater(deltaTime, cameraController.camera);
+    renderManager.UpdateSkybox(deltaTime);
+
+    // Populate geometry instances (cleared and rebuilt each frame for dynamic culling)
+    GeometryRenderer *geoRenderer = renderManager.GetGeometryRenderer();
+    geoRenderer->ClearInstances();
+    geoRenderer->SetCullingRadiusMultiplier(geometryCullMargin);
+    renderManager.GetGrassRenderer()->SetCullingRadiusMultiplier(grassCullMargin);
+
+    // Add all static geometry instances (positions from DrawScene)
+    geoRenderer->AddInstance(modelID_GroundPlane, GameConstants::WORLD_CENTER, 1.0f);
+    geoRenderer->AddInstance(modelID_TestSphere, {0, 1, 0}, 1.0f);
+    geoRenderer->AddInstance(modelID_RedCube, GameConstants::RED_CUBE_POS, 1.0f);
+    geoRenderer->AddInstance(modelID_BlueTower, GameConstants::BLUE_TOWER_POS, 1.0f);
+    geoRenderer->AddInstance(modelID_YellowSphere, {-6.0f, 1.5f, 2.0f}, 1.0f);
+    geoRenderer->AddInstance(modelID_OrangeSphere, {6.0f, 1.0f, -2.0f}, 1.0f);
+    geoRenderer->AddInstance(modelID_Capsule, {0.0f, 2.0f, 6.0f}, 1.0f);
+    geoRenderer->AddInstance(modelID_Cylinder, {-2.0f, 0.0f, -6.0f}, 1.0f);
+
+    // Update geometry renderer to perform culling
+    renderManager.UpdateGeometry(deltaTime, cameraController.camera);
 
     // Update NPCs
-    for (auto& npc : npcs)
+    for (auto &npc : npcs)
     {
         npc.SetInteractionRange(npcInteractionRange); // Sync with global setting
         npc.Update(player.position);
@@ -448,24 +461,24 @@ void Game::UpdatePlaying()
         {
             Ray playerRay = player.GetForwardRay();
 
-            for (auto& npc : npcs)
+            for (auto &npc : npcs)
             {
                 // Check distance (IsInteractable)
-                if (npc.IsInteractable()) 
+                if (npc.IsInteractable())
                 {
                     // Check if player is facing NPC (Dot Product)
                     Vector3 toNpc = Vector3Subtract(npc.GetPosition(), player.position);
                     toNpc.y = 0; // Ignore height difference
-                    
+
                     if (Vector3LengthSqr(toNpc) > 0.001f)
                     {
                         toNpc = Vector3Normalize(toNpc);
-                        Vector3 playerDir = { playerRay.direction.x, 0, playerRay.direction.z }; // Player body forward
-                        
+                        Vector3 playerDir = {playerRay.direction.x, 0, playerRay.direction.z}; // Player body forward
+
                         // Check alignment (dot > 0.5 means roughly within 60 degrees cone)
                         float dot = Vector3DotProduct(playerDir, toNpc);
-                        
-                        if (dot > 0.5f) 
+
+                        if (dot > 0.5f)
                         {
                             std::string dialogue = npc.GetNextDialogue();
                             // Pass reference to position so bubble follows NPC
@@ -593,6 +606,25 @@ void Game::UpdateSettings()
     settingsMenu.Update();
 }
 
+void Game::ApplyRenderingMode()
+{
+    // Prepare all models with their materials
+    std::vector<RenderManager::ModelMaterial> models = {
+        {&pbrTestSphere, {0.8f, 0.2f, 0.2f, 1.0f}, 0.0f, 0.3f},
+        {&pbrRedCube, {0.8f, 0.1f, 0.1f, 1.0f}, 0.2f, 0.4f},
+        {&pbrBlueTower, {0.1f, 0.2f, 0.8f, 1.0f}, 0.0f, 0.3f},
+        {&pbrYellowSphere, {0.9f, 0.9f, 0.2f, 1.0f}, 0.0f, 0.6f},
+        {&pbrOrangeSphere, {0.9f, 0.5f, 0.1f, 1.0f}, 0.1f, 0.3f},
+        {&pbrCapsule, {0.3f, 0.7f, 0.9f, 1.0f}, 0.0f, 0.5f},
+        {&pbrCylinder, {0.5f, 0.2f, 0.8f, 1.0f}, 0.0f, 0.4f},
+        {&pbrGroundPlane, {0.3f, 0.3f, 0.3f, 1.0f}, 0.0f, 0.8f},
+        {&pbrRamp, {0.4f, 0.25f, 0.15f, 1.0f}, 0.0f, 0.7f},
+        {&pbrSteepRamp, {0.5f, 0.1f, 0.1f, 1.0f}, 0.0f, 0.6f}};
+
+    // Apply all shaders at once through RenderManager
+    renderManager.ApplyShaders(models);
+}
+
 void Game::DrawSettings()
 {
     settingsMenu.Draw();
@@ -603,31 +635,8 @@ void Game::ApplyDisplayModeIfChanged()
     if (fullscreenMode == previousFullscreenMode)
         return;
 
-    // 0 = Windowed, 1 = Fullscreen, 2 = Borderless (windowed fullscreen)
-    switch (fullscreenMode)
-    {
-    case 0: // Windowed
-        ClearWindowState(FLAG_FULLSCREEN_MODE);
-        ClearWindowState(FLAG_WINDOW_UNDECORATED);
-        SetWindowSize(SCREEN_WIDTH, SCREEN_HEIGHT);
-        // Center window on primary monitor
-        SetWindowPosition((GetMonitorWidth(0) - SCREEN_WIDTH) / 2, (GetMonitorHeight(0) - SCREEN_HEIGHT) / 2);
-        break;
-    case 1: // Fullscreen
-        // Ensure fullscreen flag set
-        SetWindowState(FLAG_FULLSCREEN_MODE);
-        ClearWindowState(FLAG_WINDOW_UNDECORATED);
-        break;
-    case 2: // Borderless windowed (windowed fullscreen)
-        ClearWindowState(FLAG_FULLSCREEN_MODE);
-        SetWindowState(FLAG_WINDOW_UNDECORATED);
-        SetWindowSize(GetMonitorWidth(0), GetMonitorHeight(0));
-        SetWindowPosition(0, 0);
-        break;
-    default:
-        break;
-    }
-
+    // Use RenderManager to handle all display mode changes
+    renderManager.ApplyDisplayMode(fullscreenMode);
     previousFullscreenMode = fullscreenMode;
 
     // Reinitialize menus so their layouts update to the new window size
@@ -637,6 +646,26 @@ void Game::ApplyDisplayModeIfChanged()
     if (currentState == GameState::SETTINGS)
     {
         settingsMenu.Init(GetScreenWidth(), GetScreenHeight(), &fullscreenMode, [this]()
+                          { ChangeState(settingsReturnState); });
+    }
+}
+
+void Game::HandleWindowResize()
+{
+    if (!IsWindowResized())
+        return;
+
+    const int newWidth = GetScreenWidth();
+    const int newHeight = GetScreenHeight();
+
+    renderManager.SetWindowSize(newWidth, newHeight);
+
+    // Rebuild menus so layout matches the new window size
+    SetupMenus();
+
+    if (currentState == GameState::SETTINGS)
+    {
+        settingsMenu.Init(newWidth, newHeight, &fullscreenMode, [this]()
                           { ChangeState(settingsReturnState); });
     }
 }
@@ -708,18 +737,18 @@ void Game::DrawMainMenu()
 
 void Game::DrawPlaying()
 {
-    // Use render pipeline to handle rendering with optional post-processing
-    renderPipeline.BeginFrame();
+    // Use RenderManager for all rendering - single unified entry point
+    renderManager.BeginFrame();
 
     // Render 3D scene using a lambda callback
-    renderPipeline.RenderScene([this]()
-                               {
+    renderManager.RenderScene([this]()
+                              {
         BeginMode3D(cameraController.camera);
         DrawScene();
-        gPBR.DrawDebugLights();
+        renderManager.GetLightRenderer()->DrawDebugLights();
         EndMode3D(); }, cameraController.camera);
 
-    renderPipeline.EndFrame();
+    renderManager.EndFrame();
 
     // Draw UI on top
     DrawUI();
@@ -732,7 +761,7 @@ void Game::DrawPaused()
 
 void Game::DrawScene()
 {
-    skybox.Draw(cameraController.camera);
+    renderManager.GetSkyboxRenderer()->Draw(cameraController.camera);
 
     if (showRaycast)
         player.PlayerRayCast();
@@ -760,23 +789,10 @@ void Game::DrawScene()
         DrawSphereWires({player.position.x, player.position.y + player.collisionHeight, player.position.z}, 0.15f, 8, 8, BLUE);
     }
 
-    // Draw PBR environment objects
-    DrawModel(pbrRedCube, GameConstants::RED_CUBE_POS, 1.0f, WHITE);
-    DrawModel(pbrBlueTower, GameConstants::BLUE_TOWER_POS, 1.0f, WHITE);
+    // Draw culled geometry using GeometryRenderer (GPU frustum culling)
+    renderManager.GetGeometryRenderer()->Draw(cameraController.camera);
 
-    // Draw PBR collision objects
-    DrawModel(pbrYellowSphere, {-6.0f, 1.5f, 2.0f}, 1.0f, WHITE);
-    DrawModel(pbrOrangeSphere, {6.0f, 1.0f, -2.0f}, 1.0f, WHITE);
-
-    // Draw PBR capsule
-    Vector3 capsulePos = {0.0f, 2.0f, 6.0f};
-    DrawModel(pbrCapsule, capsulePos, 1.0f, WHITE);
-
-    // Draw PBR cylinder
-    Vector3 cylinderPos = {-2.0f, 0.0f, -6.0f};
-    DrawModel(pbrCylinder, cylinderPos, 1.0f, WHITE);
-
-    // Draw PBR slope/ramp
+    // Draw PBR slope/ramp (needs transformation, so drawn manually)
     Vector3 rampCenter = {8.0f, 1.5f, -7.0f};
     float rampLength = 6.0f;
     float rampMaxHeight = 3.0f;
@@ -836,17 +852,17 @@ void Game::DrawScene()
         collisionSystem.DrawDebug(false);
 
     // Draw NPCs
-    for (auto& npc : npcs)
+    for (auto &npc : npcs)
     {
         npc.Draw();
     }
 
     // Draw water (semi-transparent, after opaque geometry)
-    waterRenderer.Draw();
+    renderManager.GetWaterRenderer()->Draw();
 
     // Draw grass LAST (after all opaque geometry, for proper depth testing)
     if (showGrass)
-        grassRenderer.Draw(cameraController.camera);
+        renderManager.GetGrassRenderer()->Draw(cameraController.camera);
 
     // Draw speech bubble backgrounds (must be in 3D mode)
     speechBubbleManager.DrawBackgrounds(cameraController.camera);
@@ -882,7 +898,7 @@ void Game::Draw2DUI()
     yPos += UI_LINE_SPACING;
 
     // NPC interaction hint
-    for (const auto& npc : npcs)
+    for (const auto &npc : npcs)
     {
         if (npc.IsInteractable())
         {
@@ -914,6 +930,22 @@ void Game::Draw2DUI()
     // FPS (optional)
     // FPS: always show in top-right corner using current window width
     DrawFPS(GetScreenWidth() - 100, UI_MARGIN);
+
+    // Geometry culling stats (below FPS)
+    GeometryRenderer *geoRenderer = renderManager.GetGeometryRenderer();
+    int visibleGeometry = geoRenderer->GetVisibleCount();
+    int totalGeometry = geoRenderer->GetTotalCount();
+    DrawText(TextFormat("Geometry: %d/%d", visibleGeometry, totalGeometry),
+             GetScreenWidth() - 200, UI_MARGIN + 25, UI_SMALL_TEXT_SIZE,
+             geoRenderer->IsGPUCullingEnabled() ? LIME : ORANGE);
+
+    // Grass culling stats (below geometry stats)
+    GrassRenderer *grassRenderer = renderManager.GetGrassRenderer();
+    int visibleGrass = grassRenderer->GetVisibleCount();
+    int totalGrass = grassRenderer->GetTotalCount();
+    DrawText(TextFormat("Grass: %d/%d", visibleGrass, totalGrass),
+             GetScreenWidth() - 200, UI_MARGIN + 45, UI_SMALL_TEXT_SIZE, SKYBLUE);
+
     yPos += UI_LINE_SPACING;
 
     // Player position (optional)
@@ -946,10 +978,8 @@ void Game::Draw2DUI()
 
 void Game::Shutdown()
 {
-    renderPipeline.Shutdown();
-    grassRenderer.Shutdown();
-    renderer.Shutdown();
-    skybox.Unload();
+    // Shutdown render manager - handles all rendering subsystems
+    renderManager.Shutdown();
 
     if (player.modelLoaded)
         UnloadModel(player.model);

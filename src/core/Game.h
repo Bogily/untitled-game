@@ -6,14 +6,10 @@
 #include "../utils/custommodel.h"
 #include "../utils/DebugMenu.h"
 #include "../utils/PostProcessingMenu.h"
-#include "../graphics/Skybox.h"
 #include "../graphics/BillboardText.h"
 #include "../graphics/SpeechBubble.h"
 #include "../graphics/CameraController.h"
-#include "../graphics/Renderer.h"
-#include "../graphics/GrassRenderer.h"
-#include "../graphics/WaterRenderer.h"
-#include "../graphics/RenderPipeline.h"
+#include "../graphics/RenderManager.h"
 #include "../world/NPC.h"
 #include "GameState.h"
 #include <vector>
@@ -44,15 +40,11 @@ private:
     CameraController cameraController;
     Player player;
     CustomModel customModel;
-    Skybox skybox;
     DebugMenu debugMenu;
     PostProcessingMenu postProcessingMenu;
     SettingsMenu settingsMenu;
-    Renderer renderer;
+    RenderManager renderManager;
     CollisionSystem collisionSystem;
-    GrassRenderer grassRenderer;
-    WaterRenderer waterRenderer;
-    RenderPipeline renderPipeline;
     Mesh slopeMesh;
     Model slopeModel;
     Model pbrTestSphere;
@@ -72,6 +64,18 @@ private:
     Model pbrRamp;
     Model pbrSteepRamp;
 
+    // Geometry renderer model IDs
+    int modelID_RedCube;
+    int modelID_BlueTower;
+    int modelID_YellowSphere;
+    int modelID_OrangeSphere;
+    int modelID_Capsule;
+    int modelID_Cylinder;
+    int modelID_GroundPlane;
+    int modelID_Ramp;
+    int modelID_SteepRamp;
+    int modelID_TestSphere;
+
     // Debug flags
     bool showGrid = true;
     bool showRaycast = true;
@@ -80,13 +84,17 @@ private:
     bool showCollisionBoxes = true;
     bool showPlayerHitbox = true;
     bool showGrass = true;
-    
+
     // Gameplay tweakables
     float npcInteractionRange = 3.0f;
 
     // Post-processing settings (controlled by PostProcessingMenu)
     bool enablePostProcessing = true;
     bool enableGrayscale = false;
+
+    // Culling tuning
+    float geometryCullMargin = 1.25f; // radius multiplier (>1.0 less aggressive)
+    float grassCullMargin = 1.15f;    // grass radius multiplier
 
     // Model selection
     int currentModelIndex = 0;
@@ -109,7 +117,9 @@ private:
     void SetupDebugMenu();
     void SetupPostProcessingMenu();
     void UpdateSettings();
+    void HandleWindowResize();
     void DrawSettings();
+    void ApplyRenderingMode(); // Apply PBR shaders to models
     void HandleInput(float deltaTime);
     void HandleCameraControls();
     void UpdatePlayer(float deltaTime);

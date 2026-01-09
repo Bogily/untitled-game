@@ -2,19 +2,8 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "rlgl.h"
+#include "Frustum.h"
 #include <vector>
-
-// Frustum plane structure for culling
-struct FrustumPlane
-{
-    Vector3 normal;
-    float distance;
-};
-
-struct Frustum
-{
-    FrustumPlane planes[6]; // Near, Far, Left, Right, Top, Bottom
-};
 
 class GrassRenderer
 {
@@ -36,6 +25,8 @@ public:
     void SetWindStrength(float strength) { windStrength = strength; }
     void SetWindSpeed(float speed) { windSpeed = speed; }
     void SetFOVCullingMultiplier(float multiplier) { fovCullingMultiplier = multiplier; }
+    void SetCullingRadiusMultiplier(float m) { cullRadiusMultiplier = m; }
+    float GetCullingRadiusMultiplier() const { return cullRadiusMultiplier; }
 
 private:
     // Instance data: xyz = position, w = scale
@@ -109,4 +100,5 @@ private:
     unsigned int ssboAllInstances;
     unsigned int ssboVisibleInstances;
     bool gpuCullingEnabled;
+    float cullRadiusMultiplier;
 };
