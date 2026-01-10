@@ -671,11 +671,21 @@ Frustum GrassRenderer::ExtractFrustum(Camera3D camera)
 
 bool GrassRenderer::IsPointInFrustum(const Frustum &frustum, Vector3 point, float radius)
 {
-    for (int i = 0; i < 6; i++)
+    float scaledRadius = radius * cullRadiusMultiplier;
+
+    // Test far plane first (most likely to reject)
+    if (Vector3DotProduct(frustum.planes[5].normal, point) + frustum.planes[5].distance < -scaledRadius)
+        return false;
+
+    // Skip near plane (index 4) to prevent popping
+
+    // Test remaining planes with early exit
+    for (int i = 0; i < 4; i++)
     {
         float distance = Vector3DotProduct(frustum.planes[i].normal, point) + frustum.planes[i].distance;
-        if (distance < -radius)
+        if (distance < -scaledRadius)
             return false;
     }
+
     return true;
 }

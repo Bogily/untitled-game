@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <cstring>
+#include <cfloat>
+#include <cmath>
 
 GeometryRenderer::GeometryRenderer()
     : computeProgram(0), ssboAllInstances(0), ssboVisibleIndices(0),
@@ -373,17 +375,68 @@ void GeometryRenderer::RunCPUCulling(Camera3D camera)
 
         // Calculate world-space AABB
         Vector3 worldPos = {inst.posX, inst.posY, inst.posZ};
+        Vector3 rotation = {inst.rotX, inst.rotY, inst.rotZ};
         float scale = inst.scale;
 
         BoundingBox worldAABB;
-        worldAABB.min = {
-            worldPos.x + inst.boundsMinX * scale,
-            worldPos.y + inst.boundsMinY * scale,
-            worldPos.z + inst.boundsMinZ * scale};
-        worldAABB.max = {
-            worldPos.x + inst.boundsMaxX * scale,
-            worldPos.y + inst.boundsMaxY * scale,
-            worldPos.z + inst.boundsMaxZ * scale};
+
+        // If object has rotation, calculate an expanded AABB that contains the rotated box
+        if (rotation.x != 0.0f || rotation.y != 0.0f || rotation.z != 0.0f)
+        {
+            // Get local bounds
+            Vector3 localMin = {inst.boundsMinX * scale, inst.boundsMinY * scale, inst.boundsMinZ * scale};
+            Vector3 localMax = {inst.boundsMaxX * scale, inst.boundsMaxY * scale, inst.boundsMaxZ * scale};
+
+            // Calculate all 8 corners of the local bounding box
+            Vector3 corners[8] = {
+                {localMin.x, localMin.y, localMin.z},
+                {localMax.x, localMin.y, localMin.z},
+                {localMin.x, localMax.y, localMin.z},
+                {localMax.x, localMax.y, localMin.z},
+                {localMin.x, localMin.y, localMax.z},
+                {localMax.x, localMin.y, localMax.z},
+                {localMin.x, localMax.y, localMax.z},
+                {localMax.x, localMax.y, localMax.z}};
+
+            // Transform all corners by rotation and find new AABB
+            Vector3 transformedMin = {FLT_MAX, FLT_MAX, FLT_MAX};
+            Vector3 transformedMax = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
+
+            for (int c = 0; c < 8; c++)
+            {
+                // Create rotation matrix
+                Matrix matRotation = MatrixRotateXYZ({rotation.x * DEG2RAD,
+                                                      rotation.y * DEG2RAD,
+                                                      rotation.z * DEG2RAD});
+
+                // Transform corner
+                Vector3 transformed = Vector3Transform(corners[c], matRotation);
+
+                // Update min/max
+                transformedMin.x = fminf(transformedMin.x, transformed.x);
+                transformedMin.y = fminf(transformedMin.y, transformed.y);
+                transformedMin.z = fminf(transformedMin.z, transformed.z);
+                transformedMax.x = fmaxf(transformedMax.x, transformed.x);
+                transformedMax.y = fmaxf(transformedMax.y, transformed.y);
+                transformedMax.z = fmaxf(transformedMax.z, transformed.z);
+            }
+
+            // Apply world position
+            worldAABB.min = Vector3Add(worldPos, transformedMin);
+            worldAABB.max = Vector3Add(worldPos, transformedMax);
+        }
+        else
+        {
+            // No rotation - simple transform
+            worldAABB.min = {
+                worldPos.x + inst.boundsMinX * scale,
+                worldPos.y + inst.boundsMinY * scale,
+                worldPos.z + inst.boundsMinZ * scale};
+            worldAABB.max = {
+                worldPos.x + inst.boundsMaxX * scale,
+                worldPos.y + inst.boundsMaxY * scale,
+                worldPos.z + inst.boundsMaxZ * scale};
+        }
 
         if (IsAABBInFrustum(frustum, worldAABB))
         {

@@ -29,15 +29,33 @@ uniform float windStrength;
 uniform float windSpeed;
 uniform float radiusMultiplier; // >1.0 retains instances longer
 
-bool isInFrustum(vec3 p)
+// Improved frustum test - early exit for better performance
+bool isInFrustum(vec3 p, float r)
 {
-    for (int i = 0; i < 6; ++i)
-    {
-        // Skip near plane to prevent popping under camera
-        if (i == 4) continue;
-        float d = dot(frustumPlanes[i].xyz, p) + frustumPlanes[i].w;
-        if (d < -(radius * radiusMultiplier)) return false;
-    }
+    float scaledRadius = r * radiusMultiplier;
+    
+    // Test far plane first (most likely to cull grass behind camera)
+    if (dot(frustumPlanes[5].xyz, p) + frustumPlanes[5].w < -scaledRadius)
+        return false;
+    
+    // Skip near plane (index 4) to prevent popping under camera
+    
+    // Test left plane
+    if (dot(frustumPlanes[0].xyz, p) + frustumPlanes[0].w < -scaledRadius)
+        return false;
+    
+    // Test right plane
+    if (dot(frustumPlanes[1].xyz, p) + frustumPlanes[1].w < -scaledRadius)
+        return false;
+    
+    // Test bottom plane
+    if (dot(frustumPlanes[2].xyz, p) + frustumPlanes[2].w < -scaledRadius)
+        return false;
+    
+    // Test top plane
+    if (dot(frustumPlanes[3].xyz, p) + frustumPlanes[3].w < -scaledRadius)
+        return false;
+    
     return true;
 }
 
@@ -49,13 +67,16 @@ void main()
     vec4 inst = allIn.instances[id];
     vec3 pos = vec3(inst.x, inst.y, inst.z);
 
-    if (isInFrustum(pos))
+    if (isInFrustum(pos, radius))
     {
-        // compute wind for this instance
-        float heightFactor = 1.0; // per-instance height factor applied in vertex shader
+        // Compute wind for this instance
+        // Use multiple octaves for more natural wind
         float windWave = sin(time * windSpeed + pos.x * 0.5 + pos.z * 0.3) * 0.5 + 0.5;
         windWave += sin(time * windSpeed * 1.3 + pos.x * 0.3 + pos.z * 0.5) * 0.3;
-        vec2 windOffset = vec2(windDirection.x * windWave * windStrength, windDirection.y * windWave * windStrength);
+        windWave += sin(time * windSpeed * 0.7 + pos.x * 0.7 + pos.z * 0.2) * 0.2;
+        windWave = clamp(windWave, 0.0, 1.0);
+        
+        vec2 windOffset = windDirection * windWave * windStrength;
 
         uint idx = atomicAdd(outVis.counter, 1u);
         outVis.entries[idx].instance = inst;
