@@ -92,7 +92,7 @@ int GeometryRenderer::RegisterModel(const std::string &name, Model *model)
     return modelID;
 }
 
-void GeometryRenderer::AddInstance(int modelID, Vector3 position, float scale)
+void GeometryRenderer::AddInstance(int modelID, Vector3 position, float scale, Vector3 rotation)
 {
     if (modelID < 0 || modelID >= static_cast<int>(registeredModels.size()))
     {
@@ -108,20 +108,25 @@ void GeometryRenderer::AddInstance(int modelID, Vector3 position, float scale)
     inst.posZ = position.z;
     inst.scale = scale;
 
+    inst.rotX = rotation.x;
+    inst.rotY = rotation.y;
+    inst.rotZ = rotation.z;
+    inst.pad0 = 0.0f;
+
     inst.boundsMinX = regModel.bounds.min.x;
     inst.boundsMinY = regModel.bounds.min.y;
     inst.boundsMinZ = regModel.bounds.min.z;
-    inst.pad0 = 0.0f;
+    inst.pad1 = 0.0f;
 
     inst.boundsMaxX = regModel.bounds.max.x;
     inst.boundsMaxY = regModel.bounds.max.y;
     inst.boundsMaxZ = regModel.bounds.max.z;
-    inst.pad1 = 0.0f;
+    inst.pad2 = 0.0f;
 
     inst.modelID = static_cast<unsigned int>(modelID);
-    inst.pad2 = 0;
     inst.pad3 = 0;
     inst.pad4 = 0;
+    inst.pad5 = 0;
 
     allInstances.push_back(inst);
 }
@@ -176,8 +181,26 @@ void GeometryRenderer::Draw(Camera3D camera)
 
         Model *model = registeredModels[modelID].model;
         Vector3 position = {inst.posX, inst.posY, inst.posZ};
+        Vector3 rotation = {inst.rotX, inst.rotY, inst.rotZ};
 
-        DrawModel(*model, position, inst.scale, WHITE);
+        // Check if rotation is needed
+        if (rotation.x != 0.0f || rotation.y != 0.0f || rotation.z != 0.0f)
+        {
+            // Apply transformation manually for rotated instances
+            rlPushMatrix();
+            rlTranslatef(position.x, position.y, position.z);
+            rlRotatef(rotation.x, 1.0f, 0.0f, 0.0f); // pitch (X axis)
+            rlRotatef(rotation.y, 0.0f, 1.0f, 0.0f); // yaw (Y axis)
+            rlRotatef(rotation.z, 0.0f, 0.0f, 1.0f); // roll (Z axis)
+            rlScalef(inst.scale, inst.scale, inst.scale);
+            DrawModel(*model, {0, 0, 0}, 1.0f, WHITE);
+            rlPopMatrix();
+        }
+        else
+        {
+            // Simple draw for non-rotated instances
+            DrawModel(*model, position, inst.scale, WHITE);
+        }
     }
 }
 

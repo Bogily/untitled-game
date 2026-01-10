@@ -65,6 +65,10 @@ private:
     Model pbrGroundPlane;
     Model pbrRamp;
     Model pbrSteepRamp;
+    Model pbrRampWallLeft;
+    Model pbrRampWallRight;
+    Model pbrSteepRampWallLeft;
+    Model pbrSteepRampWallRight;
 
     // Geometry renderer model IDs
     int modelID_RedCube;
@@ -77,6 +81,10 @@ private:
     int modelID_Ramp;
     int modelID_SteepRamp;
     int modelID_TestSphere;
+    int modelID_RampWallLeft;
+    int modelID_RampWallRight;
+    int modelID_SteepRampWallLeft;
+    int modelID_SteepRampWallRight;
 
     // Debug flags
     bool showGrid = true;

@@ -111,6 +111,12 @@ void Game::SetupModels()
     pbrRamp = LoadModelFromMesh(GenMeshCube(4.0f, 0.5f, 6.0f));
     pbrSteepRamp = LoadModelFromMesh(GenMeshCube(3.0f, 0.5f, 4.0f));
 
+    // Create slope wall models (dimensions will be set at entity creation)
+    pbrRampWallLeft = LoadModelFromMesh(GenMeshCube(0.3f, 3.0f, 6.0f));
+    pbrRampWallRight = LoadModelFromMesh(GenMeshCube(0.3f, 3.0f, 6.0f));
+    pbrSteepRampWallLeft = LoadModelFromMesh(GenMeshCube(0.3f, 5.0f, 4.0f));
+    pbrSteepRampWallRight = LoadModelFromMesh(GenMeshCube(0.3f, 5.0f, 4.0f));
+
     // Apply shaders to all models using RenderManager (centralized)
     std::vector<RenderManager::ModelMaterial> models = {
         {&pbrTestSphere, {0.8f, 0.2f, 0.2f, 1.0f}, 1.0f, 0.3f},
@@ -122,7 +128,11 @@ void Game::SetupModels()
         {&pbrCylinder, {0.5f, 0.2f, 0.8f, 1.0f}, 0.0f, 0.4f},
         {&pbrGroundPlane, {0.3f, 0.3f, 0.3f, 1.0f}, 0.0f, 0.8f},
         {&pbrRamp, {0.4f, 0.25f, 0.15f, 1.0f}, 0.0f, 0.7f},
-        {&pbrSteepRamp, {0.5f, 0.1f, 0.1f, 1.0f}, 0.0f, 0.6f}};
+        {&pbrSteepRamp, {0.5f, 0.1f, 0.1f, 1.0f}, 0.0f, 0.6f},
+        {&pbrRampWallLeft, {0.3f, 0.2f, 0.1f, 1.0f}, 0.0f, 0.8f},
+        {&pbrRampWallRight, {0.3f, 0.2f, 0.1f, 1.0f}, 0.0f, 0.8f},
+        {&pbrSteepRampWallLeft, {0.35f, 0.15f, 0.1f, 1.0f}, 0.0f, 0.75f},
+        {&pbrSteepRampWallRight, {0.35f, 0.15f, 0.1f, 1.0f}, 0.0f, 0.75f}};
     renderManager.ApplyShaders(models);
 
     // Register models with GeometryRenderer for GPU culling
@@ -137,6 +147,14 @@ void Game::SetupModels()
     modelID_GroundPlane = geoRenderer->RegisterModel("GroundPlane", &pbrGroundPlane);
     modelID_Ramp = geoRenderer->RegisterModel("Ramp", &pbrRamp);
     modelID_SteepRamp = geoRenderer->RegisterModel("SteepRamp", &pbrSteepRamp);
+    modelID_RampWallLeft = geoRenderer->RegisterModel("RampWallLeft", &pbrRampWallLeft);
+    modelID_RampWallRight = geoRenderer->RegisterModel("RampWallRight", &pbrRampWallRight);
+    modelID_SteepRampWallLeft = geoRenderer->RegisterModel("SteepRampWallLeft", &pbrSteepRampWallLeft);
+    modelID_SteepRampWallRight = geoRenderer->RegisterModel("SteepRampWallRight", &pbrSteepRampWallRight);
+    modelID_RampWallLeft = geoRenderer->RegisterModel("RampWallLeft", &pbrRampWallLeft);
+    modelID_RampWallRight = geoRenderer->RegisterModel("RampWallRight", &pbrRampWallRight);
+    modelID_SteepRampWallLeft = geoRenderer->RegisterModel("SteepRampWallLeft", &pbrSteepRampWallLeft);
+    modelID_SteepRampWallRight = geoRenderer->RegisterModel("SteepRampWallRight", &pbrSteepRampWallRight);
 
     // Create world entities
     using namespace World;
@@ -211,7 +229,7 @@ void Game::SetupModels()
         world.AddCollision(e, COLLISION_CYLINDER, {0.0f, 0.0f, 0.0f}, 0.8f, 4.0f, {0.0f, 0.0f, 0.0f}, PURPLE);
     }
 
-    // Main ramp - collision only (visual shown via debug collision boxes)
+    // Main ramp - with visual PBR model and collision
     {
         Vector3 rampCenter = {8.0f, 1.5f, -7.0f};
         float rampWidth = 4.0f;
@@ -221,7 +239,8 @@ void Game::SetupModels()
 
         Entity e = world.CreateEntity();
         world.AddMetadata(e, "MainRamp", true);
-        world.AddTransform(e, rampCenter);
+        world.AddTransform(e, rampCenter, {slopeAngle, 0.0f, 0.0f});
+        world.AddRender(e, &pbrRamp, modelID_Ramp, {102, 64, 38, 255}, 0.0f, 0.7f);
         world.AddCollision(e, COLLISION_BOX, {rampWidth, 0.5f, rampLength}, 0.0f, 0.0f, {slopeAngle, 0.0f, 0.0f}, Fade(BROWN, 0.5f));
 
         // Side walls for main ramp
@@ -229,15 +248,17 @@ void Game::SetupModels()
         Entity leftWall = world.CreateEntity();
         world.AddMetadata(leftWall, "Slope Wall Left", true);
         world.AddTransform(leftWall, {rampCenter.x - rampWidth / 2.0f - slopeWallThickness / 2.0f, rampMaxHeight / 2.0f, rampCenter.z});
+        world.AddRender(leftWall, &pbrRampWallLeft, modelID_RampWallLeft, {77, 51, 26, 255}, 0.0f, 0.8f);
         world.AddCollision(leftWall, COLLISION_BOX, {slopeWallThickness, rampMaxHeight, rampLength}, 0.0f, 0.0f, {0.0f, 0.0f, 0.0f}, DARKBROWN);
 
         Entity rightWall = world.CreateEntity();
         world.AddMetadata(rightWall, "Slope Wall Right", true);
         world.AddTransform(rightWall, {rampCenter.x + rampWidth / 2.0f + slopeWallThickness / 2.0f, rampMaxHeight / 2.0f, rampCenter.z});
+        world.AddRender(rightWall, &pbrRampWallRight, modelID_RampWallRight, {77, 51, 26, 255}, 0.0f, 0.8f);
         world.AddCollision(rightWall, COLLISION_BOX, {slopeWallThickness, rampMaxHeight, rampLength}, 0.0f, 0.0f, {0.0f, 0.0f, 0.0f}, DARKBROWN);
     }
 
-    // Steep ramp - collision only (visual shown via debug collision boxes)
+    // Steep ramp - with visual PBR model and collision
     {
         Vector3 steepRampCenter = {-8.0f, 2.0f, -7.0f};
         float steepRampWidth = 3.0f;
@@ -247,7 +268,8 @@ void Game::SetupModels()
 
         Entity e = world.CreateEntity();
         world.AddMetadata(e, "SteepRamp", true);
-        world.AddTransform(e, steepRampCenter);
+        world.AddTransform(e, steepRampCenter, {steepSlopeAngle, 0.0f, 0.0f});
+        world.AddRender(e, &pbrSteepRamp, modelID_SteepRamp, {128, 26, 26, 255}, 0.0f, 0.6f);
         world.AddCollision(e, COLLISION_BOX, {steepRampWidth, 0.5f, steepRampLength}, 0.0f, 0.0f, {steepSlopeAngle, 0.0f, 0.0f}, Fade(MAROON, 0.5f));
 
         // Side walls for steep ramp
@@ -255,11 +277,13 @@ void Game::SetupModels()
         Entity leftWall = world.CreateEntity();
         world.AddMetadata(leftWall, "Steep Slope Wall Left", true);
         world.AddTransform(leftWall, {steepRampCenter.x - steepRampWidth / 2.0f - slopeWallThickness / 2.0f, steepRampHeight / 2.0f, steepRampCenter.z});
+        world.AddRender(leftWall, &pbrSteepRampWallLeft, modelID_SteepRampWallLeft, {89, 38, 26, 255}, 0.0f, 0.75f);
         world.AddCollision(leftWall, COLLISION_BOX, {slopeWallThickness, steepRampHeight, steepRampLength}, 0.0f, 0.0f, {0.0f, 0.0f, 0.0f}, DARKBROWN);
 
         Entity rightWall = world.CreateEntity();
         world.AddMetadata(rightWall, "Steep Slope Wall Right", true);
         world.AddTransform(rightWall, {steepRampCenter.x + steepRampWidth / 2.0f + slopeWallThickness / 2.0f, steepRampHeight / 2.0f, steepRampCenter.z});
+        world.AddRender(rightWall, &pbrSteepRampWallRight, modelID_SteepRampWallRight, {89, 38, 26, 255}, 0.0f, 0.75f);
         world.AddCollision(rightWall, COLLISION_BOX, {slopeWallThickness, steepRampHeight, steepRampLength}, 0.0f, 0.0f, {0.0f, 0.0f, 0.0f}, DARKBROWN);
     }
 
@@ -510,7 +534,7 @@ void Game::UpdatePlaying()
     geoRenderer->SetCullingRadiusMultiplier(geometryCullMargin);
     renderManager.GetGrassRenderer()->SetCullingRadiusMultiplier(grassCullMargin);
 
-    // Add all renderable entities
+    // Add all renderable entities to geometry renderer (now supports rotation)
     const auto &transforms = world.GetTransforms();
     const auto &renders = world.GetRenders();
 
@@ -524,10 +548,11 @@ void Game::UpdatePlaying()
         if (transformIdx >= 0 && renderIdx >= 0)
         {
             const Vector3 &pos = transforms.positions[transformIdx];
+            const Vector3 &rot = transforms.rotations[transformIdx];
             const Vector3 &scale = transforms.scales[transformIdx];
             int geoModelID = renders.geometryModelIDs[renderIdx];
 
-            geoRenderer->AddInstance(geoModelID, pos, scale.x); // Uniform scale
+            geoRenderer->AddInstance(geoModelID, pos, scale.x, rot);
         }
     }
 
@@ -859,14 +884,8 @@ void Game::DrawScene()
     if (showRaycast)
         player.PlayerRayCast();
 
-    // Draw PBR ground plane
-    DrawModel(pbrGroundPlane, GameConstants::WORLD_CENTER, 1.0f, WHITE);
-
     if (showGrid)
         DrawGrid(GameConstants::GRID_SIZE, 1.0f);
-
-    // Draw PBR test sphere at origin
-    DrawModel(pbrTestSphere, Vector3{0, 1, 0}, 1.0f, WHITE);
 
     customModel.drawPlayerModel(player);
 
@@ -882,7 +901,7 @@ void Game::DrawScene()
         DrawSphereWires({player.position.x, player.position.y + player.collisionHeight, player.position.z}, 0.15f, 8, 8, BLUE);
     }
 
-    // Draw culled geometry using GeometryRenderer (GPU frustum culling)
+    // Draw culled geometry using GeometryRenderer (GPU frustum culling with rotation support)
     renderManager.GetGeometryRenderer()->Draw(cameraController.camera);
 
     // Draw collision boxes for debugging

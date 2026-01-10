@@ -21,7 +21,7 @@ public:
     int RegisterModel(const std::string &name, Model *model);
 
     // Add an instance of a registered model
-    void AddInstance(int modelID, Vector3 position, float scale = 1.0f);
+    void AddInstance(int modelID, Vector3 position, float scale = 1.0f, Vector3 rotation = {0, 0, 0});
 
     // Clear all instances (call at start of frame if dynamic)
     void ClearInstances();
@@ -43,10 +43,11 @@ private:
     struct ModelInstance
     {
         float posX, posY, posZ, scale;
-        float boundsMinX, boundsMinY, boundsMinZ, pad0;
-        float boundsMaxX, boundsMaxY, boundsMaxZ, pad1;
+        float rotX, rotY, rotZ, pad0; // Euler angles in degrees
+        float boundsMinX, boundsMinY, boundsMinZ, pad1;
+        float boundsMaxX, boundsMaxY, boundsMaxZ, pad2;
         unsigned int modelID;
-        unsigned int pad2, pad3, pad4; // Padding for 16-byte alignment
+        unsigned int pad3, pad4, pad5; // Padding for 16-byte alignment
     };
 
     struct RegisteredModel
