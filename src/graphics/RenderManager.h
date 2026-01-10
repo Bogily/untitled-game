@@ -52,7 +52,7 @@ public:
     GeometryRenderer *GetGeometryRenderer() { return &geometryRenderer; }
 
     // Update methods - centralized update for all rendering subsystems
-    void UpdateCamera(Camera3D camera);
+    void UpdateCamera(Camera3D camera, int maxActiveLights = 64);
     void UpdateGrass(float deltaTime, Camera3D camera);
     void UpdateWater(float deltaTime, Camera3D camera);
     void UpdateGeometry(float deltaTime, Camera3D camera);

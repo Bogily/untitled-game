@@ -1,4 +1,4 @@
-#version 330 core
+#version 430 core
 
 in vec3 fragPosition;
 in vec2 fragTexCoord;
@@ -9,15 +9,23 @@ out vec4 finalColor;
 struct Light {
     int type;
     int enabled;
-    vec3 position;
-    vec3 target;
+    vec2 pad0;
+    vec4 positionRadius;
     vec4 color;
     float intensity;
+    vec3 pad1;
 };
 
-uniform int numOfLights;
-uniform Light lights[4];
+uniform int numActiveLights;
 uniform vec3 viewPos;
+uniform vec3 ambientLight;
+
+// Individual light uniforms (max 64 lights)
+uniform int lights_type[64];
+uniform int lights_enabled[64];
+uniform vec4 lights_positionRadius[64];
+uniform vec4 lights_color[64];
+uniform float lights_intensity[64];
 
 uniform vec4 albedoColor;
 uniform float metallicValue;
@@ -75,21 +83,21 @@ void main()
     F0 = mix(F0, albedo, metallic);
 
     vec3 Lo = vec3(0.0);
-    for (int i = 0; i < numOfLights; ++i)
+    for (int i = 0; i < numActiveLights; ++i)
     {
-        if (lights[i].enabled == 0) continue;
+        if (lights_enabled[i] == 0) continue;
         
         vec3 L;
         float attenuation;
         
-        if (lights[i].type == 2) {
-            // Directional light (sun) - position field stores direction
-            L = normalize(-lights[i].position);  // Negate because we store the direction TO the light
-            attenuation = 1.0;  // No attenuation for directional lights
+        if (lights_type[i] == 2) {
+            // Directional light
+            L = normalize(-lights_positionRadius[i].xyz);
+            attenuation = 1.0;
         } else {
             // Point light
-            L = normalize(lights[i].position - fragPosition);
-            float distance = length(lights[i].position - fragPosition);
+            L = normalize(lights_positionRadius[i].xyz - fragPosition);
+            float distance = length(lights_positionRadius[i].xyz - fragPosition);
             attenuation = 1.0 / (distance * distance);
         }
         
@@ -105,21 +113,21 @@ void main()
 
         float NdotL = max(dot(N, L), 0.0);
 
-        // kS is energy preserved specular term
         vec3 kS = F;
         vec3 kD = vec3(1.0) - kS;
         kD *= 1.0 - metallic;
 
-        vec3 radiance = lights[i].color.rgb * lights[i].intensity * attenuation;
+        vec3 radiance = lights_color[i].rgb * lights_intensity[i] * attenuation;
 
         Lo += (kD * albedo / 3.14159265 + specular) * radiance * NdotL;
     }
 
-    vec3 ambient = vec3(0.001) * albedo;  // Very dark ambient for realistic lighting
+    vec3 ambient = ambientLight * albedo;
     vec3 color = ambient + Lo;
     
-    // Remove tone mapping - will be done in post-processing
-    // color = color / (color + vec3(1.0));
-    // color = pow(color, vec3(1.0/2.2));
+    // Tone mapping - compress HDR to LDR
+    color = color / (color + vec3(1.0));  // Reinhard tone mapping
+    color = pow(color, vec3(1.0/2.2));   // Gamma correction
+    
     finalColor = vec4(color, 1.0);
 }

@@ -191,9 +191,9 @@ void RenderManager::SetSunDirection(Vector3 direction)
     waterRenderer.SetLightDirection(direction);
 }
 
-void RenderManager::UpdateCamera(Camera3D camera)
+void RenderManager::UpdateCamera(Camera3D camera, int maxActiveLights)
 {
-    lightRenderer.Update(camera);
+    lightRenderer.Update(camera, maxActiveLights);
 }
 
 void RenderManager::UpdateGrass(float deltaTime, Camera3D camera)

@@ -4,16 +4,16 @@
 #include "../player/Player.h"
 #include "../physics/CollisionSystem.h"
 #include "../utils/custommodel.h"
-#include "../utils/DebugMenu.h"
-#include "../utils/PostProcessingMenu.h"
-#include "../graphics/BillboardText.h"
-#include "../graphics/SpeechBubble.h"
 #include "../graphics/CameraController.h"
 #include "../graphics/RenderManager.h"
-#include "../world/NPC.h"
 #include "../world/World.h"
+#include "../world/SceneManager.h"
+#include "../world/Level.h"
+#include "../utils/DebugMenu.h"
+#include "../utils/PostProcessingMenu.h"
 #include "GameState.h"
 #include <vector>
+#include <unordered_map>
 
 class Game
 {
@@ -28,125 +28,77 @@ private:
     MainMenu mainMenu;
     PauseMenu pauseMenu;
 
-    // Game constants
-    static constexpr float FIXED_CAMERA_MOVE_SPEED = 5.0f;
-    static constexpr float MIN_PLAYER_HEIGHT = 1.0f;
-    static constexpr float MAX_VERTICAL_MOVE_HEIGHT = 5.0f;
-    static constexpr int UI_TEXT_SIZE = 20;
-    static constexpr int UI_SMALL_TEXT_SIZE = 16;
-    static constexpr int UI_MARGIN = 10;
-    static constexpr int UI_LINE_SPACING = 30;
-
-    // Game objects
+    // Game systems
     CameraController cameraController;
     Player player;
-    CustomModel customModel;
-    DebugMenu debugMenu;
-    PostProcessingMenu postProcessingMenu;
-    SettingsMenu settingsMenu;
     RenderManager renderManager;
     CollisionSystem collisionSystem;
     World::WorldManager world; // ECS world manager
-    Mesh slopeMesh;
-    Model slopeModel;
-    Model pbrTestSphere;
+    SceneManager sceneManager; // Scene management system
+    CustomModel customModel;
 
-    // NPCs and speech bubbles
-    std::vector<NPC> npcs;
-    Graphics::SpeechBubbleManager speechBubbleManager;
+    // Settings menu
+    SettingsMenu settingsMenu;
 
-    // PBR world objects
-    Model pbrRedCube;
-    Model pbrBlueTower;
-    Model pbrYellowSphere;
-    Model pbrOrangeSphere;
-    Model pbrCapsule;
-    Model pbrCylinder;
-    Model pbrGroundPlane;
-    Model pbrRamp;
-    Model pbrSteepRamp;
-    Model pbrRampWallLeft;
-    Model pbrRampWallRight;
-    Model pbrSteepRampWallLeft;
-    Model pbrSteepRampWallRight;
+    // Debug menu
+    DebugMenu debugMenu;
+    PostProcessingMenu postProcessingMenu;
 
-    // Geometry renderer model IDs
-    int modelID_RedCube;
-    int modelID_BlueTower;
-    int modelID_YellowSphere;
-    int modelID_OrangeSphere;
-    int modelID_Capsule;
-    int modelID_Cylinder;
-    int modelID_GroundPlane;
-    int modelID_Ramp;
-    int modelID_SteepRamp;
-    int modelID_TestSphere;
-    int modelID_RampWallLeft;
-    int modelID_RampWallRight;
-    int modelID_SteepRampWallLeft;
-    int modelID_SteepRampWallRight;
+    // Scene-related state
+    bool sceneInitialized = false;
+    std::unordered_map<std::string, Model> sceneModels;
+    std::unordered_map<std::string, int> modelIDs;
 
-    // Debug flags
+    // Debug/UI state
     bool showGrid = true;
-    bool showRaycast = true;
-    bool showPlayerPos = false;
-    bool showFPS = true;
     bool showCollisionBoxes = true;
     bool showPlayerHitbox = true;
     bool showGrass = true;
-
-    // Gameplay tweakables
-    float npcInteractionRange = 3.0f;
-
-    // Post-processing settings (controlled by PostProcessingMenu)
-    bool enablePostProcessing = true;
+    bool showFPS = true;
+    bool enablePostProcessing = false;
     bool enableGrayscale = false;
-
-    // Culling tuning
-    float geometryCullMargin = 1.25f; // radius multiplier (>1.0 less aggressive)
-    float grassCullMargin = 1.15f;    // grass radius multiplier
-
-    // Model selection
+    // Culling margins
+    float geometryCullMargin = 1.0f;
+    float grassCullMargin = 1.70f; // default per request
     int currentModelIndex = 0;
-    int previousModelIndex = 0;
+    int previousModelIndex = -1;
+
     // Fullscreen/window mode: 0=Windowed,1=Fullscreen,2=Borderless (windowed fullscreen)
     int fullscreenMode = 0;
     int previousFullscreenMode = -1;
 
     // Helper methods
-    void SetupCamera();
-    void SetupPlayer();
-    void SetupModels();
-    void SetupSkybox();
-    void SetupRenderer();
-    void SetupGrass();
-    void SetupWater();
-    void SetupCollisions();
-    void SetupNPCs();
-
-    void SetupDebugMenu();
-    void SetupPostProcessingMenu();
+    void SetupMenus();
     void UpdateSettings();
     void HandleWindowResize();
     void DrawSettings();
-    void ApplyRenderingMode(); // Apply PBR shaders to models
-    void HandleInput(float deltaTime);
-    void HandleCameraControls();
+    void SetupDebugMenu();
+
+    // Scene setup
+    void InitializeScene();
+    void ShutdownScene();
+    void SetupRenderer();
+    void SetupCamera(const LevelData &level);
+    void SetupPlayer(const LevelData &level);
+    void SetupModels(const LevelData &level);
+    void SetupLights(const LevelData &level);
+    void SetupSkybox(const LevelData &level);
+    void SetupGrass(const LevelData &level);
+    void SetupWater(const LevelData &level);
+    void SetupCollisions(const LevelData &level);
+
+    // Game loop helpers
     void UpdatePlayer(float deltaTime);
-    void UpdatePlayerInFixedCamera(float deltaTime);
+    void UpdateNPCs(float deltaTime);
+    void HandleNPCInteraction();
+    void HandleInput(float deltaTime);
     void DrawScene();
     void DrawUI();
-    void Draw3DBillboards();
-    void Draw2DUI();
 
-    // Camera cutscene helpers
-    void StartOverviewCutscene();
-    void StartZoomCutscene();
-    void StartOrbitCutscene(const Vector3 &target, float radius, int segments);
-    std::vector<CameraWaypoint> CreateCircularOrbit(const Vector3 &center, float radius, float height, int segments, float duration, float fov);
+    // Model creation helpers
+    Model CreateModelFromType(const std::string &modelType);
 
     // State management
-    void SetupMenus();
     void UpdateMainMenu();
     void UpdatePlaying();
     void UpdatePaused();

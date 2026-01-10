@@ -1,10 +1,13 @@
 #include "LightRenderer.h"
+#include "rlgl.h"
+#include <algorithm>
 #include <cstdio>
 
 LightRenderer::LightRenderer()
     : pbrShader({0}),
       initialized(false),
-      lightCount(0)
+      lightCount(0),
+      ambientLight({0.05f, 0.05f, 0.05f})
 {
 }
 
@@ -28,10 +31,6 @@ void LightRenderer::Init(int width, int height)
         TraceLog(LOG_ERROR, "LightRenderer: Failed to load PBR shader!");
         return;
     }
-
-    // Set number of lights uniform
-    int numLights = LIGHT_MAX_LIGHTS;
-    SetShaderValue(pbrShader, GetShaderLocation(pbrShader, "numOfLights"), &numLights, SHADER_UNIFORM_INT);
 
     // Reserve space for lights
     lights.reserve(LIGHT_MAX_LIGHTS);
@@ -75,10 +74,13 @@ void LightRenderer::ApplyToModel(Model &model, const Vector4 &albedo, float meta
     SetShaderValue(pbrShader, GetShaderLocation(pbrShader, "roughnessValue"), &roughness, SHADER_UNIFORM_FLOAT);
 }
 
-void LightRenderer::Update(const Camera &camera)
+void LightRenderer::Update(const Camera &camera, int maxActiveLights)
 {
     if (!initialized)
         return;
+
+    // Cull and sort lights by distance to camera
+    CullAndSortLights(camera.position, maxActiveLights);
 
     // Update camera position uniform
     float camPos[3] = {camera.position.x, camera.position.y, camera.position.z};
@@ -90,37 +92,40 @@ void LightRenderer::Update(const Camera &camera)
 
 void LightRenderer::UploadLightData()
 {
-    int maxLights = (lightCount < LIGHT_MAX_LIGHTS) ? lightCount : LIGHT_MAX_LIGHTS;
+    // Upload ambient light uniform
+    float ambient[3] = {ambientLight.x, ambientLight.y, ambientLight.z};
+    SetShaderValue(pbrShader, GetShaderLocation(pbrShader, "ambientLight"), ambient, SHADER_UNIFORM_VEC3);
 
-    for (int i = 0; i < maxLights; ++i)
+    // Count enabled lights
+    int enabledCount = 0;
+    for (int i = 0; i < lightCount; i++)
     {
-        char locName[64];
+        if (lights[i].enabled == 1)
+            enabledCount++;
+    }
 
-        // Upload position
-        sprintf(locName, "lights[%d].position", i);
-        int posLoc = GetShaderLocation(pbrShader, locName);
-        float pos[3] = {lights[i].positionRadius.x, lights[i].positionRadius.y, lights[i].positionRadius.z};
-        SetShaderValue(pbrShader, posLoc, pos, SHADER_UNIFORM_VEC3);
+    // Upload active light count
+    SetShaderValue(pbrShader, GetShaderLocation(pbrShader, "numActiveLights"), &enabledCount, SHADER_UNIFORM_INT);
 
-        // Upload color
-        sprintf(locName, "lights[%d].color", i);
-        int colLoc = GetShaderLocation(pbrShader, locName);
-        SetShaderValue(pbrShader, colLoc, &lights[i].color, SHADER_UNIFORM_VEC4);
+    // Upload individual light data
+    for (int i = 0; i < lightCount && i < LIGHT_MAX_LIGHTS; i++)
+    {
+        char uniformName[64];
 
-        // Upload intensity
-        sprintf(locName, "lights[%d].intensity", i);
-        int intLoc = GetShaderLocation(pbrShader, locName);
-        SetShaderValue(pbrShader, intLoc, &lights[i].intensity, SHADER_UNIFORM_FLOAT);
+        sprintf(uniformName, "lights_type[%d]", i);
+        SetShaderValue(pbrShader, GetShaderLocation(pbrShader, uniformName), &lights[i].type, SHADER_UNIFORM_INT);
 
-        // Upload enabled
-        sprintf(locName, "lights[%d].enabled", i);
-        int enabledLoc = GetShaderLocation(pbrShader, locName);
-        SetShaderValue(pbrShader, enabledLoc, &lights[i].enabled, SHADER_UNIFORM_INT);
+        sprintf(uniformName, "lights_enabled[%d]", i);
+        SetShaderValue(pbrShader, GetShaderLocation(pbrShader, uniformName), &lights[i].enabled, SHADER_UNIFORM_INT);
 
-        // Upload type
-        sprintf(locName, "lights[%d].type", i);
-        int typeLoc = GetShaderLocation(pbrShader, locName);
-        SetShaderValue(pbrShader, typeLoc, &lights[i].type, SHADER_UNIFORM_INT);
+        sprintf(uniformName, "lights_positionRadius[%d]", i);
+        SetShaderValue(pbrShader, GetShaderLocation(pbrShader, uniformName), &lights[i].positionRadius, SHADER_UNIFORM_VEC4);
+
+        sprintf(uniformName, "lights_color[%d]", i);
+        SetShaderValue(pbrShader, GetShaderLocation(pbrShader, uniformName), &lights[i].color, SHADER_UNIFORM_VEC4);
+
+        sprintf(uniformName, "lights_intensity[%d]", i);
+        SetShaderValue(pbrShader, GetShaderLocation(pbrShader, uniformName), &lights[i].intensity, SHADER_UNIFORM_FLOAT);
     }
 }
 
@@ -188,6 +193,12 @@ void LightRenderer::ClearLights()
     TraceLog(LOG_INFO, "LightRenderer: All lights cleared");
 }
 
+void LightRenderer::SetAmbientLight(const Vector3 &ambient)
+{
+    ambientLight = ambient;
+    TraceLog(LOG_INFO, "LightRenderer: Ambient light set to (%.2f, %.2f, %.2f)", ambient.x, ambient.y, ambient.z);
+}
+
 Vector3 LightRenderer::GetSunDirection() const
 {
     for (int i = 0; i < lightCount; i++)
@@ -217,5 +228,38 @@ void LightRenderer::DrawDebugLights()
             Vector3 pos = {lights[i].positionRadius.x, lights[i].positionRadius.y, lights[i].positionRadius.z};
             DrawSphere(pos, 0.2f, col);
         }
+    }
+}
+
+void LightRenderer::CullAndSortLights(const Vector3 &cameraPos, int maxActiveLights)
+{
+    if (lightCount == 0)
+        return;
+
+    // Sort lights by distance to camera (closest first)
+    std::sort(lights.begin(), lights.begin() + lightCount, [&](const Light &a, const Light &b)
+              {
+        // Directional lights always stay at the front
+        if (a.type == 2 && b.type != 2) return true;
+        if (b.type == 2 && a.type != 2) return false;
+        
+        // Both directional or both point lights - sort by distance
+        Vector3 posA = {a.positionRadius.x, a.positionRadius.y, a.positionRadius.z};
+        Vector3 posB = {b.positionRadius.x, b.positionRadius.y, b.positionRadius.z};
+        float distA = Vector3Distance(cameraPos, posA);
+        float distB = Vector3Distance(cameraPos, posB);
+        return distA < distB; });
+
+    // Enable the closest lights up to maxActiveLights
+    int lightsToEnable = (lightCount < maxActiveLights) ? lightCount : maxActiveLights;
+    for (int i = 0; i < lightsToEnable; i++)
+    {
+        lights[i].enabled = 1;
+    }
+
+    // Disable lights beyond the limit
+    for (int i = lightsToEnable; i < lightCount; i++)
+    {
+        lights[i].enabled = 0;
     }
 }
