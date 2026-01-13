@@ -70,8 +70,10 @@ void RenderManager::SetWindowSize(int width, int height)
     // Reinitialize rendering subsystems with new dimensions
     TraceLog(LOG_INFO, "RenderManager: Resizing to %dx%d", width, height);
 
-    lightRenderer.Shutdown();
-    lightRenderer.Init(width, height);
+    // NOTE: We do NOT re-init LightRenderer because:
+    // 1. It doesn't depend on screen size
+    // 2. Re-init would unload the PBR shader, breaking all models currently using it
+    // 3. Re-init would clear all lights
 
     postProcessingRenderer.Shutdown();
     postProcessingRenderer.Init(width, height);
