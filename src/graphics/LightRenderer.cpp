@@ -3,6 +3,8 @@
 #include <glad/glad.h>
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
+#include <cstdlib>
 
 LightRenderer::LightRenderer()
     : pbrShader({0}),
@@ -26,17 +28,43 @@ void LightRenderer::Init(int width, int height)
         return;
     }
 
-    // Load PBR shader
-    pbrShader = LoadShader("assets/shader/pbr.vs", "assets/shader/pbr.fs");
-    if (pbrShader.id == 0)
+    // Query GPU capabilities FIRST to determine max lights
+    maxLights = QueryMaxLightsFromGPU();
+    TraceLog(LOG_INFO, "LightRenderer: GPU supports up to %d lights", maxLights);
+
+    // Load shader code from files
+    char *vsCode = LoadFileText("assets/shader/pbr.vs");
+    char *fsCode = LoadFileText("assets/shader/pbr.fs");
+
+    if (!vsCode || !fsCode)
     {
-        TraceLog(LOG_ERROR, "LightRenderer: Failed to load PBR shader!");
+        TraceLog(LOG_ERROR, "LightRenderer: Failed to load shader files!");
+        if (vsCode)
+            UnloadFileText(vsCode);
+        if (fsCode)
+            UnloadFileText(fsCode);
         return;
     }
 
-    // Query GPU capabilities to determine max lights
-    maxLights = QueryMaxLightsFromGPU();
-    TraceLog(LOG_INFO, "LightRenderer: GPU supports up to %d lights", maxLights);
+    // Inject MAX_LIGHTS define into fragment shader
+    char *modifiedFsCode = (char *)malloc(strlen(fsCode) + 256);
+    sprintf(modifiedFsCode, "#version 430 core\n#define MAX_LIGHTS %d\n%s",
+            maxLights,
+            fsCode + strlen("#version 430 core\n"));
+
+    // Compile shader with dynamic MAX_LIGHTS
+    pbrShader = LoadShaderFromMemory(vsCode, modifiedFsCode);
+
+    // Cleanup
+    UnloadFileText(vsCode);
+    UnloadFileText(fsCode);
+    free(modifiedFsCode);
+
+    if (pbrShader.id == 0)
+    {
+        TraceLog(LOG_ERROR, "LightRenderer: Failed to compile PBR shader!");
+        return;
+    }
 
     // Reserve space for lights
     lights.reserve(maxLights);

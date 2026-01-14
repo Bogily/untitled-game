@@ -20,12 +20,17 @@ uniform int numActiveLights;
 uniform vec3 viewPos;
 uniform vec3 ambientLight;
 
-// Individual light uniforms (max 1024 lights - dynamically limited by GPU)
-uniform int lights_type[1024];
-uniform int lights_enabled[1024];
-uniform vec4 lights_positionRadius[1024];
-uniform vec4 lights_color[1024];
-uniform float lights_intensity[1024];
+// Individual light uniforms (MAX_LIGHTS defined at runtime based on GPU)
+// Default fallback if not defined
+#ifndef MAX_LIGHTS
+#define MAX_LIGHTS 64
+#endif
+
+uniform int lights_type[MAX_LIGHTS];
+uniform int lights_enabled[MAX_LIGHTS];
+uniform vec4 lights_positionRadius[MAX_LIGHTS];
+uniform vec4 lights_color[MAX_LIGHTS];
+uniform float lights_intensity[MAX_LIGHTS];
 
 uniform vec4 albedoColor;
 uniform float metallicValue;
