@@ -4,9 +4,11 @@
 #include <vector>
 
 // Standard PBR lighting system
-// Uses individual uniform uploads - scalable up to ~64 lights
-// Beyond 64 lights, consider implementing deferred rendering or clustered lighting
-#define LIGHT_MAX_LIGHTS 64
+// Uses individual uniform uploads - now dynamic based on GPU capabilities
+// Default fallback if GPU query fails
+#define LIGHT_DEFAULT_MAX_LIGHTS 64
+// Absolute maximum (can be increased further if needed)
+#define LIGHT_ABSOLUTE_MAX_LIGHTS 1024
 
 struct alignas(16) Light
 {
@@ -37,7 +39,7 @@ public:
     void ApplyToModel(Model &model, const Vector4 &albedo, float metallic, float roughness);
 
     // Update per-frame uniforms (camera position and light data)
-    void Update(const Camera &camera, int maxActiveLights = LIGHT_MAX_LIGHTS);
+    void Update(const Camera &camera, int maxActiveLights = LIGHT_DEFAULT_MAX_LIGHTS);
 
     // Light management - unified interface
     void CreatePointLight(const Vector3 &pos, const Vector4 &color, float intensity, float radius = 10.0f);
@@ -48,6 +50,7 @@ public:
 
     // Get light count and info
     int GetLightCount() const { return lightCount; }
+    int GetMaxLights() const { return maxLights; }
     Vector3 GetSunDirection() const;
 
     // Debug visualization
@@ -60,9 +63,11 @@ private:
 
     std::vector<Light> lights;
     int lightCount;
+    int maxLights; // Dynamic max lights based on GPU capabilities
     Vector3 ambientLight;
 
     // Internal methods
     void UploadLightData();
     void CullAndSortLights(const Vector3 &cameraPos, int maxActiveLights);
+    int QueryMaxLightsFromGPU(); // Query GPU for max uniform vectors
 };

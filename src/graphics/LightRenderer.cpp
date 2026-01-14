@@ -1,5 +1,6 @@
 #include "LightRenderer.h"
 #include "rlgl.h"
+#include <glad/glad.h>
 #include <algorithm>
 #include <cstdio>
 
@@ -7,6 +8,7 @@ LightRenderer::LightRenderer()
     : pbrShader({0}),
       initialized(false),
       lightCount(0),
+      maxLights(LIGHT_DEFAULT_MAX_LIGHTS),
       ambientLight({0.05f, 0.05f, 0.05f})
 {
 }
@@ -32,11 +34,15 @@ void LightRenderer::Init(int width, int height)
         return;
     }
 
+    // Query GPU capabilities to determine max lights
+    maxLights = QueryMaxLightsFromGPU();
+    TraceLog(LOG_INFO, "LightRenderer: GPU supports up to %d lights", maxLights);
+
     // Reserve space for lights
-    lights.reserve(LIGHT_MAX_LIGHTS);
+    lights.reserve(maxLights);
 
     initialized = true;
-    TraceLog(LOG_INFO, "LightRenderer: PBR shader loaded (max %d lights)", LIGHT_MAX_LIGHTS);
+    TraceLog(LOG_INFO, "LightRenderer: PBR shader loaded (max %d lights)", maxLights);
 }
 
 void LightRenderer::Shutdown()
@@ -108,7 +114,7 @@ void LightRenderer::UploadLightData()
     SetShaderValue(pbrShader, GetShaderLocation(pbrShader, "numActiveLights"), &enabledCount, SHADER_UNIFORM_INT);
 
     // Upload individual light data
-    for (int i = 0; i < lightCount && i < LIGHT_MAX_LIGHTS; i++)
+    for (int i = 0; i < lightCount && i < maxLights; i++)
     {
         char uniformName[64];
 
@@ -131,9 +137,9 @@ void LightRenderer::UploadLightData()
 
 void LightRenderer::CreatePointLight(const Vector3 &pos, const Vector4 &color, float intensity, float radius)
 {
-    if (lightCount >= LIGHT_MAX_LIGHTS)
+    if (lightCount >= maxLights)
     {
-        TraceLog(LOG_WARNING, "LightRenderer: Cannot create more lights, max %d reached", LIGHT_MAX_LIGHTS);
+        TraceLog(LOG_WARNING, "LightRenderer: Cannot create more lights, max %d reached", maxLights);
         return;
     }
 
@@ -153,9 +159,9 @@ void LightRenderer::CreatePointLight(const Vector3 &pos, const Vector4 &color, f
 
 void LightRenderer::CreateDirectionalLight(const Vector3 &direction, const Vector4 &color, float intensity)
 {
-    if (lightCount >= LIGHT_MAX_LIGHTS)
+    if (lightCount >= maxLights)
     {
-        TraceLog(LOG_WARNING, "LightRenderer: Cannot create more lights, max %d reached", LIGHT_MAX_LIGHTS);
+        TraceLog(LOG_WARNING, "LightRenderer: Cannot create more lights, max %d reached", maxLights);
         return;
     }
 
@@ -262,4 +268,54 @@ void LightRenderer::CullAndSortLights(const Vector3 &cameraPos, int maxActiveLig
     {
         lights[i].enabled = 0;
     }
+}
+
+int LightRenderer::QueryMaxLightsFromGPU()
+{
+    // Query GPU for maximum uniform components (vec4s)
+    int maxFragmentUniformVectors = 0;
+
+    // Use OpenGL to query capabilities
+    // For OpenGL 3.3+, query GL_MAX_FRAGMENT_UNIFORM_COMPONENTS
+    // and divide by 4 to get vec4 count
+    int maxComponents = 0;
+    glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_COMPONENTS, &maxComponents);
+    maxFragmentUniformVectors = maxComponents / 4;
+
+    TraceLog(LOG_INFO, "LightRenderer: GPU reports %d max fragment uniform vectors", maxFragmentUniformVectors);
+
+    // Calculate how many lights we can support
+    // Each light uses:
+    // - 1 int (type) ≈ 0.25 vec4
+    // - 1 int (enabled) ≈ 0.25 vec4
+    // - 1 vec4 (positionRadius) = 1 vec4
+    // - 1 vec4 (color) = 1 vec4
+    // - 1 float (intensity) ≈ 0.25 vec4
+    // Total per light ≈ 3 vec4 (rounded up for safety to account for array padding)
+
+    // Also reserve space for other uniforms:
+    // - viewPos (vec3) = 1 vec4
+    // - ambientLight (vec3) = 1 vec4
+    // - numActiveLights (int) = 0.25 vec4
+    // - Material uniforms (albedo, metallic, roughness, etc.) ≈ 10 vec4
+    // - Matrices (mvp, matModel, etc.) ≈ 16 vec4
+    // Total reserved ≈ 30 vec4
+
+    const int reservedVectors = 30;
+    const int vectorsPerLight = 3;
+
+    int availableVectors = maxFragmentUniformVectors - reservedVectors;
+    int calculatedMaxLights = availableVectors / vectorsPerLight;
+
+    // Clamp between reasonable bounds
+    int minLights = 32;                        // Minimum guaranteed lights
+    int maxLights = LIGHT_ABSOLUTE_MAX_LIGHTS; // Don't exceed shader array size
+
+    calculatedMaxLights = (calculatedMaxLights < minLights) ? minLights : calculatedMaxLights;
+    calculatedMaxLights = (calculatedMaxLights > maxLights) ? maxLights : calculatedMaxLights;
+
+    TraceLog(LOG_INFO, "LightRenderer: Calculated max lights: %d (GPU vectors: %d, reserved: %d, per light: %d)",
+             calculatedMaxLights, maxFragmentUniformVectors, reservedVectors, vectorsPerLight);
+
+    return calculatedMaxLights;
 }
