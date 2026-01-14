@@ -111,6 +111,7 @@ void Game::UpdatePlaying()
 
     // Update debug menu
     debugMenu.Update();
+    postProcessingMenu.Update();
 
     // Apply cull margins from debug menu
     {

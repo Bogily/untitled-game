@@ -9,8 +9,8 @@
 #include "../world/World.h"
 #include "../world/SceneManager.h"
 #include "../world/Level.h"
-#include "../utils/DebugMenu.h"
-#include "../utils/PostProcessingMenu.h"
+#include "../ui/DebugMenu.h"
+#include "../ui/PostProcessingMenu.h"
 #include "GameState.h"
 #include <vector>
 #include <unordered_map>
