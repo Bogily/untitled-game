@@ -18,6 +18,7 @@ include(FetchContent)
 FetchContent_Declare(
     raylib
     URL https://github.com/raysan5/raylib/archive/master.tar.gz
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(raylib)
 
@@ -36,8 +37,32 @@ FetchContent_MakeAvailable(glad)
 FetchContent_Declare(
     lua
     URL https://www.lua.org/ftp/lua-5.4.7.tar.gz
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(lua)
+
+# RmlUi (HTML/CSS based UI)
+set(RMLUI_ENABLE_LUA OFF CACHE BOOL "Disable RmlUi Lua bindings" FORCE)
+set(RMLUI_ENABLE_SAMPLES OFF CACHE BOOL "Disable RmlUi samples" FORCE)
+set(RMLUI_ENABLE_TESTS OFF CACHE BOOL "Disable RmlUi tests" FORCE)
+set(RMLUI_ENABLE_PROFILER OFF CACHE BOOL "Disable RmlUi profiler" FORCE)
+FetchContent_Declare(
+    RmlUi
+    GIT_REPOSITORY https://github.com/mikke89/RmlUi.git
+    GIT_TAG 6.0
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_MakeAvailable(RmlUi)
+
+# Patch RmlUi 6.0: ensure robin_hood.h includes <cstdint> (toolchain-specific missing include)
+set(RMLUI_ROBIN_HOOD "${RmlUi_SOURCE_DIR}/Include/RmlUi/Core/Containers/robin_hood.h")
+if(EXISTS "${RMLUI_ROBIN_HOOD}")
+    file(READ "${RMLUI_ROBIN_HOOD}" RMLUI_ROBIN_HOOD_CONTENT)
+    if(NOT RMLUI_ROBIN_HOOD_CONTENT MATCHES "#include <cstdint>")
+        string(REPLACE "#include <limits>\n" "#include <limits>\n#include <cstdint>\n" RMLUI_ROBIN_HOOD_CONTENT "${RMLUI_ROBIN_HOOD_CONTENT}")
+        file(WRITE "${RMLUI_ROBIN_HOOD}" "${RMLUI_ROBIN_HOOD_CONTENT}")
+    endif()
+endif()
 
 # Build Lua as a library
 if(NOT TARGET lua_static)
@@ -85,6 +110,19 @@ endif()
 # In a real production environment, listing files manually is often preferred to avoid globbing issues.
 file(GLOB_RECURSE SOURCES "src/*.cpp" "src/*.c")
 
+add_library(raylib_rmlui STATIC
+    ${CMAKE_SOURCE_DIR}/src/ui/rmlui/raylibFileInterface.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/rmlui/raylibRenderInterface.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/rmlui/raylibSystemInterface.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/rmlui/raylibRmlUi.cpp
+)
+
+target_include_directories(raylib_rmlui PUBLIC
+    ${CMAKE_SOURCE_DIR}/src
+    ${RmlUi_SOURCE_DIR}/Include
+)
+target_link_libraries(raylib_rmlui PUBLIC raylib rmlui_core rmlui_debugger)
+
 # --- Executable ---
 add_executable(${PROJECT_NAME} ${SOURCES})
 
@@ -93,7 +131,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE src)
 
 # --- Link Libraries ---
 # raylib provides most functionality, but we also need glad for compute/SSBO OpenGL calls
-target_link_libraries(${PROJECT_NAME} PRIVATE raylib glad lua_static)
+target_link_libraries(${PROJECT_NAME} PRIVATE raylib glad lua_static raylib_rmlui)
 # Make sure the glad include dir is available to the project (FetchContent provides glad source)
 target_include_directories(${PROJECT_NAME} PRIVATE ${glad_SOURCE_DIR}/include)
 # Make sure Lua headers are available

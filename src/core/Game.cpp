@@ -1,6 +1,7 @@
 #include "Game.h"
 #include "../world/LuaScene.h"
 #include "../graphics/BillboardText.h"
+#include "ui/rmlui/GameEventListener.h"
 #include "rlgl.h"
 #include <memory>
 
@@ -17,6 +18,41 @@ void Game::Init()
     // Initialize menus first
     SetupMenus();
 
+    // Initialize RmlUi
+    rmlReady = RaylibRmlUi::Initialize(GetScreenWidth(), GetScreenHeight());
+    if (rmlReady)
+    {
+        // Load fonts before loading RML documents
+        RaylibRmlUi::LoadFontFace("assets/ui/rml/fonts/LatoLatin-Regular.ttf", "Lato", false);
+        RaylibRmlUi::LoadFontFace("assets/ui/rml/fonts/LatoLatin-Bold.ttf", "Lato Bold", false);
+        RaylibRmlUi::LoadFontFace("assets/ui/rml/fonts/UbuntuMono-Regular.ttf", "Ubuntu Mono", false);
+
+        // Load main menu
+        RaylibRmlUi::LoadRml("assets/ui/rml/mainmenu.rml", "mainmenu", false);
+        rmlMainMenu = RaylibRmlUi::GetPage("mainmenu");
+        if (rmlMainMenu)
+        {
+            // Setup main menu button handlers
+            auto btnPlay = rmlMainMenu->GetElementById("btn-play");
+            auto btnSettings = rmlMainMenu->GetElementById("btn-settings");
+            auto btnQuit = rmlMainMenu->GetElementById("btn-quit");
+
+            if (btnPlay)
+                btnPlay->AddEventListener(Rml::EventId::Click, new GameEventListener([this](Rml::Event &)
+                                                                                     { ChangeState(GameState::PLAYING); }));
+            if (btnSettings)
+                btnSettings->AddEventListener(Rml::EventId::Click, new GameEventListener([this](Rml::Event &)
+                                                                                         { ChangeState(GameState::SETTINGS); }));
+            if (btnQuit)
+                btnQuit->AddEventListener(Rml::EventId::Click, new GameEventListener([this](Rml::Event &)
+                                                                                     { ChangeState(GameState::QUIT); }));
+        }
+    }
+    else
+    {
+        TraceLog(LOG_WARNING, "RmlUi failed to initialize; UI will be disabled");
+    }
+
     // Initialize rendering system BEFORE creating scenes
     renderManager.Init(SCREEN_WIDTH, SCREEN_HEIGHT);
 
@@ -30,9 +66,11 @@ void Game::Init()
 
     // Debug menu will be initialized after scene setup, once models exist
 
-    // Start in playing state (skip main menu for now)
-    currentState = GameState::PLAYING;
-    DisableCursor();
+    // Start in main menu with RmlUI
+    currentState = GameState::MAIN_MENU;
+    EnableCursor();
+    if (rmlMainMenu)
+        rmlMainMenu->Show();
 }
 
 void Game::SetupMenus()
@@ -82,16 +120,25 @@ void Game::Update()
     case GameState::QUIT:
         break;
     }
+
+    if (rmlReady)
+        RaylibRmlUi::Update();
 }
 
 void Game::UpdateMainMenu()
 {
-    mainMenu.Update();
+    // RmlUI handles menu rendering automatically
+    if (rmlMainMenu && !rmlMainMenu->IsVisible())
+        rmlMainMenu->Show();
 }
 
 void Game::UpdatePlaying()
 {
     const float deltaTime = GetFrameTime();
+
+    // Hide main menu when playing
+    if (rmlMainMenu && rmlMainMenu->IsVisible())
+        rmlMainMenu->Hide();
 
     // Handle pause (ESC key)
     if (IsKeyPressed(KEY_ESCAPE))
@@ -236,6 +283,9 @@ void Game::HandleWindowResize()
 
     renderManager.SetWindowSize(newWidth, newHeight);
 
+    if (rmlReady)
+        RaylibRmlUi::SetViewport(newWidth, newHeight);
+
     // Rebuild menus so layout matches the new window size
     SetupMenus();
 
@@ -277,7 +327,8 @@ void Game::Draw()
 
 void Game::DrawMainMenu()
 {
-    mainMenu.Draw();
+    if (rmlReady)
+        RaylibRmlUi::Draw();
 }
 
 void Game::DrawPlaying()
@@ -332,6 +383,9 @@ void Game::Shutdown()
 
     // Shutdown render manager - handles all rendering subsystems
     renderManager.Shutdown();
+
+    if (rmlReady)
+        RaylibRmlUi::DeInitialize();
 
     CloseWindow();
 }
@@ -705,6 +759,11 @@ void Game::HandleInput(float deltaTime)
         else
             DisableCursor();
     }
+
+    if (rmlReady && IsKeyPressed(KEY_F8))
+    {
+        RaylibRmlUi::ToggleDebugger();
+    }
 }
 
 void Game::DrawScene()
@@ -830,4 +889,9 @@ void Game::DrawUI()
     // Draw debug menus
     debugMenu.Draw();
     postProcessingMenu.Draw();
+
+    if (rmlReady)
+    {
+        RaylibRmlUi::Draw();
+    }
 }

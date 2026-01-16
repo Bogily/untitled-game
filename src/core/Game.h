@@ -12,6 +12,7 @@
 #include "../ui/DebugMenu.h"
 #include "../ui/PostProcessingMenu.h"
 #include "GameState.h"
+#include "ui/rmlui/raylibRmlUi.h"
 #include <vector>
 #include <unordered_map>
 
@@ -57,6 +58,8 @@ private:
     bool showFPS = true;
     bool enablePostProcessing = false;
     bool enableGrayscale = false;
+    bool rmlReady = false;
+    Rml::ElementDocument *rmlMainMenu = nullptr;
     // Culling margins
     float geometryCullMargin = 1.0f;
     float grassCullMargin = 1.70f; // default per request

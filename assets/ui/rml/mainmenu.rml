@@ -1,0 +1,33 @@
+<rml>
+<head>
+    <title>Main Menu</title>
+    <link type="text/css" href="mainmenu.css"/>
+</head>
+<body id="mainmenu">
+    <div id="menu-container">
+        <div id="logo">
+            <h1>ZELDA-LIKE GAME</h1>
+            <p>3D Adventure</p>
+        </div>
+        
+        <div id="menu-buttons">
+            <button id="btn-play" onclick="play">
+                <span class="icon">▶</span>
+                <span class="label">PLAY</span>
+            </button>
+            <button id="btn-settings" onclick="settings">
+                <span class="icon">⚙</span>
+                <span class="label">SETTINGS</span>
+            </button>
+            <button id="btn-quit" onclick="quit">
+                <span class="icon">✕</span>
+                <span class="label">QUIT</span>
+            </button>
+        </div>
+        
+        <div id="footer">
+            <p>Press ESC to return • F8 for debugger</p>
+        </div>
+    </div>
+</body>
+</rml>
