@@ -61,31 +61,31 @@ Create a matching `.css` file:
 
 ```css
 body {
-    font-family: LatoLatin;
-    color: #ffffff;
-    width: 100%;
-    height: 100%;
+  font-family: LatoLatin;
+  color: #ffffff;
+  width: 100%;
+  height: 100%;
 }
 
 #container {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: 400px;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 400px;
 }
 
 button {
-    padding: 16px 24px;
-    background: #2a3854;
-    color: #ffffff;
-    font-size: 18px;
-    border-radius: 8px;
-    cursor: pointer;
+  padding: 16px 24px;
+  background: #2a3854;
+  color: #ffffff;
+  font-size: 18px;
+  border-radius: 8px;
+  cursor: pointer;
 }
 
 button:hover {
-    background: #3d5070;
+  background: #3d5070;
 }
 ```
 
@@ -109,7 +109,7 @@ if (myDoc)
             TraceLog(LOG_INFO, "Button clicked!");
         }));
     }
-    
+
     // Show the document
     myDoc->Show();
 }
@@ -133,6 +133,7 @@ if (myDoc && myDoc->IsVisible())
 RmlUI supports a subset of CSS. **Important limitations:**
 
 ### ✅ Supported
+
 - Colors: hex (`#ffffff`), rgb (`rgb(255, 255, 255)`)
 - Layout: `display`, `position`, `width`, `height`, `margin`, `padding`
 - Flexbox: `display: flex`, `gap`, `justify-content`, `align-items`
@@ -143,6 +144,7 @@ RmlUI supports a subset of CSS. **Important limitations:**
 - Transitions: basic `transition` support
 
 ### ❌ NOT Supported
+
 - `linear-gradient()` - use solid colors instead
 - `rgba()` with alpha in border/shadow - use hex without alpha
 - `text-shadow` - not supported
@@ -153,12 +155,14 @@ RmlUI supports a subset of CSS. **Important limitations:**
 ### Workarounds
 
 **Gradients** → Use solid color approximation:
+
 ```css
 /* Instead of: background: linear-gradient(135deg, #1f2e4a, #2d3f5e); */
 background: #263650; /* Middle tone */
 ```
 
 **Transparent borders** → Omit border or use solid color:
+
 ```css
 /* Instead of: border: 1px solid rgba(255,255,255,0.1); */
 /* Just omit it or use: */
@@ -168,6 +172,7 @@ border: 1px #444444;
 ## Event Handling
 
 ### Available Events
+
 - `Rml::EventId::Click` - Mouse click
 - `Rml::EventId::Dblclick` - Double click
 - `Rml::EventId::Mousedown` - Mouse button pressed
@@ -186,14 +191,14 @@ border: 1px #444444;
 auto element = document->GetElementById("my-element");
 if (element)
 {
-    element->AddEventListener(Rml::EventId::Click, 
+    element->AddEventListener(Rml::EventId::Click,
         new GameEventListener([this](Rml::Event& event) {
             // Access the element that triggered the event
             Rml::Element* target = event.GetTargetElement();
-            
+
             // Modify the element
             target->SetInnerRML("Clicked!");
-            
+
             // Call game logic
             this->DoSomething();
         })
@@ -244,8 +249,8 @@ RaylibRmlUi::LoadRml("assets/ui/rml/mainmenu.rml", "mainmenu", false);
 ```css
 /* The TTF file contains "LatoLatin" as family name */
 body {
-    font-family: LatoLatin;  /* Correct */
-    /* font-family: "Lato"; */ /* Wrong - will not work */
+  font-family: LatoLatin; /* Correct */
+  /* font-family: "Lato"; */ /* Wrong - will not work */
 }
 ```
 
@@ -256,19 +261,19 @@ body {
 ```css
 /* Center with absolute positioning */
 #centered {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 
 /* Center with flex */
 .flex-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-    height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
 }
 ```
 
@@ -277,14 +282,14 @@ body {
 ```css
 /* Use percentages */
 #responsive {
-    width: 80%;
-    max-width: 800px;
+  width: 80%;
+  max-width: 800px;
 }
 
 /* Use viewport units */
 body {
-    width: 100%;
-    height: 100%;
+  width: 100%;
+  height: 100%;
 }
 ```
 
@@ -292,44 +297,52 @@ body {
 
 ```css
 .menu-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .horizontal-bar {
-    display: flex;
-    gap: 12px;
-    justify-content: space-between;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
 }
 ```
 
 ## Common Issues
 
 ### Font Not Loading
+
 **Problem:** "No font face defined" warning
-**Solution:** 
+**Solution:**
+
 1. Check font family name in CSS matches the TTF internal name
 2. Ensure fonts are loaded before RML documents
 3. Don't use fallback fonts like `, sans-serif`
 
 ### Element Not Clickable
+
 **Problem:** Clicks don't register
 **Solution:**
+
 1. Check `cursor: pointer;` is set in CSS
 2. Ensure element is not covered by another element
 3. Verify document is shown: `document->Show()`
 
 ### CSS Not Applied
+
 **Problem:** Styles don't appear
 **Solution:**
+
 1. Check CSS file path in RML `<link>` tag is correct
 2. Verify selectors match element IDs/classes
 3. Remove unsupported properties (gradients, rgba borders, etc.)
 
 ### UI Not Visible
+
 **Problem:** Nothing appears on screen
 **Solution:**
+
 1. Call `RaylibRmlUi::Update()` every frame
 2. Call `RaylibRmlUi::Draw()` every frame
 3. Ensure document is shown: `document->Show()`
@@ -338,6 +351,7 @@ body {
 ## Example: Main Menu (Current Implementation)
 
 See `mainmenu.rml` and `mainmenu.css` for a complete working example of:
+
 - Centered layout with transform
 - Button styling with hover effects
 - Event handling for navigation
@@ -348,6 +362,7 @@ See `mainmenu.rml` and `mainmenu.css` for a complete working example of:
 ### Enable RmlUI Debugger
 
 Press **F8** in-game to toggle the RmlUI debugger, which shows:
+
 - Element hierarchy
 - Applied styles
 - Computed layout
@@ -356,6 +371,7 @@ Press **F8** in-game to toggle the RmlUI debugger, which shows:
 ### Console Logs
 
 RmlUI will log warnings about:
+
 - Missing fonts
 - Invalid CSS properties
 - File loading errors
