@@ -27,6 +27,7 @@ private:
     static void ReadObjects(lua_State *L, LevelData &level);
     static void ReadNPCs(lua_State *L, LevelData &level);
     static void ReadLights(lua_State *L, LevelData &level);
+    static void ReadParticles(lua_State *L, LevelData &level);
     static void ReadGrass(lua_State *L, LevelData &level);
     static void ReadWater(lua_State *L, LevelData &level);
 };

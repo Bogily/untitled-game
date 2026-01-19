@@ -58,6 +58,26 @@ public:
         float smoothness;
     };
 
+    struct ParticleEmitterData
+    {
+        Vector3 position;
+        Vector3 offset;
+        Vector3 velocity;
+        Vector3 velocityRandom;
+        Vector3 acceleration;
+        Color colorStart;
+        Color colorEnd;
+        float sizeStart;
+        float sizeEnd;
+        float sizeRandom;
+        float lifeMin;
+        float lifeMax;
+        float emissionRate;
+        int maxParticles;
+        bool blending;
+        std::string texturePath;
+    };
+
     // Level data
     std::string name;
     CameraData camera;
@@ -65,6 +85,7 @@ public:
     std::vector<ObjectData> objects;
     std::vector<NPCData> npcs;
     std::vector<LightData> lights;
+    std::vector<ParticleEmitterData> particles;
 
     // Grass/Water settings
     Vector3 grassPosition;

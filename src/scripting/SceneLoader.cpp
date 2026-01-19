@@ -70,6 +70,9 @@ LevelData SceneLoader::LoadFromFile(const std::string &filepath)
     // Read lights
     ReadLights(L, level);
 
+    // Read particles
+    ReadParticles(L, level);
+
     // Read grass
     ReadGrass(L, level);
 

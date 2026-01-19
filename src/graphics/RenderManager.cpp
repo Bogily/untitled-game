@@ -31,6 +31,7 @@ void RenderManager::Init(int width, int height)
     lightRenderer.Init(width, height);
     postProcessingRenderer.Init(width, height);
     geometryRenderer.Init();
+    particleSystem.Init();
 
     initialized = true;
     TraceLog(LOG_INFO, "RenderManager: Initialized (%dx%d)", width, height);
@@ -46,6 +47,7 @@ void RenderManager::Shutdown()
     postProcessingRenderer.Shutdown();
     grassRenderer.Shutdown();
     geometryRenderer.Shutdown();
+    particleSystem.Shutdown();
     skyboxRenderer.Unload();
     // WaterRenderer shutdown is handled by its destructor
 
@@ -278,4 +280,9 @@ void RenderManager::ClearLights()
 void RenderManager::UpdateGeometry(float deltaTime, Camera3D camera)
 {
     geometryRenderer.Update(deltaTime, camera);
+}
+
+void RenderManager::UpdateParticles(float deltaTime, Vector3 camPos)
+{
+    particleSystem.Update(deltaTime, camPos);
 }

@@ -88,6 +88,7 @@ private:
     void SetupSkybox(const LevelData &level);
     void SetupGrass(const LevelData &level);
     void SetupWater(const LevelData &level);
+    void SetupParticles(const LevelData &level);
     void SetupCollisions(const LevelData &level);
 
     // Game loop helpers

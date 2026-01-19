@@ -196,6 +196,7 @@ void Game::UpdatePlaying()
     renderManager.UpdateGrass(deltaTime, cameraController.camera);
     renderManager.UpdateGeometry(deltaTime, cameraController.camera);
     renderManager.UpdateWater(deltaTime, cameraController.camera);
+    renderManager.UpdateParticles(deltaTime, cameraController.camera.position);
     renderManager.UpdateSkybox(deltaTime);
 
     // Update player
@@ -414,6 +415,7 @@ void Game::InitializeScene()
     SetupSkybox(level);
     SetupGrass(level);
     SetupWater(level);
+    SetupParticles(level);
     SetupCollisions(level);
 
     // Now that models and systems are ready, set up the debug menu safely
@@ -813,6 +815,9 @@ void Game::DrawScene()
     // Draw grass
     if (showGrass)
         renderManager.GetGrassRenderer()->Draw(cameraController.camera);
+
+    // Draw particles
+    renderManager.GetParticleSystem()->Draw(cameraController.camera);
 
     // Draw grid for debugging
     if (showGrid)

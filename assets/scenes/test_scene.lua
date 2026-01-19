@@ -254,6 +254,44 @@ scene = {
         }
     },
     
+    -- Particles
+    particles = {
+        {
+            position = {0.0, 2.0, 0.0},
+            offset = {2.0, 0.0, 2.0},
+            velocity = {0.0, 1.0, 0.0},
+            velocityRandom = {0.5, 0.5, 0.5},
+            acceleration = {0.0, 0.5, 0.0},
+            colorStart = {255, 200, 50, 255},
+            colorEnd = {255, 0, 0, 0},
+            sizeStart = 0.5,
+            sizeEnd = 0.0,
+            sizeRandom = 0.2,
+            lifeMin = 1.0,
+            lifeMax = 2.0,
+            emissionRate = 20.0,
+            maxParticles = 100,
+            blending = true
+        },
+        {
+            position = {-4.0, 3.0, -4.0},
+            offset = {0.5, 0.5, 0.5},
+            velocity = {0.0, 2.0, 0.0},
+            velocityRandom = {0.2, 0.2, 0.2},
+            acceleration = {0.0, 0.0, 0.0},
+            colorStart = {255, 50, 50, 255},
+            colorEnd = {100, 0, 0, 0},
+            sizeStart = 0.2,
+            sizeEnd = 0.8,
+            sizeRandom = 0.1,
+            lifeMin = 0.5,
+            lifeMax = 1.0,
+            emissionRate = 50.0,
+            maxParticles = 200,
+            blending = true
+        }
+    },
+    
     -- Grass settings
     grass = {
         position = {0.0, 0.0, 0.0},

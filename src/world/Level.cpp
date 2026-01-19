@@ -261,6 +261,26 @@ LevelData LevelData::CreateTestLevel()
                             1.5f,
                             25.0f});
 
+    // Particle emitters
+    level.particles.push_back({
+        {0.0f, 2.0f, 0.0f}, // position
+        {2.0f, 0.0f, 2.0f}, // offset
+        {0.0f, 1.0f, 0.0f}, // velocity
+        {0.5f, 0.5f, 0.5f}, // velocityRandom
+        {0.0f, 0.5f, 0.0f}, // acceleration
+        {255, 200, 50, 255}, // colorStart
+        {255, 0, 0, 0},     // colorEnd
+        0.5f,               // sizeStart
+        0.0f,               // sizeEnd
+        0.2f,               // sizeRandom
+        1.0f,               // lifeMin
+        2.0f,               // lifeMax
+        20.0f,              // emissionRate
+        100,                // maxParticles
+        true,               // blending
+        ""                  // texturePath
+    });
+
     // Grass settings
     level.grassPosition = {0.0f, 0.0f, 0.0f};
     level.grassWidth = 30.0f;

@@ -8,6 +8,7 @@
 #include "GrassRenderer.h"
 #include "WaterRenderer.h"
 #include "GeometryRenderer.h"
+#include "ParticleSystem.h"
 #include <functional>
 #include <vector>
 
@@ -50,12 +51,14 @@ public:
     GrassRenderer *GetGrassRenderer() { return &grassRenderer; }
     WaterRenderer *GetWaterRenderer() { return &waterRenderer; }
     GeometryRenderer *GetGeometryRenderer() { return &geometryRenderer; }
+    ParticleSystem *GetParticleSystem() { return &particleSystem; }
 
     // Update methods - centralized update for all rendering subsystems
     void UpdateCamera(Camera3D camera, int maxActiveLights = 64);
     void UpdateGrass(float deltaTime, Camera3D camera);
     void UpdateWater(float deltaTime, Camera3D camera);
     void UpdateGeometry(float deltaTime, Camera3D camera);
+    void UpdateParticles(float deltaTime, Vector3 camPos);
     void UpdateSkybox(float deltaTime);
 
     // Model shader management - apply appropriate shaders based on rendering mode
@@ -104,6 +107,7 @@ private:
     GrassRenderer grassRenderer;
     GeometryRenderer geometryRenderer;
     WaterRenderer waterRenderer;
+    ParticleSystem particleSystem;
 
     // Internal rendering methods
     void RenderDirect(std::function<void()> sceneRenderer);
