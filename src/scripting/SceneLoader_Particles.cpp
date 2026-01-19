@@ -49,12 +49,24 @@ void SceneLoader::ReadParticles(lua_State *L, LevelData &level)
                 if (lua_isnumber(L, -1)) emitter.maxParticles = (int)lua_tointeger(L, -1);
                 lua_pop(L, 1);
 
-                lua_getfield(L, -1, "blending");
-                if (lua_isboolean(L, -1)) emitter.blending = lua_toboolean(L, -1);
-                else emitter.blending = true; // Default
+                lua_getfield(L, -1, "blendMode");
+                if (lua_isstring(L, -1)) emitter.blendMode = lua_tostring(L, -1);
+                else emitter.blendMode = "alpha"; // Default
                 lua_pop(L, 1);
 
-                lua_getfield(L, -1, "texture");
+                // Support legacy boolean 'blending' for backward compatibility
+                lua_getfield(L, -1, "blending");
+                if (lua_isboolean(L, -1)) {
+                    bool add = lua_toboolean(L, -1);
+                    if (add && emitter.blendMode == "alpha") emitter.blendMode = "add";
+                }
+                lua_pop(L, 1);
+
+                lua_getfield(L, -1, "textureName");
+                if (lua_isstring(L, -1)) emitter.textureName = lua_tostring(L, -1);
+                lua_pop(L, 1);
+
+                lua_getfield(L, -1, "texture"); // This was texturePath
                 if (lua_isstring(L, -1)) emitter.texturePath = lua_tostring(L, -1);
                 lua_pop(L, 1);
 

@@ -257,6 +257,7 @@ scene = {
     -- Particles
     particles = {
         {
+            -- Magical Star Fountain
             position = {0.0, 2.0, 0.0},
             offset = {2.0, 0.0, 2.0},
             velocity = {0.0, 1.0, 0.0},
@@ -271,24 +272,46 @@ scene = {
             lifeMax = 2.0,
             emissionRate = 20.0,
             maxParticles = 100,
-            blending = true
+            blendMode = "add",
+            textureName = "star"
         },
         {
+            -- Dark Smoke (Multiplicative)
             position = {-4.0, 3.0, -4.0},
             offset = {0.5, 0.5, 0.5},
             velocity = {0.0, 2.0, 0.0},
             velocityRandom = {0.2, 0.2, 0.2},
             acceleration = {0.0, 0.0, 0.0},
-            colorStart = {255, 50, 50, 255},
-            colorEnd = {100, 0, 0, 0},
-            sizeStart = 0.2,
-            sizeEnd = 0.8,
-            sizeRandom = 0.1,
-            lifeMin = 0.5,
-            lifeMax = 1.0,
-            emissionRate = 50.0,
+            colorStart = {100, 100, 100, 200},
+            colorEnd = {50, 50, 50, 0},
+            sizeStart = 1.0,
+            sizeEnd = 3.0,
+            sizeRandom = 0.5,
+            lifeMin = 2.0,
+            lifeMax = 4.0,
+            emissionRate = 30.0,
             maxParticles = 200,
-            blending = true
+            blendMode = "alpha", -- Alpha is better for smoke usually, or SUBTRACT/MUL for dark smoke
+            textureName = "smoke"
+        },
+        {
+             -- Blue Glow
+             position = {4.0, 5.0, 4.0},
+             offset = {0.2, 0.2, 0.2},
+             velocity = {0.0, 0.0, 0.0},
+             velocityRandom = {0.5, 0.5, 0.5},
+             acceleration = {0.0, 0.0, 0.0},
+             colorStart = {0, 100, 255, 255},
+             colorEnd = {0, 0, 255, 0},
+             sizeStart = 1.0,
+             sizeEnd = 0.1,
+             sizeRandom = 0.0,
+             lifeMin = 1.0,
+             lifeMax = 1.0,
+             emissionRate = 10.0,
+             maxParticles = 50,
+             blendMode = "add",
+             textureName = "soft_circle"
         }
     },
     

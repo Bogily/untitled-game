@@ -277,7 +277,8 @@ LevelData LevelData::CreateTestLevel()
         2.0f,               // lifeMax
         20.0f,              // emissionRate
         100,                // maxParticles
-        true,               // blending
+        "add",              // blendMode
+        "soft_circle",      // textureName
         ""                  // texturePath
     });
 

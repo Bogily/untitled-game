@@ -3,6 +3,14 @@
 #include "raymath.h"
 #include <vector>
 #include <string>
+#include <unordered_map>
+
+enum class ParticleBlendMode {
+    ALPHA,
+    ADD,
+    MULTIPLY,
+    SUBTRACT
+};
 
 struct Particle {
     Vector3 position;
@@ -23,6 +31,7 @@ struct Particle {
     float life;      // Remaining life
     float maxLife;   // Total life duration
     
+    float distanceSq; // Distance squared to camera (for sorting)
     bool active;
 };
 
@@ -48,8 +57,8 @@ struct EmitterConfig {
     float emissionRate; // Particles per second
     int maxParticles;
     
-    bool blending; // Additive blending if true
-    Texture2D texture;
+    ParticleBlendMode blendMode;
+    Texture2D texture; // If id=0, uses default
 };
 
 class ParticleEmitter {
@@ -75,8 +84,7 @@ private:
     float emissionTimer;
     bool active;
     
-    // Pre-allocated vertex buffers for batching could be added here
-    // For now, we will use rlgl immediate mode or DrawBillboard
+    friend class ParticleSystem;
 };
 
 class ParticleSystem {
@@ -92,8 +100,11 @@ public:
     
     ParticleEmitter* CreateEmitter(const EmitterConfig& config);
     void RemoveEmitter(ParticleEmitter* emitter);
+    
+    Texture2D GetTexture(const std::string& name);
 
 private:
     std::vector<ParticleEmitter*> emitters;
+    std::unordered_map<std::string, Texture2D> textures;
     Texture2D defaultTexture;
 };

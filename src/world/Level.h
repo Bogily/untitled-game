@@ -74,8 +74,9 @@ public:
         float lifeMax;
         float emissionRate;
         int maxParticles;
-        bool blending;
-        std::string texturePath;
+        std::string blendMode; // "alpha", "add", "mul", "sub"
+        std::string textureName; // "soft_circle", "star", etc. or path
+        std::string texturePath; // Optional: load from file if not built-in
     };
 
     // Level data

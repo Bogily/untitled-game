@@ -35,15 +35,28 @@ void ParticleEmitter::Update(float deltaTime, Vector3 camPos)
     }
 
     // Update particles
+    int activeCount = 0;
     for (auto& p : particles) {
         if (p.active) {
             UpdateParticle(p, deltaTime);
+            if (p.active) {
+                float dx = p.position.x - camPos.x;
+                float dy = p.position.y - camPos.y;
+                float dz = p.position.z - camPos.z;
+                p.distanceSq = dx*dx + dy*dy + dz*dz;
+                activeCount++;
+            }
         }
     }
     
-    // Simple sort for transparency (painter's algorithm) - optional but looks better
-    // This is expensive for many particles, maybe skip for now or do coarse sort?
-    // Let's skip sorting for now for performance.
+    // Sort particles back-to-front if using alpha blending
+    if (activeCount > 0 && config.blendMode == ParticleBlendMode::ALPHA) {
+        std::sort(particles.begin(), particles.end(), 
+            [](const Particle& a, const Particle& b) {
+                if (a.active != b.active) return a.active > b.active; 
+                return a.distanceSq > b.distanceSq;
+            });
+    }
 }
 
 void ParticleEmitter::Burst(int count)
@@ -134,42 +147,23 @@ void ParticleEmitter::Draw(Camera3D camera)
     if (config.texture.id > 0) {
         rlSetTexture(config.texture.id);
     } else {
-        // Fallback if somehow texture ID is 0 (though CreateEmitter should handle this)
         rlSetTexture(rlGetTextureIdDefault());
     }
 
     // Blending
-    rlEnableDepthMask(); // Disable depth writing for transparent particles usually
-    if (config.blending) {
-        rlSetBlendMode(RL_BLEND_ADDITIVE);
-    } else {
-        rlSetBlendMode(RL_BLEND_ALPHA);
+    switch (config.blendMode) {
+        case ParticleBlendMode::ADD: rlSetBlendMode(RL_BLEND_ADDITIVE); break;
+        case ParticleBlendMode::MULTIPLY: rlSetBlendMode(RL_BLEND_MULTIPLIED); break;
+        case ParticleBlendMode::SUBTRACT: rlSetBlendMode(RL_BLEND_SUBTRACT_COLORS); break;
+        default: rlSetBlendMode(RL_BLEND_ALPHA); break;
     }
 
     rlBegin(RL_QUADS);
-    rlColor4ub(255, 255, 255, 255); // Default tint
-
-    // Billboarding math
-    // Get camera right and up vectors
-    Vector3 camPos = camera.position;
-    // Simple billboard: plane always facing camera
-    // However, to do it efficiently in a loop, we can extract camera basis vectors.
-    // Raylib's internal math for this:
-    /*
-    Vector3 lookAt = Vector3Subtract(camera.target, camera.position);
-    Vector3 right = Vector3CrossProduct(lookAt, camera.up);
-    Vector3 up = camera.up; // Or typically re-crossed to be orthogonal
-    */
     
-    // Let's use Raylib's GetCameraRight/Up if available, or compute manually.
-    // Manual computation to be safe:
     Vector3 forward = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
     Vector3 up = camera.up;
     Vector3 right = Vector3CrossProduct(forward, up);
-    // Re-orthogonalize up
     up = Vector3CrossProduct(right, forward);
-    
-    // Normalize
     right = Vector3Normalize(right);
     up = Vector3Normalize(up);
 
@@ -181,8 +175,6 @@ void ParticleEmitter::Draw(Camera3D camera)
         float size = p.currentSize;
         Vector3 pPos = p.position;
 
-        // Calculate corners
-        // If rotation is needed, we rotate right/up vectors around forward
         Vector3 rightVec = right;
         Vector3 upVec = up;
 
@@ -195,13 +187,9 @@ void ParticleEmitter::Draw(Camera3D camera)
         Vector3 rightScaled = Vector3Scale(rightVec, size * 0.5f);
         Vector3 upScaled = Vector3Scale(upVec, size * 0.5f);
 
-        // Bottom-Left
         Vector3 p1 = Vector3Subtract(Vector3Subtract(pPos, rightScaled), upScaled);
-        // Bottom-Right
         Vector3 p2 = Vector3Subtract(Vector3Add(pPos, rightScaled), upScaled);
-        // Top-Right
         Vector3 p3 = Vector3Add(Vector3Add(pPos, rightScaled), upScaled);
-        // Top-Left
         Vector3 p4 = Vector3Add(Vector3Subtract(pPos, rightScaled), upScaled);
 
         rlTexCoord2f(0.0f, 0.0f); rlVertex3f(p1.x, p1.y, p1.z);
@@ -211,8 +199,7 @@ void ParticleEmitter::Draw(Camera3D camera)
     }
 
     rlEnd();
-    
-    rlSetBlendMode(RL_BLEND_ALPHA); // Reset
+    rlSetBlendMode(RL_BLEND_ALPHA);
     rlSetTexture(0);
 }
 
@@ -232,9 +219,40 @@ ParticleSystem::~ParticleSystem()
 
 void ParticleSystem::Init()
 {
-    // Create a simple default texture (soft circle)
     Image img = GenImageGradientRadial(32, 32, 0.0f, {255, 255, 255, 255}, {255, 255, 255, 0});
     defaultTexture = LoadTextureFromImage(img);
+    textures["soft_circle"] = defaultTexture;
+    UnloadImage(img);
+    
+    img = GenImageColor(32, 32, {0, 0, 0, 0});
+    ImageDrawCircle(&img, 16, 16, 14, WHITE);
+    textures["hard_circle"] = LoadTextureFromImage(img);
+    UnloadImage(img);
+    
+    img = GenImageColor(32, 32, WHITE);
+    textures["square"] = LoadTextureFromImage(img);
+    UnloadImage(img);
+    
+    img = GenImageColor(32, 32, {0, 0, 0, 0});
+    ImageDrawRectangle(&img, 14, 2, 4, 28, WHITE);
+    ImageDrawRectangle(&img, 2, 14, 28, 4, WHITE);
+    Image glow = GenImageGradientRadial(16, 16, 0.0f, WHITE, {255, 255, 255, 0});
+    ImageDraw(&img, glow, {0, 0, 16, 16}, {8, 8, 16, 16}, WHITE);
+    UnloadImage(glow);
+    textures["star"] = LoadTextureFromImage(img);
+    UnloadImage(img);
+
+    img = GenImageGradientRadial(32, 32, 0.0f, {200, 200, 200, 150}, {100, 100, 100, 0});
+    for (int y=0; y<32; y++) {
+        for (int x=0; x<32; x++) {
+             if (GetRandomValue(0, 10) > 8) {
+                 Color c = GetImageColor(img, x, y);
+                 c.a = (unsigned char)(c.a * 0.8f);
+                 ImageDrawPixel(&img, x, y, c);
+             }
+        }
+    }
+    textures["smoke"] = LoadTextureFromImage(img);
     UnloadImage(img);
 }
 
@@ -244,11 +262,11 @@ void ParticleSystem::Shutdown()
         delete emitter;
     }
     emitters.clear();
-    
-    if (defaultTexture.id > 0) {
-        UnloadTexture(defaultTexture);
-        defaultTexture.id = 0;
+    for (auto& pair : textures) {
+        UnloadTexture(pair.second);
     }
+    textures.clear();
+    defaultTexture.id = 0;
 }
 
 void ParticleSystem::Update(float deltaTime, Vector3 camPos)
@@ -260,25 +278,19 @@ void ParticleSystem::Update(float deltaTime, Vector3 camPos)
 
 void ParticleSystem::Draw(Camera3D camera)
 {
-    // Disable writing to depth buffer to avoid sorting issues with transparent particles
-    // (Though simple alpha blending still has sorting issues, this helps)
     rlDisableDepthMask();
-    
     for (auto* emitter : emitters) {
         emitter->Draw(camera);
     }
-    
     rlEnableDepthMask();
 }
 
 ParticleEmitter* ParticleSystem::CreateEmitter(const EmitterConfig& config)
 {
-    // Apply default texture if none provided
     EmitterConfig cfg = config;
     if (cfg.texture.id == 0) {
         cfg.texture = defaultTexture;
     }
-    
     ParticleEmitter* emitter = new ParticleEmitter(cfg);
     emitters.push_back(emitter);
     return emitter;
