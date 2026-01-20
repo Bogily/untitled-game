@@ -28,7 +28,7 @@ void Game::Init()
         RaylibRmlUi::LoadFontFace("assets/ui/rml/fonts/UbuntuMono-Regular.ttf", "Ubuntu Mono", false);
 
         // Load main menu
-        RaylibRmlUi::LoadRml("assets/ui/rml/mainmenu.rml", "mainmenu", false);
+        RaylibRmlUi::LoadRml("assets/ui/rml/mainmenu.rhtml", "mainmenu", false);
         rmlMainMenu = RaylibRmlUi::GetPage("mainmenu");
         if (rmlMainMenu)
         {
