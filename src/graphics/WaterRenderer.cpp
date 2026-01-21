@@ -7,7 +7,7 @@
 #include <sstream>
 
 WaterRenderer::WaterRenderer()
-    : waterLevel(-0.5f), waterWidth(50.0f), waterDepth(50.0f), elapsedTime(0.0f), lightDirection({0.3f, 0.5f, 0.8f}), computeProgram(0), ssboHeightField(0), ssboVelocityField(0), ssboPrevHeightField(0), gridWidth(128), gridHeight(128), useComputeShader(true), damping(0.995f), waveSpeed(2.5f), waveStrength(1.0f), windDirection({1.0f, 0.5f}), windStrength(0.3f), initialized(false)
+    : waterLevel(-0.5f), waterWidth(50.0f), waterDepth(50.0f), elapsedTime(0.0f), lightDirection({0.3f, 0.5f, 0.8f}), computeProgram(0), ssboHeightField(0), ssboVelocityField(0), ssboPrevHeightField(0), gridWidth(128), gridHeight(128), useComputeShader(true), damping(0.992f), waveSpeed(3.2f), waveStrength(2.5f), windDirection({1.0f, 0.5f}), windStrength(0.8f), initialized(false), normalScale(0.9f), foamThreshold(0.02f), foamIntensity(1.0f), glossiness(128.0f)
 {
 }
 
@@ -42,6 +42,11 @@ void WaterRenderer::Init()
     mvpLoc = GetShaderLocation(waterShader, "mvp");
     matModelLoc = GetShaderLocation(waterShader, "matModel");
     matNormalLoc = GetShaderLocation(waterShader, "matNormal");
+    // Visual tweak uniforms
+    normalScaleLoc = GetShaderLocation(waterShader, "normalScale");
+    foamThresholdLoc = GetShaderLocation(waterShader, "foamThreshold");
+    foamIntensityLoc = GetShaderLocation(waterShader, "foamIntensity");
+    glossinessLoc = GetShaderLocation(waterShader, "glossiness");
 
     // Match grid resolution for compute shader
     int subdivisions = useComputeShader ? gridWidth : 64;
@@ -86,6 +91,11 @@ void WaterRenderer::Update(float deltaTime, Camera3D camera)
     SetShaderValue(waterShader, timeLoc, &elapsedTime, SHADER_UNIFORM_FLOAT);
     SetShaderValue(waterShader, viewPosLoc, &camera.position, SHADER_UNIFORM_VEC3);
     SetShaderValue(waterShader, lightDirLoc, &lightDirection, SHADER_UNIFORM_VEC3);
+    // Visual tweak uniforms
+    SetShaderValue(waterShader, normalScaleLoc, &normalScale, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(waterShader, foamThresholdLoc, &foamThreshold, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(waterShader, foamIntensityLoc, &foamIntensity, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(waterShader, glossinessLoc, &glossiness, SHADER_UNIFORM_FLOAT);
 }
 
 void WaterRenderer::Draw()

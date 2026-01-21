@@ -43,6 +43,10 @@ private:
     int mvpLoc;
     int matModelLoc;
     int matNormalLoc;
+    int normalScaleLoc;
+    int foamThresholdLoc;
+    int foamIntensityLoc;
+    int glossinessLoc;
 
     // Compute shader for water simulation
     unsigned int computeProgram;
@@ -70,6 +74,12 @@ private:
     float waveStrength;
     Vector2 windDirection;
     float windStrength;
+
+    // Visual tweak uniforms
+    float normalScale;
+    float foamThreshold;
+    float foamIntensity;
+    float glossiness;
 
     bool initialized;
 };

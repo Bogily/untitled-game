@@ -92,14 +92,14 @@ void main()
     
     // Add procedural wave forcing (gentle ambient waves)
     vec2 worldPos = vec2(float(id.x) / float(gridWidth), float(id.y) / float(gridHeight));
-    float wave1 = sin(worldPos.x * 6.28 * 2.0 + time * 0.8) * 0.00015;
-    float wave2 = sin(worldPos.y * 6.28 * 1.5 - time * 0.6) * 0.0001;
-    float wave3 = sin((worldPos.x + worldPos.y) * 6.28 * 1.0 + time * 1.0) * 0.00008;
+    float wave1 = sin(worldPos.x * 6.28 * 2.0 + time * 0.8) * 0.0015;
+    float wave2 = sin(worldPos.y * 6.28 * 1.5 - time * 0.6) * 0.0010;
+    float wave3 = sin((worldPos.x + worldPos.y) * 6.28 * 1.0 + time * 1.0) * 0.0008;
     acceleration += (wave1 + wave2 + wave3) * waveStrength;
     
     // Add wind forcing
     float windPhase = time * 0.5 + dot(worldPos, windDirection);
-    float windForce = sin(windPhase) * windStrength * 0.0001;
+    float windForce = sin(windPhase) * windStrength * 0.001;
     acceleration += windForce;
     
     // Update velocity using Verlet integration

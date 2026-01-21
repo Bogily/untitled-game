@@ -12,6 +12,10 @@ uniform vec3 viewPos;
 uniform vec3 lightDir;
 uniform vec4 colDiffuse;
 uniform float time;
+uniform float normalScale;
+uniform float foamThreshold;
+uniform float foamIntensity;
+uniform float glossiness;
 
 // Output fragment color
 out vec4 finalColor;
@@ -52,20 +56,23 @@ void main()
     vec3 V = normalize(viewPos - fragPosition);
     vec3 L = normalize(-lightDir);
     
-    // Add subtle normal perturbation for surface detail
-    vec2 uv1 = fragTexCoord * 2.0 + vec2(time * 0.02, time * 0.015);
-    vec2 uv2 = fragTexCoord * 3.5 - vec2(time * 0.015, time * 0.025);
-    
+    // Layered normal perturbation for detailed ripples
+    vec2 uv1 = fragTexCoord * 2.5 + vec2(time * 0.06, time * 0.04);
+    vec2 uv2 = fragTexCoord * 6.0 - vec2(time * 0.035, time * 0.06);
+    vec2 uv3 = fragTexCoord * 12.0 + vec2(time * 0.12, -time * 0.08);
+
     float n1 = noise(uv1) * 2.0 - 1.0;
     float n2 = noise(uv2) * 2.0 - 1.0;
+    float n3 = noise(uv3) * 2.0 - 1.0;
+
+    // Combine layered noise into a tangent-space normal perturbation
+    vec3 ripplePerturb = vec3(n1 * 0.35 + n2 * 0.18 + n3 * 0.08, 0.0, n1 * 0.35 + n2 * 0.18 + n3 * 0.08);
+    ripplePerturb *= normalScale; // uniform to control strength
+    N = normalize(N + ripplePerturb);
     
-    // Perturb normal slightly for surface ripples
-    vec3 perturbedNormal = normalize(N + vec3(n1, 0.0, n2) * 0.15);
-    N = perturbedNormal;
-    
-    // Fresnel effect - physically accurate
+    // Fresnel effect
     float fresnel = pow(1.0 - max(dot(N, V), 0.0), 5.0);
-    fresnel = clamp(fresnel * 0.98, 0.02, 0.98); // Clamp to realistic range
+    fresnel = clamp(fresnel * 0.98, 0.01, 0.995); // slightly wider range
     
     // Distance-based depth effect (darker further down)
     float depthFade = smoothstep(-2.0, 2.0, worldPosition.y);
@@ -79,14 +86,14 @@ void main()
     // Strong specular highlights (sun glints on water)
     vec3 H = normalize(L + V);
     float NdotH = max(dot(N, H), 0.0);
-    float specular = pow(NdotH, 256.0);
-    vec3 specularColor = vec3(1.0, 0.98, 0.95) * specular * 1.5;
+    float specular = pow(NdotH, max(16.0, glossiness));
+    vec3 specularColor = vec3(1.0, 0.98, 0.95) * specular * 2.2;
     
     // Sky/environment reflection (simulated)
-    vec3 reflectionColor = mix(skyReflectionColor, vec3(1.0), specular * 0.5);
+    vec3 reflectionColor = mix(skyReflectionColor, vec3(1.0), specular * 0.6);
     
     // Combine ambient + diffuse
-    vec3 ambient = waterColor * 0.5;
+    vec3 ambient = waterColor * 0.55;
     vec3 baseColor = ambient + diffuse;
     
     // Blend water color with reflections based on Fresnel
@@ -94,10 +101,18 @@ void main()
     
     // Add specular highlights on top
     color += specularColor;
+
+    // Foam based on slope and small-scale noise
+    float slope = length(vec2(dFdx(worldPosition.y), dFdy(worldPosition.y)));
+    float foamMask = smoothstep(foamThreshold, foamThreshold * 3.0, slope);
+    float foamNoise = noise(fragTexCoord * 8.0 + vec2(time * 0.1, -time * 0.08));
+    foamMask *= smoothstep(0.2, 0.8, foamNoise) * foamIntensity;
+    vec3 foamColor = vec3(1.0);
+    color = mix(color, foamColor, foamMask);
     
     // Transparency based on viewing angle - more transparent when looking straight down
     float viewAngle = max(dot(N, V), 0.0);
-    float alpha = mix(0.75, 0.95, fresnel); // More opaque at grazing angles
+    float alpha = mix(0.65, 0.98, fresnel); // More opaque at grazing angles
     
     // Ensure water looks good
     color = clamp(color, 0.0, 1.0);
