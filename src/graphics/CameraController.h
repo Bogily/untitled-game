@@ -1,6 +1,7 @@
 #pragma once
 #include "raylib.h"
 #include "raymath.h"
+#include "entities/Camera.h"
 #include <vector>
 
 enum CameraControllerMode
@@ -22,7 +23,7 @@ struct CameraWaypoint
 class CameraController
 {
 public:
-    Camera3D camera;
+    CameraEntity camera;
     CameraControllerMode mode;
 
     // Constructor
@@ -51,7 +52,7 @@ public:
     void SetFollowTarget(Vector3 *targetPtr);
     void SetFollowDistance(float distance) { followDistance = distance; }
     void SetFollowHeight(float height) { followHeight = height; }
-    void SetSmoothness(float smoothness) { cameraSmoothness = smoothness; }
+    void SetSmoothness(float smoothness);
 
     // Smooth transitions
     void TransitionTo(Vector3 newPosition, Vector3 newTarget, float duration);

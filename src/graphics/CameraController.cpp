@@ -16,21 +16,14 @@ CameraController::CameraController()
       transitionTimer(0.0f),
       transitionDuration(0.0f)
 {
-    camera = {0};
-    camera.position = {0.0f, 10.0f, 10.0f};
-    camera.target = {0.0f, 0.0f, 0.0f};
-    camera.up = {0.0f, 1.0f, 0.0f};
-    camera.fovy = 45.0f;
-    camera.projection = CAMERA_PERSPECTIVE;
+    // CameraEntity constructor sets sensible defaults; ensure smoothing is set
+    camera.SetSmoothing(cameraSmoothness);
 }
 
 void CameraController::Initialize(Vector3 position, Vector3 target, float fovy)
 {
-    camera.position = position;
-    camera.target = target;
-    camera.up = {0.0f, 1.0f, 0.0f};
-    camera.fovy = fovy;
-    camera.projection = CAMERA_PERSPECTIVE;
+    camera.Initialize(position, target, fovy);
+    camera.SetSmoothing(cameraSmoothness);
 }
 
 void CameraController::Update(float deltaTime)
@@ -43,17 +36,18 @@ void CameraController::Update(float deltaTime)
 
         if (t >= 1.0f)
         {
-            // Transition complete
-            camera.position = transitionEndPos;
-            camera.target = transitionEndTarget;
+            // Transition complete (set immediate)
+            camera.SetPositionImmediate(transitionEndPos);
+            camera.SetTargetImmediate(transitionEndTarget);
             isTransitioning = false;
         }
         else
         {
-            // Apply easing
-            float easedT = EaseInOutCubic(t);
-            camera.position = LerpVector3(transitionStartPos, transitionEndPos, easedT);
-            camera.target = LerpVector3(transitionStartTarget, transitionEndTarget, easedT);
+            // Apply easing and set desired position => entity will smooth towards it
+            float easedT = CameraEntity::EaseInOutCubic(t);
+            Vector3 pos = CameraEntity::LerpVector3(transitionStartPos, transitionEndPos, easedT);
+            Vector3 tgt = CameraEntity::LerpVector3(transitionStartTarget, transitionEndTarget, easedT);
+            camera.SetDesired(pos, tgt, camera.fovy);
         }
         return;
     }
@@ -101,9 +95,8 @@ void CameraController::UpdateFollowCamera(Vector3 targetPosition, float deltaTim
     Vector3 desiredPosition = Vector3Add(targetPosition, offset);
     Vector3 desiredTarget = Vector3Add(targetPosition, {0.0f, followHeight * 0.5f, 0.0f});
 
-    // Smooth interpolation
-    camera.position = LerpVector3(camera.position, desiredPosition, cameraSmoothness);
-    camera.target = LerpVector3(camera.target, desiredTarget, cameraSmoothness);
+    // Set desired transform on the Camera entity; entity will apply smoothing
+    camera.SetDesired(desiredPosition, desiredTarget, camera.fovy);
 }
 
 void CameraController::UpdateCutsceneCamera(float deltaTime)
@@ -134,10 +127,10 @@ void CameraController::UpdateCutsceneCamera(float deltaTime)
 
         if (currentWaypointIndex >= cutsceneWaypoints.size())
         {
-            // Reached the end
-            camera.position = currentWaypoint.position;
-            camera.target = currentWaypoint.target;
-            camera.fovy = currentWaypoint.fov;
+            // Reached the end - set immediate
+            camera.SetPositionImmediate(currentWaypoint.position);
+            camera.SetTargetImmediate(currentWaypoint.target);
+            camera.SetFovImmediate(currentWaypoint.fov);
             return;
         }
     }
@@ -147,17 +140,18 @@ void CameraController::UpdateCutsceneCamera(float deltaTime)
     {
         const CameraWaypoint &waypoint = cutsceneWaypoints[currentWaypointIndex];
         float t = cutsceneTimer / waypoint.duration;
-        t = EaseInOutCubic(t);
+        t = CameraEntity::EaseInOutCubic(t);
 
         // Get start position (previous waypoint or current position)
         Vector3 startPos = (currentWaypointIndex == 0) ? camera.position : cutsceneWaypoints[currentWaypointIndex - 1].position;
         Vector3 startTarget = (currentWaypointIndex == 0) ? camera.target : cutsceneWaypoints[currentWaypointIndex - 1].target;
         float startFov = (currentWaypointIndex == 0) ? camera.fovy : cutsceneWaypoints[currentWaypointIndex - 1].fov;
 
-        // Interpolate
-        camera.position = LerpVector3(startPos, waypoint.position, t);
-        camera.target = LerpVector3(startTarget, waypoint.target, t);
-        camera.fovy = Lerp(startFov, waypoint.fov, t);
+        // Interpolate and set desired on the entity
+        Vector3 interpPos = CameraEntity::LerpVector3(startPos, waypoint.position, t);
+        Vector3 interpTgt = CameraEntity::LerpVector3(startTarget, waypoint.target, t);
+        float interpFov = Lerp(startFov, waypoint.fov, t);
+        camera.SetDesired(interpPos, interpTgt, interpFov);
     }
 }
 
@@ -198,17 +192,23 @@ void CameraController::SetMode(CameraControllerMode newMode)
 
 void CameraController::SetPosition(Vector3 position)
 {
-    camera.position = position;
+    camera.SetPositionImmediate(position);
 }
 
 void CameraController::SetTarget(Vector3 target)
 {
-    camera.target = target;
+    camera.SetTargetImmediate(target);
 }
 
 void CameraController::SetFollowTarget(Vector3 *targetPtr)
 {
     followTargetPtr = targetPtr;
+}
+
+void CameraController::SetSmoothness(float smoothness)
+{
+    cameraSmoothness = smoothness;
+    camera.SetSmoothing(cameraSmoothness);
 }
 
 void CameraController::TransitionTo(Vector3 newPosition, Vector3 newTarget, float duration)

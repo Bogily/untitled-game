@@ -249,6 +249,8 @@ void Game::UpdatePlaying()
 
     // Update camera and rendering subsystems
     cameraController.Update(deltaTime);
+    // CameraEntity applies smoothing and desired-state updates
+    cameraController.camera.UpdateEntity(deltaTime);
     renderManager.UpdateCamera(cameraController.camera);
     renderManager.UpdateGrass(deltaTime, cameraController.camera);
     renderManager.UpdateGeometry(deltaTime, cameraController.camera);
