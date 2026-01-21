@@ -1,7 +1,7 @@
 #pragma once
 #include "raylib.h"
 #include "Level.h"
-#include "NPC.h"
+#include "entities/NPC.h"
 #include <vector>
 
 // Base class for all game scenes - provides ONLY data, no logic
