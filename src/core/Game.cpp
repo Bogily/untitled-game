@@ -258,9 +258,6 @@ void Game::UpdatePlaying()
     renderManager.UpdateParticles(deltaTime, cameraController.camera.position);
     renderManager.UpdateSkybox(deltaTime);
 
-    // Update player
-    UpdatePlayer(deltaTime);
-
     // Update NPCs
     UpdateNPCs(deltaTime);
 }
@@ -475,7 +472,6 @@ void Game::InitializeScene()
     SetupGrass(level);
     SetupWater(level);
     SetupParticles(level);
-    SetupCollisions(level);
 
     // Now that models and systems are ready, set up the debug menu safely
     SetupDebugMenu();
@@ -530,13 +526,8 @@ void Game::SetupDebugMenu()
 {
     debugMenu.AddBool("Show Grid", &showGrid);
     debugMenu.AddBool("Show FPS", &showFPS);
-    debugMenu.AddBool("Show Collision Boxes", &showCollisionBoxes);
     debugMenu.AddBool("Show Grass", &showGrass);
-    debugMenu.AddFloat("Jump Strength", &player.jumpStrength, 1.0f, 20.0f, 0.1f);
-    debugMenu.AddFloat("Gravity", &player.gravity, -50.0f, -5.0f, 0.1f);
     debugMenu.AddFloat("Sprint Multiplier", &player.sprintMultiplier, 1.0f, 5.0f, 0.1f);
-    debugMenu.AddFloat("Collision Radius", &player.collisionRadius, 0.1f, 2.0f, 0.05f);
-    debugMenu.AddFloat("Collision Height", &player.collisionHeight, 0.5f, 3.0f, 0.1f);
     debugMenu.AddFloat("Eye Height", &player.eyeHeight, 0.5f, 2.5f, 0.1f);
 
     // Culling margins
@@ -712,65 +703,7 @@ void Game::SetupWater(const LevelData &level)
     renderManager.InitializeWater(50.0f, 50.0f, -0.5f);
 }
 
-void Game::SetupCollisions(const LevelData &level)
-{
-    for (const auto &objData : level.objects)
-    {
-        if (objData.collisionType == "none")
-            continue;
-
-        using namespace World;
-
-        // Find the entity by name
-        for (Entity e = 0; e < world.GetEntityCount(); ++e)
-        {
-            if (!world.IsValid(e))
-                continue;
-
-            auto &allMetadata = world.GetMetadata();
-            int metaIdx = world.GetMetadataIndex(e);
-            if (metaIdx < 0)
-                continue;
-
-            const std::string &name = allMetadata.names[metaIdx];
-            if (name == objData.name)
-            {
-                CollisionShape collShape = COLLISION_BOX;
-                if (objData.collisionType == "sphere")
-                    collShape = COLLISION_SPHERE;
-                else if (objData.collisionType == "cylinder")
-                    collShape = COLLISION_CYLINDER;
-                else if (objData.collisionType == "capsule")
-                    collShape = COLLISION_CAPSULE;
-
-                world.AddCollision(e, collShape, objData.collisionSize,
-                                   objData.collisionRadius, objData.collisionHeight,
-                                   objData.rotation, BLUE);
-
-                // Add to collision system (translate + rotate boxes)
-                if (collShape == COLLISION_BOX)
-                    collisionSystem.AddBox(objData.position, objData.collisionSize, objData.name, BLUE, objData.rotation);
-                else if (collShape == COLLISION_SPHERE)
-                    collisionSystem.AddSphere(objData.position, objData.collisionRadius, objData.name);
-                else if (collShape == COLLISION_CAPSULE)
-                    collisionSystem.AddCapsule(objData.position, objData.collisionRadius, objData.collisionHeight, objData.name);
-                else if (collShape == COLLISION_CYLINDER)
-                    collisionSystem.AddCylinder(objData.position, objData.collisionRadius, objData.collisionHeight, objData.name);
-                break;
-            }
-        }
-    }
-}
-
 // ===== GAME LOOP =====
-
-void Game::UpdatePlayer(float deltaTime)
-{
-    if (!cameraController.IsCutscenePlaying() && cameraController.mode != CAMERA_MODE_FIXED)
-    {
-        player.UpdatePlayerMovementWithCollision(cameraController.camera, &collisionSystem);
-    }
-}
 
 void Game::UpdateNPCs(float deltaTime)
 {
@@ -853,10 +786,6 @@ void Game::DrawScene()
             }
         }
     }
-
-    // Draw collision boxes
-    if (showCollisionBoxes)
-        collisionSystem.DrawDebug(false);
 
     // Draw NPCs
     Scene *scene = sceneManager.GetCurrentScene();

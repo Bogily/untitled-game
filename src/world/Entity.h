@@ -14,8 +14,7 @@ namespace World
         COMPONENT_NONE = 0,
         COMPONENT_TRANSFORM = 1 << 0, // Position, rotation, scale
         COMPONENT_RENDER = 1 << 1,    // Visual representation
-        COMPONENT_COLLISION = 1 << 2, // Physics collision
-        COMPONENT_METADATA = 1 << 3,  // Name, tags, etc.
+        COMPONENT_METADATA = 1 << 2,  // Name, tags, etc.
     };
 
     // Entity metadata

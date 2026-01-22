@@ -23,10 +23,6 @@ public:
         float metallic;
         float roughness;
         std::string modelType; // "sphere", "cube", "cylinder", etc.
-        Vector3 collisionSize;
-        float collisionRadius;
-        float collisionHeight;
-        std::string collisionType; // "box", "sphere", "cylinder", "capsule", "none"
     };
 
     struct NPCData

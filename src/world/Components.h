@@ -2,7 +2,6 @@
 
 #include "raylib.h"
 #include "raymath.h"
-#include "../physics/CollisionSystem.h"
 #include <string>
 #include <vector>
 
@@ -96,60 +95,6 @@ namespace World
             albedos.clear();
             metallics.clear();
             roughnesses.clear();
-        }
-    };
-
-    // Collision component
-    struct CollisionComponents
-    {
-        std::vector<CollisionShape> shapes;
-        std::vector<Vector3> sizes;     // Box dimensions
-        std::vector<float> radii;       // Sphere/capsule/cylinder radius
-        std::vector<float> heights;     // Capsule/cylinder height
-        std::vector<Vector3> rotations; // Collision box rotation
-        std::vector<Color> debugColors;
-
-        void Reserve(size_t count)
-        {
-            shapes.reserve(count);
-            sizes.reserve(count);
-            radii.reserve(count);
-            heights.reserve(count);
-            rotations.reserve(count);
-            debugColors.reserve(count);
-        }
-
-        void Add(CollisionShape shape, Vector3 size, float radius, float height, Vector3 rotation, Color debugColor)
-        {
-            shapes.push_back(shape);
-            sizes.push_back(size);
-            radii.push_back(radius);
-            heights.push_back(height);
-            rotations.push_back(rotation);
-            debugColors.push_back(debugColor);
-        }
-
-        void Remove(size_t index)
-        {
-            if (index >= shapes.size())
-                return;
-            shapes.erase(shapes.begin() + index);
-            sizes.erase(sizes.begin() + index);
-            radii.erase(radii.begin() + index);
-            heights.erase(heights.begin() + index);
-            rotations.erase(rotations.begin() + index);
-            debugColors.erase(debugColors.begin() + index);
-        }
-
-        size_t Size() const { return shapes.size(); }
-        void Clear()
-        {
-            shapes.clear();
-            sizes.clear();
-            radii.clear();
-            heights.clear();
-            rotations.clear();
-            debugColors.clear();
         }
     };
 
