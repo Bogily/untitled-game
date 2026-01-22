@@ -28,10 +28,12 @@ void LightRenderer::Init(int width, int height)
         return;
     }
 
+    TraceLog(LOG_INFO, "LightRenderer: Querying GPU capabilities...");
     // Query GPU capabilities FIRST to determine max lights
     maxLights = QueryMaxLightsFromGPU();
     TraceLog(LOG_INFO, "LightRenderer: GPU supports up to %d lights", maxLights);
 
+    TraceLog(LOG_INFO, "LightRenderer: Loading shader files...");
     // Load shader code from files
     char *vsCode = LoadFileText("assets/shader/pbr.vs");
     char *fsCode = LoadFileText("assets/shader/pbr.fs");
@@ -46,15 +48,18 @@ void LightRenderer::Init(int width, int height)
         return;
     }
 
+    TraceLog(LOG_INFO, "LightRenderer: Injecting MAX_LIGHTS define...");
     // Inject MAX_LIGHTS define into fragment shader
     char *modifiedFsCode = (char *)malloc(strlen(fsCode) + 256);
     sprintf(modifiedFsCode, "#version 430 core\n#define MAX_LIGHTS %d\n%s",
             maxLights,
             fsCode + strlen("#version 430 core\n"));
 
+    TraceLog(LOG_INFO, "LightRenderer: Compiling PBR shader...");
     // Compile shader with dynamic MAX_LIGHTS
     pbrShader = LoadShaderFromMemory(vsCode, modifiedFsCode);
 
+    TraceLog(LOG_INFO, "LightRenderer: Cleaning up temporary data...");
     // Cleanup
     UnloadFileText(vsCode);
     UnloadFileText(fsCode);
@@ -66,6 +71,7 @@ void LightRenderer::Init(int width, int height)
         return;
     }
 
+    TraceLog(LOG_INFO, "LightRenderer: Reserving space for lights...");
     // Reserve space for lights
     lights.reserve(maxLights);
 

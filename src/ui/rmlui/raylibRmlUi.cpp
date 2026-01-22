@@ -111,7 +111,20 @@ void RaylibRmlUi::SetViewport(int width, int height)
 
 void RaylibRmlUi::LoadRml(const char *path, const char *id, bool show)
 {
-    documents[id] = Context->LoadDocument(path);
+    if (!Context)
+    {
+        TraceLog(LOG_ERROR, "RmlUi: Cannot load document - Context is null");
+        return;
+    }
+
+    Rml::ElementDocument *doc = Context->LoadDocument(path);
+    if (!doc)
+    {
+        TraceLog(LOG_ERROR, "RmlUi: Failed to load document: %s", path);
+        return;
+    }
+
+    documents[id] = doc;
     if (show)
         ShowPage(id);
 }
