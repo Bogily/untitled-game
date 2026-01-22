@@ -3,6 +3,7 @@
 #include "../graphics/BillboardText.h"
 #include "ui/rmlui/GameEventListener.h"
 #include "rlgl.h"
+#include <glad/glad.h>
 #include <memory>
 
 void Game::Init()
@@ -11,6 +12,14 @@ void Game::Init()
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Zelda-like 3D Game Structure");
     SetTargetFPS(TARGET_FPS);
     SetExitKey(KEY_NULL);
+
+    // Initialize GLAD for OpenGL function loading
+    if (!gladLoadGL())
+    {
+        TraceLog(LOG_ERROR, "Failed to initialize GLAD!");
+        return;
+    }
+    TraceLog(LOG_INFO, "GLAD initialized successfully");
 
     // Start with cursor enabled for main menu
     EnableCursor();
@@ -30,6 +39,7 @@ void Game::Init()
         // Load main menu
         RaylibRmlUi::LoadRml("assets/ui/rml/mainmenu.rhtml", "mainmenu", false);
         rmlMainMenu = RaylibRmlUi::GetPage("mainmenu");
+        TraceLog(LOG_INFO, "RmlUi: mainmenu page loaded: %s", rmlMainMenu ? "YES" : "NO");
         if (rmlMainMenu)
         {
             // Setup main menu button handlers
@@ -46,6 +56,7 @@ void Game::Init()
             if (btnQuit)
                 btnQuit->AddEventListener(Rml::EventId::Click, new GameEventListener([this](Rml::Event &)
                                                                                      { ChangeState(GameState::QUIT); }));
+            TraceLog(LOG_INFO, "RmlUi: Event listeners set up successfully");
         }
     }
     else
@@ -53,17 +64,21 @@ void Game::Init()
         TraceLog(LOG_WARNING, "RmlUi failed to initialize; UI will be disabled");
     }
 
+    TraceLog(LOG_INFO, "Initializing rendering system...");
     // Initialize rendering system BEFORE creating scenes
     renderManager.Init(SCREEN_WIDTH, SCREEN_HEIGHT);
 
+    TraceLog(LOG_INFO, "Setting up renderer...");
     // Setup base renderer and lights
     SetupRenderer();
 
+    TraceLog(LOG_INFO, "Loading scene from Lua...");
     // Register and load scene from Lua file
     LuaScene *testScene = new LuaScene("assets/scenes/test_scene.lua");
     sceneManager.RegisterScene("TestScene", testScene);
     sceneManager.LoadScene("TestScene");
 
+    TraceLog(LOG_INFO, "Scene loaded successfully");
     // Debug menu will be initialized after scene setup, once models exist
 
     // Start in main menu with RmlUI
@@ -71,6 +86,8 @@ void Game::Init()
     EnableCursor();
     if (rmlMainMenu)
         rmlMainMenu->Show();
+
+    TraceLog(LOG_INFO, "Game initialization complete");
 }
 
 void Game::SetupParticles(const LevelData &level)
@@ -185,7 +202,7 @@ void Game::Update()
 void Game::UpdateMainMenu()
 {
     // RmlUI handles menu rendering automatically
-    if (rmlMainMenu && !rmlMainMenu->IsVisible())
+    if (rmlReady && rmlMainMenu && !rmlMainMenu->IsVisible())
         rmlMainMenu->Show();
 }
 
@@ -194,7 +211,7 @@ void Game::UpdatePlaying()
     const float deltaTime = GetFrameTime();
 
     // Hide main menu when playing
-    if (rmlMainMenu && rmlMainMenu->IsVisible())
+    if (rmlReady && rmlMainMenu && rmlMainMenu->IsVisible())
         rmlMainMenu->Hide();
 
     // Handle pause (ESC key)

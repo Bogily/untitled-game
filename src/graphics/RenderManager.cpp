@@ -28,9 +28,13 @@ void RenderManager::Init(int width, int height)
     screenHeight = height;
 
     // Initialize all rendering subsystems
+    TraceLog(LOG_INFO, "RenderManager: Initializing LightRenderer...");
     lightRenderer.Init(width, height);
+    TraceLog(LOG_INFO, "RenderManager: Initializing PostProcessingRenderer...");
     postProcessingRenderer.Init(width, height);
+    TraceLog(LOG_INFO, "RenderManager: Initializing GeometryRenderer...");
     geometryRenderer.Init();
+    TraceLog(LOG_INFO, "RenderManager: Initializing ParticleSystem...");
     particleSystem.Init();
 
     initialized = true;

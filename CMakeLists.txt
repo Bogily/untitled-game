@@ -41,6 +41,22 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(lua)
 
+# Freetype (required by RmlUi)
+FetchContent_Declare(
+    Freetype
+    URL https://download.savannah.gnu.org/releases/freetype/freetype-2.13.2.tar.gz
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+set(FT_ENABLE_ERROR_STRINGS ON CACHE BOOL "" FORCE)
+set(FT_WITH_ZLIB ON CACHE BOOL "" FORCE)
+set(FT_WITH_PNG ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(Freetype)
+
+# Create an alias for RmlUi to find
+if(NOT TARGET Freetype::Freetype)
+    add_library(Freetype::Freetype ALIAS freetype)
+endif()
+
 # RmlUi (HTML/CSS based UI)
 set(RMLUI_ENABLE_LUA OFF CACHE BOOL "Disable RmlUi Lua bindings" FORCE)
 set(RMLUI_ENABLE_SAMPLES OFF CACHE BOOL "Disable RmlUi samples" FORCE)
@@ -136,6 +152,51 @@ target_link_libraries(${PROJECT_NAME} PRIVATE raylib glad lua_static raylib_rmlu
 target_include_directories(${PROJECT_NAME} PRIVATE ${glad_SOURCE_DIR}/include)
 # Make sure Lua headers are available
 target_include_directories(${PROJECT_NAME} PRIVATE ${lua_SOURCE_DIR}/src)
+
+# --- Copy DLLs to build directory for Windows ---
+if(WIN32)
+    # Copy raylib DLL
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:raylib>"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/"
+    )
+    
+    # Copy glad DLL
+    if(TARGET glad)
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:glad>"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/"
+        )
+    endif()
+    
+    # Copy freetype DLL
+    if(TARGET freetype)
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:freetype>"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/"
+        )
+    endif()
+    
+    # Copy rmlui DLLs
+    if(TARGET rmlui_core)
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:rmlui_core>"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/"
+        )
+    endif()
+    
+    if(TARGET rmlui_debugger)
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:rmlui_debugger>"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/"
+        )
+    endif()
+endif()
 
 # --- Assets Copying (Optional but helpful) ---
 # Copies the assets folder to the build directory
