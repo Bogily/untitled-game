@@ -1,7 +1,7 @@
 #pragma once
 #include "raylib.h"
 #include "raymath.h"
-#include "../player/Player.h"
+#include "../entities/Player.h"
 #include "../utils/custommodel.h"
 #include "../graphics/CameraController.h"
 #include "../graphics/RenderManager.h"

@@ -1,7 +1,7 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "rlgl.h"
-#include "../player/Player.h"
+#include "../entities/Player.h"
 #include "custommodel.h"
 
 void CustomModel::addModel(const std::string &name, const std::string &modelPath, const std::string &texturePath, Vector3 scale, Vector3 rotationOffset)
