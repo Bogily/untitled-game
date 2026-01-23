@@ -2,6 +2,7 @@
 
 - Make the Entities Object oriented, base entity class and just add components to each entity (camera component etc)
 - Refactor the world folder entities and normal entities folder
+- Write the blender Plugins (scene system and collisions export)
   ## Auto-generated colliders
   - Pre-generate colliders in Blender on export for shipped assets.
   - Use primitive fitting (box / sphere / capsule) as a first-pass cheap collider.
