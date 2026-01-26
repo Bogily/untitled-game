@@ -76,9 +76,6 @@ void CameraController::Update(float deltaTime)
 
 void CameraController::UpdateFreeCamera(float deltaTime)
 {
-    // Basic free camera controls (can be expanded)
-    // This is just a placeholder - you might want to use Raylib's UpdateCamera
-    // or implement custom mouse/keyboard controls here
 }
 
 void CameraController::UpdateFollowCamera(Vector3 targetPosition, float deltaTime)
