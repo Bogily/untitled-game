@@ -40,9 +40,22 @@ This project uses CMake.
 
 ## Dependencies
 
-- **Raylib**: Automatically fetched via CMake.
+- **Raylib**: Local source checkout at `external/raylib` (so it can be modified).
+
+Clone raylib into `external/raylib`:
+
+```bash
+git clone https://github.com/raysan5/raylib.git external/raylib
+```
+
+Or point CMake at your raylib source:
+
+```bash
+cmake -DRAYLIB_DIR=/path/to/raylib ..
+```
 
 ## Semantics
+
 This is an example commit message
 
 ```

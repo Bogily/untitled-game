@@ -15,12 +15,12 @@ set(GRAPHICS "GRAPHICS_API_OPENGL_43" CACHE STRING "OpenGL version for raylib" F
 include(FetchContent)
 
 # Raylib (windowing, input, base rendering)
-FetchContent_Declare(
-    raylib
-    URL https://github.com/raysan5/raylib/archive/master.tar.gz
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-)
-FetchContent_MakeAvailable(raylib)
+# Use a local raylib checkout so it can be modified when needed.
+set(RAYLIB_DIR "${CMAKE_SOURCE_DIR}/external/raylib" CACHE PATH "Path to raylib source")
+if(NOT EXISTS "${RAYLIB_DIR}/CMakeLists.txt")
+    message(FATAL_ERROR "raylib not found at ${RAYLIB_DIR}. Clone it there or set RAYLIB_DIR to your raylib source path.")
+endif()
+add_subdirectory("${RAYLIB_DIR}" raylib_build)
 
 # GLAD (OpenGL loader used for compute shaders/SSBOs)
 FetchContent_Declare(
