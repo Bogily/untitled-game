@@ -36,7 +36,6 @@ namespace World
          * @brief Add new transform component
          */
         size_t Add(Vector3 pos, Vector3 rot = {0, 0, 0}, Vector3 scale = {1, 1, 1})
-            size_t Add(Vector3 pos, Vector3 rot = {0, 0, 0}, Vector3 scale = {1, 1, 1})
         {
             positions.push_back(pos);
             rotations.push_back(rot);
