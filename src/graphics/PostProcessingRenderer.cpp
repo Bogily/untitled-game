@@ -61,14 +61,14 @@ void PostProcessingRenderer::ApplyEffects()
         BeginShaderMode(depthShader);
         int depthLoc = GetShaderLocation(depthShader, "depthTexture");
         int flipTextureLoc = GetShaderLocation(depthShader, "flipY");
-        SetShaderValue(depthShader, flipTextureLoc, (int[]){ 1 }, SHADER_UNIFORM_INT);
+        SetShaderValue(depthShader, flipTextureLoc, (int[]){1}, SHADER_UNIFORM_INT);
         SetShaderValueTexture(depthShader, depthLoc, sceneTexture.depth);
-        
+
         // Render fullscreen quad with depth texture
         Rectangle sourceRec = {0, 0, (float)sceneTexture.depth.width, (float)-sceneTexture.depth.height};
         Rectangle destRec = {0, 0, (float)width, (float)height};
         DrawTexturePro(sceneTexture.depth, sourceRec, destRec, {0, 0}, 0.0f, WHITE);
-        
+
         EndShaderMode();
     }
     else if (enableGrayscale)
@@ -99,7 +99,7 @@ void PostProcessingRenderer::RenderFullscreenQuad(Shader shader, RenderTexture2D
 
 RenderTexture2D PostProcessingRenderer::LoadRenderTextureWithDepth(int screenWidth, int screenHeight)
 {
-    RenderTexture2D target = { 0 };
+    RenderTexture2D target = {0};
 
     target.id = rlLoadFramebuffer(); // Load an empty framebuffer
 
@@ -118,7 +118,7 @@ RenderTexture2D PostProcessingRenderer::LoadRenderTextureWithDepth(int screenWid
         target.depth.id = rlLoadTextureDepth(screenWidth, screenHeight, false);
         target.depth.width = screenWidth;
         target.depth.height = screenHeight;
-        target.depth.format = 19;       // DEPTH_COMPONENT_24BIT: Not defined in raylib
+        target.depth.format = 19; // DEPTH_COMPONENT_24BIT: Not defined in raylib
         target.depth.mipmaps = 1;
 
         // Attach color texture and depth texture to FBO

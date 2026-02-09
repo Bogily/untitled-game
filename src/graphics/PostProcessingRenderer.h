@@ -22,7 +22,7 @@ public:
     // Configuration
     void SetGrayscaleEnabled(bool enable) { enableGrayscale = enable; }
     bool GetGrayscaleEnabled() const { return enableGrayscale; }
-    
+
     void SetDepthDebugEnabled(bool enable) { enableDepthDebug = enable; }
     bool GetDepthDebugEnabled() const { return enableDepthDebug; }
 
