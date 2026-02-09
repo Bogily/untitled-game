@@ -128,6 +128,51 @@ public:
     float GetColorGradingIntensity() const { return lutIntensity; }
 
     /**
+     * @brief Enable or disable screen-space shadows (contact shadows)
+     * @param enable True to enable
+     */
+    void SetContactShadowsEnabled(bool enable) { enableContactShadows = enable; }
+
+    /**
+     * @brief Check if contact shadows are enabled
+     * @return True if enabled
+     */
+    bool GetContactShadowsEnabled() const { return enableContactShadows; }
+
+    /**
+     * @brief Set contact shadow parameters
+     * @param maxDist Maximum ray march distance in screen units (0.0-0.5)
+     * @param steps Number of ray march steps (4-64)
+     * @param thickness Surface thickness tolerance (0.0-0.1)
+     * @param intensity Shadow intensity (0.0-1.0)
+     */
+    void SetContactShadowParams(float maxDist, int steps, float thickness, float intensity);
+
+    /**
+     * @brief Get contact shadow maximum distance
+     * @return Maximum distance
+     */
+    float GetContactShadowMaxDist() const { return contactShadowMaxDist; }
+
+    /**
+     * @brief Get contact shadow step count
+     * @return Number of steps
+     */
+    int GetContactShadowSteps() const { return contactShadowSteps; }
+
+    /**
+     * @brief Get contact shadow thickness
+     * @return Surface thickness
+     */
+    float GetContactShadowThickness() const { return contactShadowThickness; }
+
+    /**
+     * @brief Get contact shadow intensity
+     * @return Shadow intensity
+     */
+    float GetContactShadowIntensity() const { return contactShadowIntensity; }
+
+    /**
      * @brief Get scene render texture
      * @return Scene texture with depth attachment
      */
@@ -181,13 +226,20 @@ private:
     RenderTexture2D sceneTexture;  ///< Main scene render target with depth attachment
     MSAARenderTexture msaaTexture; ///< MSAA render texture (if MSAA enabled)
 
-    Shader grayscaleShader;    ///< Grayscale effect shader
-    Shader depthShader;        ///< Depth visualization shader
-    Shader colorGradingShader; ///< Color grading shader
+    Shader grayscaleShader;          ///< Grayscale effect shader
+    Shader depthShader;              ///< Depth visualization shader
+    Shader colorGradingShader;       ///< Color grading shader
+    Shader screenSpaceShadowsShader; ///< Screen-space shadows shader
 
     Texture lutTexture;   ///< 3D LUT texture for color grading
     int currentLUTPreset; ///< Current LUT preset index
     float lutIntensity;   ///< Color grading intensity (0.0 to 1.0)
+
+    bool enableContactShadows;    ///< Contact shadows toggle
+    float contactShadowMaxDist;   ///< Ray march max distance
+    int contactShadowSteps;       ///< Number of ray march steps
+    float contactShadowThickness; ///< Surface thickness tolerance
+    float contactShadowIntensity; ///< Shadow intensity (0.0 to 1.0)
 
     int width;  ///< Screen width
     int height; ///< Screen height

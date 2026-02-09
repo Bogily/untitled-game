@@ -207,6 +207,11 @@ void Game::UpdatePlaying()
     {
         postProc->SetColorGradingPreset(colorGradingPreset);
         postProc->SetColorGradingIntensity(colorGradingIntensity);
+
+        // Apply contact shadows settings
+        postProc->SetContactShadowsEnabled(enableContactShadows);
+        postProc->SetContactShadowParams(contactShadowDistance, contactShadowSteps,
+                                         contactShadowThickness, contactShadowIntensity);
     }
 
     // Map MSAA index to MSAALevel
@@ -553,6 +558,11 @@ void Game::SetupPostProcessingMenu()
     postProcessingMenu.AddString("MSAA Level", &msaaLevelIndex, {"None", "4X", "8X", "16X"});
     postProcessingMenu.AddString("Color Grading", &colorGradingPreset, {"None", "Warm", "Cool", "Cinematic", "Vintage", "Noir"});
     postProcessingMenu.AddFloat("Grading Intensity", &colorGradingIntensity, 0.0f, 1.0f, 0.05f);
+    postProcessingMenu.AddBool("Contact Shadows", &enableContactShadows);
+    postProcessingMenu.AddFloat("Shadow Distance", &contactShadowDistance, 0.01f, 0.5f, 0.02f);
+    postProcessingMenu.AddInt("Shadow Steps", &contactShadowSteps, 4, 64, 4);
+    postProcessingMenu.AddFloat("Shadow Thickness", &contactShadowThickness, 0.001f, 0.1f, 0.005f);
+    postProcessingMenu.AddFloat("Shadow Intensity", &contactShadowIntensity, 0.0f, 1.0f, 0.05f);
 
     TraceLog(LOG_INFO, "Game: Post-processing menu initialized");
 }

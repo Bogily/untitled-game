@@ -58,16 +58,21 @@ private:
 
     RenderManager::FrameSettings renderFrameSettings; ///< Per-frame rendering configuration
 
-    bool showGrid = true;               ///< Whether to show debug grid
-    bool showGrass = true;              ///< Whether to render grass
-    bool showFPS = true;                ///< Whether to show FPS counter
-    float geometryCullMargin = 1.0f;    ///< Geometry frustum culling margin
-    float grassCullMargin = 1.70f;      ///< Grass frustum culling margin
-    bool enableGrayscale = false;       ///< Grayscale post-processing toggle
-    bool enableDepthDebug = false;      ///< Depth buffer visualization toggle
-    int msaaLevelIndex = 0;             ///< MSAA level selection index
-    int colorGradingPreset = 0;         ///< Color grading preset index
-    float colorGradingIntensity = 1.0f; ///< Color grading intensity
+    bool showGrid = true;                 ///< Whether to show debug grid
+    bool showGrass = true;                ///< Whether to render grass
+    bool showFPS = true;                  ///< Whether to show FPS counter
+    float geometryCullMargin = 1.0f;      ///< Geometry frustum culling margin
+    float grassCullMargin = 1.70f;        ///< Grass frustum culling margin
+    bool enableGrayscale = false;         ///< Grayscale post-processing toggle
+    bool enableDepthDebug = false;        ///< Depth buffer visualization toggle
+    int msaaLevelIndex = 0;               ///< MSAA level selection index
+    int colorGradingPreset = 0;           ///< Color grading preset index
+    float colorGradingIntensity = 1.0f;   ///< Color grading intensity
+    bool enableContactShadows = false;    ///< Contact shadows toggle
+    float contactShadowDistance = 0.1f;   ///< Contact shadow ray march distance
+    int contactShadowSteps = 8;           ///< Contact shadow ray march steps
+    float contactShadowThickness = 0.01f; ///< Contact shadow thickness
+    float contactShadowIntensity = 0.5f;  ///< Contact shadow intensity
 
     int currentModelIndex = 0;   ///< Currently selected player model
     int previousModelIndex = -1; ///< Previous player model (for change detection)

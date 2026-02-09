@@ -9,7 +9,12 @@ PostProcessingRenderer::PostProcessingRenderer()
       enableDepthDebug(false),
       msaaTexture({0}),
       currentLUTPreset(0),
-      lutIntensity(1.0f)
+      lutIntensity(1.0f),
+      enableContactShadows(false),
+      contactShadowMaxDist(0.1f),
+      contactShadowSteps(8),
+      contactShadowThickness(0.01f),
+      contactShadowIntensity(0.5f)
 {
     lutTexture.id = 0;
 }
@@ -33,10 +38,12 @@ void PostProcessingRenderer::Init(int screenWidth, int screenHeight)
     grayscaleShader = LoadShader(0, "assets/shader/grayscale.fs");
     depthShader = LoadShader(0, "assets/shader/depth_render.fs");
     colorGradingShader = LoadShader(0, "assets/shader/color_grading.fs");
+    screenSpaceShadowsShader = LoadShader(0, "assets/shader/screen_space_shadows.fs");
 
     TraceLog(LOG_INFO, "PostProcessingRenderer: Grayscale shader loaded successfully");
     TraceLog(LOG_INFO, "PostProcessingRenderer: Depth render shader loaded successfully");
     TraceLog(LOG_INFO, "PostProcessingRenderer: Color grading shader loaded successfully");
+    TraceLog(LOG_INFO, "PostProcessingRenderer: Screen-space shadows shader loaded successfully");
 
     // Generate identity LUT by default (no color change)
     lutTexture = Generate3DLUT(0);
@@ -57,6 +64,8 @@ void PostProcessingRenderer::Shutdown()
         UnloadShader(depthShader);
     if (colorGradingShader.id > 0)
         UnloadShader(colorGradingShader);
+    if (screenSpaceShadowsShader.id > 0)
+        UnloadShader(screenSpaceShadowsShader);
     if (lutTexture.id > 0)
         UnloadTexture(lutTexture);
 
@@ -144,6 +153,32 @@ void PostProcessingRenderer::ApplyEffects()
         Rectangle sourceRec = {0, 0, (float)targetTexture.texture.width, (float)-targetTexture.texture.height};
         Rectangle destRec = {0, 0, (float)width, (float)height};
         DrawTexturePro(targetTexture.texture, sourceRec, destRec, {0, 0}, 0.0f, WHITE);
+    }
+
+    // Apply screen-space shadows as a post-effect on top of everything
+    if (enableContactShadows && contactShadowIntensity > 0.0f)
+    {
+        BeginShaderMode(screenSpaceShadowsShader);
+
+        // Set shader uniforms
+        int depthTexLoc = GetShaderLocation(screenSpaceShadowsShader, "depthTexture");
+        int maxDistLoc = GetShaderLocation(screenSpaceShadowsShader, "maxDistance");
+        int numStepsLoc = GetShaderLocation(screenSpaceShadowsShader, "numSteps");
+        int thicknessLoc = GetShaderLocation(screenSpaceShadowsShader, "thickness");
+        int intensityLoc = GetShaderLocation(screenSpaceShadowsShader, "intensity");
+        int enabledLoc = GetShaderLocation(screenSpaceShadowsShader, "enabled");
+
+        SetShaderValueTexture(screenSpaceShadowsShader, depthTexLoc, targetTexture.depth);
+        SetShaderValue(screenSpaceShadowsShader, maxDistLoc, &contactShadowMaxDist, SHADER_UNIFORM_FLOAT);
+        SetShaderValue(screenSpaceShadowsShader, numStepsLoc, &contactShadowSteps, SHADER_UNIFORM_INT);
+        SetShaderValue(screenSpaceShadowsShader, thicknessLoc, &contactShadowThickness, SHADER_UNIFORM_FLOAT);
+        SetShaderValue(screenSpaceShadowsShader, intensityLoc, &contactShadowIntensity, SHADER_UNIFORM_FLOAT);
+        int enabledVal = 1;
+        SetShaderValue(screenSpaceShadowsShader, enabledLoc, &enabledVal, SHADER_UNIFORM_INT);
+
+        RenderFullscreenQuad(screenSpaceShadowsShader, targetTexture);
+
+        EndShaderMode();
     }
 }
 
@@ -673,4 +708,18 @@ void PostProcessingRenderer::ApplyNoirGrading(unsigned char *data, int size)
         data[index + 1] = (unsigned char)(luma * 255);
         data[index + 2] = (unsigned char)(luma * 255);
     }
+}
+
+// Screen-Space Shadows Implementation
+
+void PostProcessingRenderer::SetContactShadowParams(float maxDist, int steps, float thickness, float intensity)
+{
+    // Clamp values to reasonable ranges
+    contactShadowMaxDist = fmaxf(0.01f, fminf(0.5f, maxDist));
+    contactShadowSteps = fmaxf(4, fminf(64, steps));
+    contactShadowThickness = fmaxf(0.001f, fminf(0.1f, thickness));
+    contactShadowIntensity = fmaxf(0.0f, fminf(1.0f, intensity));
+
+    TraceLog(LOG_INFO, "PostProcessingRenderer: Contact shadow params updated (dist=%.3f, steps=%d, thickness=%.4f, intensity=%.2f)",
+             contactShadowMaxDist, contactShadowSteps, contactShadowThickness, contactShadowIntensity);
 }
