@@ -1,8 +1,7 @@
 #pragma once
 #include "raylib.h"
 #include "raymath.h"
-#include "../player/Player.h"
-#include "../physics/CollisionSystem.h"
+#include "../entities/Player.h"
 #include "../utils/custommodel.h"
 #include "../graphics/CameraController.h"
 #include "../graphics/RenderManager.h"
@@ -33,7 +32,6 @@ private:
     CameraController cameraController;
     Player player;
     RenderManager renderManager;
-    CollisionSystem collisionSystem;
     World::WorldManager world; // ECS world manager
     SceneManager sceneManager; // Scene management system
     CustomModel customModel;
@@ -52,8 +50,6 @@ private:
 
     // Debug/UI state
     bool showGrid = true;
-    bool showCollisionBoxes = true;
-    bool showPlayerHitbox = true;
     bool showGrass = true;
     bool showFPS = true;
     bool enablePostProcessing = false;
@@ -89,10 +85,8 @@ private:
     void SetupGrass(const LevelData &level);
     void SetupWater(const LevelData &level);
     void SetupParticles(const LevelData &level);
-    void SetupCollisions(const LevelData &level);
 
     // Game loop helpers
-    void UpdatePlayer(float deltaTime);
     void UpdateNPCs(float deltaTime);
     void HandleNPCInteraction();
     void HandleInput(float deltaTime);

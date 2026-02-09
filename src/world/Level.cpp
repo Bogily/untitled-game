@@ -24,11 +24,7 @@ LevelData LevelData::CreateTestLevel()
                              {77, 77, 77, 255},
                              0.0f,
                              0.8f,
-                             "plane_32x32",
-                             {0.0f, 0.0f, 0.0f},
-                             0.0f,
-                             0.0f,
-                             "none"});
+                             "plane_32x32"});
 
     // Test sphere
     level.objects.push_back({"TestSphere",
@@ -38,11 +34,7 @@ LevelData LevelData::CreateTestLevel()
                              {204, 51, 51, 255},
                              1.0f,
                              0.3f,
-                             "sphere_1.0",
-                             {0.0f, 0.0f, 0.0f},
-                             0.0f,
-                             0.0f,
-                             "none"});
+                             "sphere_1.0"});
 
     // Red cube
     level.objects.push_back({"RedCube",
@@ -52,11 +44,7 @@ LevelData LevelData::CreateTestLevel()
                              {204, 26, 26, 255},
                              0.2f,
                              0.4f,
-                             "cube_2.0",
-                             {2.0f, 2.0f, 2.0f},
-                             0.0f,
-                             0.0f,
-                             "box"});
+                             "cube_2.0"});
 
     // Blue tower
     level.objects.push_back({"BlueTower",
@@ -66,11 +54,7 @@ LevelData LevelData::CreateTestLevel()
                              {26, 51, 204, 255},
                              0.0f,
                              0.3f,
-                             "cube_1x4x1",
-                             {1.0f, 4.0f, 1.0f},
-                             0.0f,
-                             0.0f,
-                             "box"});
+                             "cube_1x4x1"});
 
     // Yellow sphere
     level.objects.push_back({"YellowSphere",
@@ -80,11 +64,7 @@ LevelData LevelData::CreateTestLevel()
                              {230, 230, 51, 255},
                              0.0f,
                              0.6f,
-                             "sphere_1.5",
-                             {0.0f, 0.0f, 0.0f},
-                             1.5f,
-                             0.0f,
-                             "sphere"});
+                             "sphere_1.5"});
 
     // Orange sphere
     level.objects.push_back({"OrangeSphere",
@@ -94,11 +74,7 @@ LevelData LevelData::CreateTestLevel()
                              {230, 128, 26, 255},
                              0.1f,
                              0.3f,
-                             "sphere_1.0",
-                             {0.0f, 0.0f, 0.0f},
-                             1.0f,
-                             0.0f,
-                             "sphere"});
+                             "sphere_1.0"});
 
     // Capsule
     level.objects.push_back({"Capsule",
@@ -108,11 +84,7 @@ LevelData LevelData::CreateTestLevel()
                              {77, 179, 230, 255},
                              0.0f,
                              0.5f,
-                             "cylinder_0.5x3.0",
-                             {0.0f, 0.0f, 0.0f},
-                             0.5f,
-                             3.0f,
-                             "capsule"});
+                             "cylinder_0.5x3.0"});
 
     // Cylinder
     level.objects.push_back({"Cylinder",
@@ -122,11 +94,7 @@ LevelData LevelData::CreateTestLevel()
                              {128, 51, 204, 255},
                              0.0f,
                              0.4f,
-                             "cylinder_0.8x4.0",
-                             {0.0f, 0.0f, 0.0f},
-                             0.8f,
-                             4.0f,
-                             "cylinder"});
+                             "cylinder_0.8x4.0"});
 
     // Main ramp
     level.objects.push_back({"MainRamp",
@@ -136,11 +104,7 @@ LevelData LevelData::CreateTestLevel()
                              {102, 64, 38, 255},
                              0.0f,
                              0.7f,
-                             "cube_4x0.5x6",
-                             {4.0f, 0.5f, 6.0f},
-                             0.0f,
-                             0.0f,
-                             "box"});
+                             "cube_4x0.5x6"});
 
     // Steep ramp
     level.objects.push_back({"SteepRamp",
@@ -150,11 +114,7 @@ LevelData LevelData::CreateTestLevel()
                              {128, 26, 26, 255},
                              0.0f,
                              0.6f,
-                             "cube_3x0.5x4",
-                             {3.0f, 0.5f, 4.0f},
-                             0.0f,
-                             0.0f,
-                             "box"});
+                             "cube_3x0.5x4"});
 
     // Ramp walls
     level.objects.push_back({"RampWallLeft",
@@ -164,11 +124,7 @@ LevelData LevelData::CreateTestLevel()
                              {77, 51, 26, 255},
                              0.0f,
                              0.8f,
-                             "cube_0.3x3x6",
-                             {0.3f, 3.0f, 6.0f},
-                             0.0f,
-                             0.0f,
-                             "box"});
+                             "cube_0.3x3x6"});
 
     level.objects.push_back({"RampWallRight",
                              {10.15f, 1.5f, -7.0f},
@@ -177,11 +133,7 @@ LevelData LevelData::CreateTestLevel()
                              {77, 51, 26, 255},
                              0.0f,
                              0.8f,
-                             "cube_0.3x3x6",
-                             {0.3f, 3.0f, 6.0f},
-                             0.0f,
-                             0.0f,
-                             "box"});
+                             "cube_0.3x3x6"});
 
     level.objects.push_back({"SteepRampWallLeft",
                              {-9.65f, 2.5f, 8.0f},
@@ -190,11 +142,7 @@ LevelData LevelData::CreateTestLevel()
                              {89, 38, 26, 255},
                              0.0f,
                              0.75f,
-                             "cube_0.3x5x4",
-                             {0.3f, 5.0f, 4.0f},
-                             0.0f,
-                             0.0f,
-                             "box"});
+                             "cube_0.3x5x4"});
 
     level.objects.push_back({"SteepRampWallRight",
                              {-6.35f, 2.5f, 8.0f},
@@ -203,11 +151,7 @@ LevelData LevelData::CreateTestLevel()
                              {89, 38, 26, 255},
                              0.0f,
                              0.75f,
-                             "cube_0.3x5x4",
-                             {0.3f, 5.0f, 4.0f},
-                             0.0f,
-                             0.0f,
-                             "box"});
+                             "cube_0.3x5x4"});
 
     // NPCs
     level.npcs.push_back({"Rat Merchant",

@@ -25,8 +25,7 @@ scene = {
             modelType = "plane_32x32",
             albedo = {77, 77, 77, 255},
             metallic = 0.0,
-            roughness = 0.8,
-            collision = "none"
+            roughness = 0.8
         },
         {
             name = "TestSphere",
@@ -36,8 +35,7 @@ scene = {
             modelType = "sphere_1.0",
             albedo = {204, 51, 51, 255},
             metallic = 1.0,
-            roughness = 0.3,
-            collision = "none"
+            roughness = 0.3
         },
         {
             name = "RedCube",
@@ -47,9 +45,7 @@ scene = {
             modelType = "cube_2.0",
             albedo = {204, 26, 26, 255},
             metallic = 0.2,
-            roughness = 0.4,
-            collision = "box",
-            collisionSize = {2.0, 2.0, 2.0}
+            roughness = 0.4
         },
         {
             name = "BlueTower",
@@ -59,9 +55,7 @@ scene = {
             modelType = "cube_1x4x1",
             albedo = {26, 51, 204, 255},
             metallic = 0.0,
-            roughness = 0.3,
-            collision = "box",
-            collisionSize = {1.0, 4.0, 1.0}
+            roughness = 0.3
         },
         {
             name = "YellowSphere",
@@ -71,9 +65,7 @@ scene = {
             modelType = "sphere_1.5",
             albedo = {230, 230, 51, 255},
             metallic = 0.0,
-            roughness = 0.6,
-            collision = "sphere",
-            collisionRadius = 1.5
+            roughness = 0.6
         },
         {
             name = "OrangeSphere",
@@ -83,9 +75,7 @@ scene = {
             modelType = "sphere_1.0",
             albedo = {230, 128, 26, 255},
             metallic = 0.1,
-            roughness = 0.3,
-            collision = "sphere",
-            collisionRadius = 1.0
+            roughness = 0.3
         },
         {
             name = "Capsule",
@@ -95,10 +85,7 @@ scene = {
             modelType = "cylinder_0.5x3.0",
             albedo = {77, 179, 230, 255},
             metallic = 0.0,
-            roughness = 0.5,
-            collision = "capsule",
-            collisionRadius = 0.5,
-            collisionHeight = 3.0
+            roughness = 0.5
         },
         {
             name = "Cylinder",
@@ -108,10 +95,7 @@ scene = {
             modelType = "cylinder_0.8x4.0",
             albedo = {128, 51, 204, 255},
             metallic = 0.0,
-            roughness = 0.4,
-            collision = "cylinder",
-            collisionRadius = 0.8,
-            collisionHeight = 4.0
+            roughness = 0.4
         },
         {
             name = "MainRamp",
@@ -121,9 +105,7 @@ scene = {
             modelType = "cube_4x0.5x6",
             albedo = {102, 64, 38, 255},
             metallic = 0.0,
-            roughness = 0.7,
-            collision = "box",
-            collisionSize = {4.0, 0.5, 6.0}
+            roughness = 0.7
         },
         {
             name = "SteepRamp",
@@ -133,9 +115,7 @@ scene = {
             modelType = "cube_3x0.5x4",
             albedo = {128, 26, 26, 255},
             metallic = 0.0,
-            roughness = 0.6,
-            collision = "box",
-            collisionSize = {3.0, 0.5, 4.0}
+            roughness = 0.6
         },
         {
             name = "RampWallLeft",
@@ -157,9 +137,7 @@ scene = {
             modelType = "cube_0.3x3x6",
             albedo = {77, 51, 26, 255},
             metallic = 0.0,
-            roughness = 0.8,
-            collision = "box",
-            collisionSize = {0.3, 3.0, 6.0}
+            roughness = 0.8
         },
         {
             name = "SteepRampWallLeft",
@@ -169,9 +147,7 @@ scene = {
             modelType = "cube_0.3x5x4",
             albedo = {89, 38, 26, 255},
             metallic = 0.0,
-            roughness = 0.75,
-            collision = "box",
-            collisionSize = {0.3, 5.0, 4.0}
+            roughness = 0.75
         },
         {
             name = "SteepRampWallRight",
@@ -181,9 +157,7 @@ scene = {
             modelType = "cube_0.3x5x4",
             albedo = {89, 38, 26, 255},
             metallic = 0.0,
-            roughness = 0.75,
-            collision = "box",
-            collisionSize = {0.3, 5.0, 4.0}
+            roughness = 0.75
         }
     },
     
@@ -331,10 +305,7 @@ scene = {
     },
     
     -- Skybox
-    skybox = "assets/textures/skybox.png",
-    
-    -- Physics
-    gravity = 9.8
+    skybox = "assets/textures/skybox.png"
 }
 
 return scene

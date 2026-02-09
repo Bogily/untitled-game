@@ -216,23 +216,6 @@ void SceneLoader::ReadObjects(lua_State *L, LevelData &level)
                     obj.roughness = (float)lua_tonumber(L, -1);
                 lua_pop(L, 1);
 
-                lua_getfield(L, -1, "collision");
-                if (lua_isstring(L, -1))
-                    obj.collisionType = lua_tostring(L, -1);
-                lua_pop(L, 1);
-
-                obj.collisionSize = ReadVector3(L, "collisionSize");
-
-                lua_getfield(L, -1, "collisionRadius");
-                if (lua_isnumber(L, -1))
-                    obj.collisionRadius = (float)lua_tonumber(L, -1);
-                lua_pop(L, 1);
-
-                lua_getfield(L, -1, "collisionHeight");
-                if (lua_isnumber(L, -1))
-                    obj.collisionHeight = (float)lua_tonumber(L, -1);
-                lua_pop(L, 1);
-
                 level.objects.push_back(obj);
             }
             lua_pop(L, 1);

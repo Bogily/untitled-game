@@ -19,7 +19,6 @@ namespace World
         // Component storage (Structure of Arrays)
         TransformComponents transforms;
         RenderComponents renders;
-        CollisionComponents collisions;
         MetadataComponents metadata;
 
         // Fast lookups
@@ -28,7 +27,6 @@ namespace World
         // Component index mapping (entity ID -> component array index)
         std::vector<int> entityToTransformIndex;
         std::vector<int> entityToRenderIndex;
-        std::vector<int> entityToCollisionIndex;
         std::vector<int> entityToMetadataIndex;
 
     public:
@@ -39,12 +37,10 @@ namespace World
 
             entityToTransformIndex.reserve(256);
             entityToRenderIndex.reserve(256);
-            entityToCollisionIndex.reserve(256);
             entityToMetadataIndex.reserve(256);
 
             transforms.Reserve(256);
             renders.Reserve(256);
-            collisions.Reserve(128);
             metadata.Reserve(256);
         }
 
@@ -69,7 +65,6 @@ namespace World
                 // Expand index arrays
                 entityToTransformIndex.push_back(-1);
                 entityToRenderIndex.push_back(-1);
-                entityToCollisionIndex.push_back(-1);
                 entityToMetadataIndex.push_back(-1);
             }
 
@@ -84,7 +79,6 @@ namespace World
             // Remove all components
             RemoveTransform(entity);
             RemoveRender(entity);
-            RemoveCollision(entity);
             RemoveMetadata(entity);
 
             entities[entity].active = false;
@@ -119,18 +113,6 @@ namespace World
             renders.Add(model, geoID, albedo, metallic, roughness);
             entityToRenderIndex[entity] = index;
             entities[entity].componentMask |= COMPONENT_RENDER;
-        }
-
-        void AddCollision(Entity entity, CollisionShape shape, Vector3 size, float radius, float height,
-                          Vector3 rotation, Color debugColor)
-        {
-            if (!IsValid(entity) || HasCollision(entity))
-                return;
-
-            int index = static_cast<int>(collisions.Size());
-            collisions.Add(shape, size, radius, height, rotation, debugColor);
-            entityToCollisionIndex[entity] = index;
-            entities[entity].componentMask |= COMPONENT_COLLISION;
         }
 
         void AddMetadata(Entity entity, const std::string &name, bool isStatic)
@@ -170,17 +152,6 @@ namespace World
             ReindexAfterRemoval(entityToRenderIndex, index);
         }
 
-        void RemoveCollision(Entity entity)
-        {
-            if (!HasCollision(entity))
-                return;
-            int index = entityToCollisionIndex[entity];
-            collisions.Remove(index);
-            entityToCollisionIndex[entity] = -1;
-            entities[entity].componentMask &= ~COMPONENT_COLLISION;
-            ReindexAfterRemoval(entityToCollisionIndex, index);
-        }
-
         void RemoveMetadata(Entity entity)
         {
             if (!HasMetadata(entity))
@@ -208,11 +179,6 @@ namespace World
         bool HasRender(Entity entity) const
         {
             return IsValid(entity) && (entities[entity].componentMask & COMPONENT_RENDER);
-        }
-
-        bool HasCollision(Entity entity) const
-        {
-            return IsValid(entity) && (entities[entity].componentMask & COMPONENT_COLLISION);
         }
 
         bool HasMetadata(Entity entity) const
@@ -252,12 +218,10 @@ namespace World
 
         const TransformComponents &GetTransforms() const { return transforms; }
         const RenderComponents &GetRenders() const { return renders; }
-        const CollisionComponents &GetCollisions() const { return collisions; }
         const MetadataComponents &GetMetadata() const { return metadata; }
 
         TransformComponents &GetTransforms() { return transforms; }
         RenderComponents &GetRenders() { return renders; }
-        CollisionComponents &GetCollisions() { return collisions; }
         MetadataComponents &GetMetadata() { return metadata; }
 
         // Get entity by name
@@ -295,11 +259,6 @@ namespace World
             return (entity < entityToRenderIndex.size()) ? entityToRenderIndex[entity] : -1;
         }
 
-        int GetCollisionIndex(Entity entity) const
-        {
-            return (entity < entityToCollisionIndex.size()) ? entityToCollisionIndex[entity] : -1;
-        }
-
         int GetMetadataIndex(Entity entity) const
         {
             return (entity < entityToMetadataIndex.size()) ? entityToMetadataIndex[entity] : -1;
@@ -321,12 +280,10 @@ namespace World
             freeList.clear();
             transforms.Clear();
             renders.Clear();
-            collisions.Clear();
             metadata.Clear();
             nameToEntity.clear();
             entityToTransformIndex.clear();
             entityToRenderIndex.clear();
-            entityToCollisionIndex.clear();
             entityToMetadataIndex.clear();
         }
 
