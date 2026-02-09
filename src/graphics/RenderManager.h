@@ -37,6 +37,17 @@ class RenderManager
 {
 public:
     /**
+     * @brief MSAA quality levels
+     */
+    enum class MSAALevel
+    {
+        MSAA_NONE = 0, ///< No anti-aliasing
+        MSAA_4X = 4,   ///< 4x multisampling
+        MSAA_8X = 8,   ///< 8x multisampling
+        MSAA_16X = 16  ///< 16x multisampling
+    };
+
+    /**
      * @brief Construct a new render manager
      */
     RenderManager();
@@ -214,12 +225,13 @@ public:
      */
     struct FrameSettings
     {
-        float geometryCullMargin = 1.0f; ///< Geometry frustum culling margin
-        float grassCullMargin = 1.70f;   ///< Grass frustum culling margin
-        bool grayscaleEnabled = false;   ///< Grayscale post-processing
-        bool depthDebugEnabled = false;  ///< Depth buffer visualization
-        bool showDebugGrid = false;      ///< Debug grid rendering
-        bool showGrass = true;           ///< Grass rendering toggle
+        float geometryCullMargin = 1.0f;            ///< Geometry frustum culling margin
+        float grassCullMargin = 1.70f;              ///< Grass frustum culling margin
+        bool grayscaleEnabled = false;              ///< Grayscale post-processing
+        bool depthDebugEnabled = false;             ///< Depth buffer visualization
+        bool showDebugGrid = false;                 ///< Debug grid rendering
+        bool showGrass = true;                      ///< Grass rendering toggle
+        MSAALevel msaaLevel = MSAALevel::MSAA_NONE; ///< MSAA quality level
     };
 
     /**
@@ -227,6 +239,31 @@ public:
      * @param settings Frame configuration
      */
     void ApplyFrameSettings(const FrameSettings &settings);
+
+    /**
+     * @brief Set MSAA quality level
+     * @param level MSAA level to set (will clamp to maxSupportedMSAA)
+     */
+    void SetMSAALevel(MSAALevel level);
+
+    /**
+     * @brief Get current MSAA quality level
+     * @return Current MSAA level
+     */
+    MSAALevel GetMSAALevel() const { return currentFrameSettings.msaaLevel; }
+
+    /**
+     * @brief Get maximum supported MSAA level for current GPU
+     * @return Maximum MSAA level supported
+     */
+    MSAALevel GetMaxSupportedMSAA() const { return maxSupportedMSAA; }
+
+    /**
+     * @brief Convert MSAA level enum to sample count
+     * @param level MSAA level
+     * @return Sample count (0, 4, 8, or 16)
+     */
+    static unsigned int GetMSAASampleCount(MSAALevel level) { return static_cast<unsigned int>(level); }
 
     /**
      * @brief Update all rendering subsystems
@@ -377,6 +414,7 @@ private:
     bool grayscaleEnabled;      ///< Grayscale effect toggle
     bool depthDebugEnabled;     ///< Depth visualization toggle
     Vector3 sunDirection;       ///< Directional light direction
+    MSAALevel maxSupportedMSAA; ///< Maximum MSAA level supported by GPU
 
     LightRenderer lightRenderer;                   ///< PBR lighting system
     PostProcessingRenderer postProcessingRenderer; ///< Post-processing pipeline
@@ -401,4 +439,9 @@ private:
      * @param sceneRenderer Scene rendering callback
      */
     void RenderWithPostProcessing(std::function<void()> sceneRenderer);
+
+    /**
+     * @brief Recreate MSAA render textures after quality settings change
+     */
+    void RecreateMSAARenderTextures();
 };

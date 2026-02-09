@@ -200,6 +200,26 @@ void Game::UpdatePlaying()
     renderFrameSettings.grassCullMargin = grassCullMargin;
     renderFrameSettings.grayscaleEnabled = enableGrayscale;
     renderFrameSettings.depthDebugEnabled = enableDepthDebug;
+
+    // Map MSAA index to MSAALevel
+    switch (msaaLevelIndex)
+    {
+    case 0:
+        renderFrameSettings.msaaLevel = RenderManager::MSAALevel::MSAA_NONE;
+        break;
+    case 1:
+        renderFrameSettings.msaaLevel = RenderManager::MSAALevel::MSAA_4X;
+        break;
+    case 2:
+        renderFrameSettings.msaaLevel = RenderManager::MSAALevel::MSAA_8X;
+        break;
+    case 3:
+        renderFrameSettings.msaaLevel = RenderManager::MSAALevel::MSAA_16X;
+        break;
+    default:
+        renderFrameSettings.msaaLevel = RenderManager::MSAALevel::MSAA_NONE;
+    }
+
     renderManager.ApplyFrameSettings(renderFrameSettings);
 
     // Unified rendering system update - handles camera and all subsystems
@@ -522,6 +542,7 @@ void Game::SetupPostProcessingMenu()
 {
     postProcessingMenu.AddBool("Grayscale", &enableGrayscale);
     postProcessingMenu.AddBool("Depth Debug", &enableDepthDebug);
+    postProcessingMenu.AddString("MSAA Level", &msaaLevelIndex, {"None", "4X", "8X", "16X"});
 
     TraceLog(LOG_INFO, "Game: Post-processing menu initialized");
 }

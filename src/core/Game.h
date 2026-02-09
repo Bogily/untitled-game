@@ -65,6 +65,7 @@ private:
     float grassCullMargin = 1.70f;   ///< Grass frustum culling margin
     bool enableGrayscale = false;    ///< Grayscale post-processing toggle
     bool enableDepthDebug = false;   ///< Depth buffer visualization toggle
+    int msaaLevelIndex = 0;          ///< MSAA level selection index
 
     int currentModelIndex = 0;   ///< Currently selected player model
     int previousModelIndex = -1; ///< Previous player model (for change detection)

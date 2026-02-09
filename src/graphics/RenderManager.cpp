@@ -8,7 +8,8 @@ RenderManager::RenderManager()
       postProcessingEnabled(true),
       grayscaleEnabled(false),
       depthDebugEnabled(false),
-      sunDirection({0.3f, 0.5f, 0.8f})
+      sunDirection({0.3f, 0.5f, 0.8f}),
+      maxSupportedMSAA(MSAALevel::MSAA_NONE)
 {
 }
 
@@ -33,6 +34,20 @@ void RenderManager::Init(int width, int height)
     lightRenderer.Init(width, height);
     TraceLog(LOG_INFO, "RenderManager: Initializing PostProcessingRenderer...");
     postProcessingRenderer.Init(width, height);
+
+    // Query GPU MSAA capabilities
+    unsigned int maxMSAASamples = PostProcessingRenderer::QueryMaxMSAASamples();
+    if (maxMSAASamples >= 16)
+        maxSupportedMSAA = MSAALevel::MSAA_16X;
+    else if (maxMSAASamples >= 8)
+        maxSupportedMSAA = MSAALevel::MSAA_8X;
+    else if (maxMSAASamples >= 4)
+        maxSupportedMSAA = MSAALevel::MSAA_4X;
+    else
+        maxSupportedMSAA = MSAALevel::MSAA_NONE;
+
+    TraceLog(LOG_INFO, "RenderManager: GPU MSAA support detected: max %uX", static_cast<unsigned int>(maxSupportedMSAA));
+
     TraceLog(LOG_INFO, "RenderManager: Initializing GeometryRenderer...");
     geometryRenderer.Init();
     TraceLog(LOG_INFO, "RenderManager: Initializing ParticleSystem...");
@@ -85,11 +100,20 @@ void RenderManager::SetWindowSize(int width, int height)
     // 2. Re-init would unload the PBR shader, breaking all models currently using it
     // 3. Re-init would clear all lights
 
+    // Store current MSAA level before shutdown
+    MSAALevel currentMSAALevel = currentFrameSettings.msaaLevel;
+
     postProcessingRenderer.Shutdown();
     postProcessingRenderer.Init(width, height);
 
     // Reapply settings
     postProcessingRenderer.SetGrayscaleEnabled(grayscaleEnabled);
+
+    // Reapply MSAA if it was enabled
+    if (currentMSAALevel != MSAALevel::MSAA_NONE)
+    {
+        postProcessingRenderer.EnableMSAA(GetMSAASampleCount(currentMSAALevel));
+    }
 
     TraceLog(LOG_INFO, "RenderManager: Resize complete");
 }
@@ -417,6 +441,12 @@ void RenderManager::ApplyFrameSettings(const FrameSettings &settings)
     EnableGrayscale(settings.grayscaleEnabled);
     EnableDepthDebug(settings.depthDebugEnabled);
 
+    // Check if MSAA level changed
+    if (settings.msaaLevel != currentFrameSettings.msaaLevel)
+    {
+        SetMSAALevel(settings.msaaLevel);
+    }
+
     // Cache settings for drawing
     currentFrameSettings = settings;
 }
@@ -457,5 +487,47 @@ void RenderManager::DrawFrame(std::function<void()> sceneCallback, bool showDebu
     else
     {
         RenderDirect(sceneCallback);
+    }
+}
+
+void RenderManager::SetMSAALevel(MSAALevel level)
+{
+    // Clamp to max supported
+    if (level > maxSupportedMSAA)
+    {
+        TraceLog(LOG_WARNING, "RenderManager: Requested MSAA level %u exceeds max supported %u, clamping",
+                 static_cast<unsigned int>(level), static_cast<unsigned int>(maxSupportedMSAA));
+        level = maxSupportedMSAA;
+    }
+
+    if (currentFrameSettings.msaaLevel == level)
+        return; // No change needed
+
+    currentFrameSettings.msaaLevel = level;
+    TraceLog(LOG_INFO, "RenderManager: MSAA level set to %uX", static_cast<unsigned int>(level));
+
+    // Recreate render textures with new MSAA settings
+    RecreateMSAARenderTextures();
+}
+
+void RenderManager::RecreateMSAARenderTextures()
+{
+    if (!initialized || !postProcessingEnabled)
+        return;
+
+    MSAALevel msaaLevel = currentFrameSettings.msaaLevel;
+    unsigned int sampleCount = GetMSAASampleCount(msaaLevel);
+
+    TraceLog(LOG_INFO, "RenderManager: Setting MSAA to %uX", sampleCount);
+
+    if (sampleCount == 0)
+    {
+        // Disable MSAA
+        postProcessingRenderer.DisableMSAA();
+    }
+    else
+    {
+        // Enable MSAA with specified sample count
+        postProcessingRenderer.EnableMSAA(sampleCount);
     }
 }

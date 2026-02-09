@@ -9,6 +9,25 @@
 #include "raymath.h"
 
 /**
+ * @brief MSAA render texture with resolve support
+ *
+ * Contains multisampled color and depth textures for rendering,
+ * plus resolved textures for post-processing.
+ */
+struct MSAARenderTexture
+{
+    Texture colorMS;          ///< Multisampled color texture (GL_TEXTURE_2D_MULTISAMPLE)
+    Texture colorResolved;    ///< Resolved color texture for post-processing
+    Texture depthMS;          ///< Multisampled depth texture
+    Texture depthResolved;    ///< Resolved depth texture
+    unsigned int fboMS;       ///< Framebuffer object for MSAA rendering
+    unsigned int fboResolve;  ///< Framebuffer object for resolve pass
+    unsigned int sampleCount; ///< Number of samples (4, 8, or 16)
+    int width;                ///< Texture width
+    int height;               ///< Texture height
+};
+
+/**
  * @brief Post-processing renderer applying fullscreen effects
  *
  * Captures scene to texture and applies effects like grayscale
@@ -90,8 +109,53 @@ public:
      */
     RenderTexture2D GetSceneTexture() const { return sceneTexture; }
 
+    /**
+     * @brief Enable MSAA rendering
+     * @param sampleCount Number of samples (4, 8, or 16)
+     */
+    void EnableMSAA(unsigned int sampleCount);
+
+    /**
+     * @brief Disable MSAA rendering
+     */
+    void DisableMSAA();
+
+    /**
+     * @brief Check if MSAA is enabled
+     * @return True if MSAA is active
+     */
+    bool IsMSAAEnabled() const { return msaaTexture.sampleCount > 0; }
+
+    /**
+     * @brief Query maximum MSAA level supported by GPU
+     * @return Maximum sample count (4, 8, 16, or 0 if unsupported)
+     */
+    static unsigned int QueryMaxMSAASamples();
+
+    /**
+     * @brief Create MSAA render texture
+     * @param width Texture width in pixels
+     * @param height Texture height in pixels
+     * @param sampleCount Number of samples (4, 8, or 16)
+     * @return MSAA render texture structure
+     */
+    static MSAARenderTexture LoadMSAARenderTexture(int width, int height, unsigned int sampleCount);
+
+    /**
+     * @brief Resolve MSAA texture to regular texture
+     * @param msaaTexture MSAA render texture to resolve
+     */
+    static void ResolveMSAA(const MSAARenderTexture &msaaTexture);
+
+    /**
+     * @brief Unload MSAA render texture resources
+     * @param msaaTexture MSAA render texture to unload
+     */
+    static void UnloadMSAARenderTexture(MSAARenderTexture &msaaTexture);
+
 private:
-    RenderTexture2D sceneTexture; ///< Main scene render target with depth attachment
+    RenderTexture2D sceneTexture;  ///< Main scene render target with depth attachment
+    MSAARenderTexture msaaTexture; ///< MSAA render texture (if MSAA enabled)
 
     Shader grayscaleShader; ///< Grayscale effect shader
     Shader depthShader;     ///< Depth visualization shader
