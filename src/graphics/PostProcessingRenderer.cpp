@@ -1,13 +1,17 @@
 #include "PostProcessingRenderer.h"
 #include "rlgl.h"
 #include <glad/glad.h>
+#include <cmath>
 
 PostProcessingRenderer::PostProcessingRenderer()
     : width(0), height(0),
       enableGrayscale(false),
       enableDepthDebug(false),
-      msaaTexture({0})
+      msaaTexture({0}),
+      currentLUTPreset(0),
+      lutIntensity(1.0f)
 {
+    lutTexture.id = 0;
 }
 
 PostProcessingRenderer::~PostProcessingRenderer()
@@ -28,9 +32,15 @@ void PostProcessingRenderer::Init(int screenWidth, int screenHeight)
     // Load shaders
     grayscaleShader = LoadShader(0, "assets/shader/grayscale.fs");
     depthShader = LoadShader(0, "assets/shader/depth_render.fs");
+    colorGradingShader = LoadShader(0, "assets/shader/color_grading.fs");
 
     TraceLog(LOG_INFO, "PostProcessingRenderer: Grayscale shader loaded successfully");
     TraceLog(LOG_INFO, "PostProcessingRenderer: Depth render shader loaded successfully");
+    TraceLog(LOG_INFO, "PostProcessingRenderer: Color grading shader loaded successfully");
+
+    // Generate identity LUT by default (no color change)
+    lutTexture = Generate3DLUT(0);
+    TraceLog(LOG_INFO, "PostProcessingRenderer: Default LUT generated");
 }
 
 void PostProcessingRenderer::Shutdown()
@@ -45,6 +55,10 @@ void PostProcessingRenderer::Shutdown()
         UnloadShader(grayscaleShader);
     if (depthShader.id > 0)
         UnloadShader(depthShader);
+    if (colorGradingShader.id > 0)
+        UnloadShader(colorGradingShader);
+    if (lutTexture.id > 0)
+        UnloadTexture(lutTexture);
 
     TraceLog(LOG_INFO, "PostProcessingRenderer: Shutdown complete");
 }
@@ -107,6 +121,22 @@ void PostProcessingRenderer::ApplyEffects()
     else if (enableGrayscale)
     {
         RenderFullscreenQuad(grayscaleShader, targetTexture);
+    }
+    else if (currentLUTPreset > 0 && lutIntensity > 0.0f)
+    {
+        // Apply color grading with LUT
+        BeginShaderMode(colorGradingShader);
+
+        // Set shader uniforms
+        int lutTexLoc = GetShaderLocation(colorGradingShader, "lutTexture");
+        int lutIntensityLoc = GetShaderLocation(colorGradingShader, "lutIntensity");
+
+        SetShaderValueTexture(colorGradingShader, lutTexLoc, lutTexture);
+        SetShaderValue(colorGradingShader, lutIntensityLoc, &lutIntensity, SHADER_UNIFORM_FLOAT);
+
+        RenderFullscreenQuad(colorGradingShader, targetTexture);
+
+        EndShaderMode();
     }
     else
     {
@@ -421,4 +451,226 @@ void PostProcessingRenderer::DisableMSAA()
 
     TraceLog(LOG_INFO, "PostProcessingRenderer: MSAA disabled");
     UnloadMSAARenderTexture(msaaTexture);
+}
+
+// Color Grading Implementation
+
+void PostProcessingRenderer::SetColorGradingPreset(int preset)
+{
+    if (preset == currentLUTPreset)
+        return;
+
+    currentLUTPreset = preset;
+
+    // Unload old LUT
+    if (lutTexture.id > 0)
+        UnloadTexture(lutTexture);
+
+    // Generate new LUT
+    lutTexture = Generate3DLUT(preset);
+
+    const char *presetNames[] = {"None", "Warm", "Cool", "Cinematic", "Vintage", "Noir"};
+    if (preset >= 0 && preset < 6)
+        TraceLog(LOG_INFO, "PostProcessingRenderer: Color grading preset set to %s", presetNames[preset]);
+}
+
+Texture PostProcessingRenderer::Generate3DLUT(int preset)
+{
+    const int LUT_SIZE = 32;                                  // 32x32x32 LUT
+    const int totalSize = LUT_SIZE * LUT_SIZE * LUT_SIZE * 3; // RGB
+
+    // Create identity LUT
+    unsigned char *lutData = CreateIdentityLUT(LUT_SIZE);
+
+    // Apply preset modifications
+    switch (preset)
+    {
+    case 0: // None (identity)
+        break;
+    case 1: // Warm
+        ApplyWarmGrading(lutData, LUT_SIZE);
+        break;
+    case 2: // Cool
+        ApplyCoolGrading(lutData, LUT_SIZE);
+        break;
+    case 3: // Cinematic
+        ApplyCinematicGrading(lutData, LUT_SIZE);
+        break;
+    case 4: // Vintage
+        ApplyVintageGrading(lutData, LUT_SIZE);
+        break;
+    case 5: // Noir
+        ApplyNoirGrading(lutData, LUT_SIZE);
+        break;
+    default:
+        break;
+    }
+
+    // Create 3D texture
+    Image lutImage = {
+        .data = lutData,
+        .width = LUT_SIZE,
+        .height = LUT_SIZE * LUT_SIZE,
+        .mipmaps = 1,
+        .format = PIXELFORMAT_UNCOMPRESSED_R8G8B8};
+
+    Texture texture = LoadTextureFromImage(lutImage);
+
+    // Convert to 3D texture using OpenGL
+    glBindTexture(GL_TEXTURE_3D, texture.id);
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB, LUT_SIZE, LUT_SIZE, LUT_SIZE, 0, GL_RGB, GL_UNSIGNED_BYTE, lutData);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glBindTexture(GL_TEXTURE_3D, 0);
+
+    free(lutData);
+    return texture;
+}
+
+unsigned char *PostProcessingRenderer::CreateIdentityLUT(int size)
+{
+    int totalSize = size * size * size * 3;
+    unsigned char *data = (unsigned char *)malloc(totalSize);
+
+    for (int b = 0; b < size; b++)
+    {
+        for (int g = 0; g < size; g++)
+        {
+            for (int r = 0; r < size; r++)
+            {
+                int index = (b * size * size + g * size + r) * 3;
+                data[index + 0] = (unsigned char)((r * 255) / (size - 1)); // R
+                data[index + 1] = (unsigned char)((g * 255) / (size - 1)); // G
+                data[index + 2] = (unsigned char)((b * 255) / (size - 1)); // B
+            }
+        }
+    }
+
+    return data;
+}
+
+void PostProcessingRenderer::ApplyWarmGrading(unsigned char *data, int size)
+{
+    int totalPixels = size * size * size;
+    for (int i = 0; i < totalPixels; i++)
+    {
+        int index = i * 3;
+        float r = data[index + 0] / 255.0f;
+        float g = data[index + 1] / 255.0f;
+        float b = data[index + 2] / 255.0f;
+
+        // Add warmth: boost reds/yellows, reduce blues
+        r = fminf(r * 1.15f + 0.05f, 1.0f);
+        g = fminf(g * 1.05f, 1.0f);
+        b = b * 0.85f;
+
+        data[index + 0] = (unsigned char)(r * 255);
+        data[index + 1] = (unsigned char)(g * 255);
+        data[index + 2] = (unsigned char)(b * 255);
+    }
+}
+
+void PostProcessingRenderer::ApplyCoolGrading(unsigned char *data, int size)
+{
+    int totalPixels = size * size * size;
+    for (int i = 0; i < totalPixels; i++)
+    {
+        int index = i * 3;
+        float r = data[index + 0] / 255.0f;
+        float g = data[index + 1] / 255.0f;
+        float b = data[index + 2] / 255.0f;
+
+        // Add coolness: boost blues, reduce reds
+        r = r * 0.85f;
+        g = fminf(g * 1.05f, 1.0f);
+        b = fminf(b * 1.2f + 0.05f, 1.0f);
+
+        data[index + 0] = (unsigned char)(r * 255);
+        data[index + 1] = (unsigned char)(g * 255);
+        data[index + 2] = (unsigned char)(b * 255);
+    }
+}
+
+void PostProcessingRenderer::ApplyCinematicGrading(unsigned char *data, int size)
+{
+    int totalPixels = size * size * size;
+    for (int i = 0; i < totalPixels; i++)
+    {
+        int index = i * 3;
+        float r = data[index + 0] / 255.0f;
+        float g = data[index + 1] / 255.0f;
+        float b = data[index + 2] / 255.0f;
+
+        // Cinematic: crushed blacks, lifted shadows, teal/orange look
+        float luma = 0.299f * r + 0.587f * g + 0.114f * b;
+
+        // Lift shadows, crush blacks
+        if (luma < 0.3f)
+            luma = luma * 0.8f + 0.05f;
+
+        // Teal/orange color grading
+        r = fminf(r * 1.1f + (luma - r) * 0.1f, 1.0f);
+        g = fminf(g * 0.95f, 1.0f);
+        b = fminf(b * 1.05f + (luma - b) * 0.15f, 1.0f);
+
+        data[index + 0] = (unsigned char)(r * 255);
+        data[index + 1] = (unsigned char)(g * 255);
+        data[index + 2] = (unsigned char)(b * 255);
+    }
+}
+
+void PostProcessingRenderer::ApplyVintageGrading(unsigned char *data, int size)
+{
+    int totalPixels = size * size * size;
+    for (int i = 0; i < totalPixels; i++)
+    {
+        int index = i * 3;
+        float r = data[index + 0] / 255.0f;
+        float g = data[index + 1] / 255.0f;
+        float b = data[index + 2] / 255.0f;
+
+        // Vintage: sepia tones, reduced saturation, faded look
+        float luma = 0.299f * r + 0.587f * g + 0.114f * b;
+
+        // Sepia transformation
+        r = fminf(luma * 1.2f, 1.0f);
+        g = fminf(luma * 1.0f, 1.0f);
+        b = fminf(luma * 0.8f, 1.0f);
+
+        // Fade (lift blacks)
+        r = r * 0.85f + 0.15f;
+        g = g * 0.85f + 0.15f;
+        b = b * 0.85f + 0.15f;
+
+        data[index + 0] = (unsigned char)(r * 255);
+        data[index + 1] = (unsigned char)(g * 255);
+        data[index + 2] = (unsigned char)(b * 255);
+    }
+}
+
+void PostProcessingRenderer::ApplyNoirGrading(unsigned char *data, int size)
+{
+    int totalPixels = size * size * size;
+    for (int i = 0; i < totalPixels; i++)
+    {
+        int index = i * 3;
+        float r = data[index + 0] / 255.0f;
+        float g = data[index + 1] / 255.0f;
+        float b = data[index + 2] / 255.0f;
+
+        // Film noir: high contrast black and white
+        float luma = 0.299f * r + 0.587f * g + 0.114f * b;
+
+        // Increase contrast
+        luma = (luma - 0.5f) * 1.5f + 0.5f;
+        luma = fmaxf(0.0f, fminf(1.0f, luma));
+
+        // Convert to grayscale with high contrast
+        data[index + 0] = (unsigned char)(luma * 255);
+        data[index + 1] = (unsigned char)(luma * 255);
+        data[index + 2] = (unsigned char)(luma * 255);
+    }
 }

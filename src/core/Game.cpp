@@ -201,6 +201,14 @@ void Game::UpdatePlaying()
     renderFrameSettings.grayscaleEnabled = enableGrayscale;
     renderFrameSettings.depthDebugEnabled = enableDepthDebug;
 
+    // Apply color grading settings
+    PostProcessingRenderer *postProc = renderManager.GetPostProcessingRenderer();
+    if (postProc)
+    {
+        postProc->SetColorGradingPreset(colorGradingPreset);
+        postProc->SetColorGradingIntensity(colorGradingIntensity);
+    }
+
     // Map MSAA index to MSAALevel
     switch (msaaLevelIndex)
     {
@@ -543,6 +551,8 @@ void Game::SetupPostProcessingMenu()
     postProcessingMenu.AddBool("Grayscale", &enableGrayscale);
     postProcessingMenu.AddBool("Depth Debug", &enableDepthDebug);
     postProcessingMenu.AddString("MSAA Level", &msaaLevelIndex, {"None", "4X", "8X", "16X"});
+    postProcessingMenu.AddString("Color Grading", &colorGradingPreset, {"None", "Warm", "Cool", "Cinematic", "Vintage", "Noir"});
+    postProcessingMenu.AddFloat("Grading Intensity", &colorGradingIntensity, 0.0f, 1.0f, 0.05f);
 
     TraceLog(LOG_INFO, "Game: Post-processing menu initialized");
 }

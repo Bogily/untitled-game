@@ -104,6 +104,30 @@ public:
     bool GetDepthDebugEnabled() const { return enableDepthDebug; }
 
     /**
+     * @brief Set color grading LUT preset
+     * @param preset Preset index (0=None, 1=Warm, 2=Cool, 3=Cinematic, 4=Vintage, 5=Noir)
+     */
+    void SetColorGradingPreset(int preset);
+
+    /**
+     * @brief Get current color grading preset
+     * @return Preset index
+     */
+    int GetColorGradingPreset() const { return currentLUTPreset; }
+
+    /**
+     * @brief Set color grading intensity
+     * @param intensity Intensity value (0.0 to 1.0)
+     */
+    void SetColorGradingIntensity(float intensity) { lutIntensity = intensity; }
+
+    /**
+     * @brief Get color grading intensity
+     * @return Intensity value
+     */
+    float GetColorGradingIntensity() const { return lutIntensity; }
+
+    /**
      * @brief Get scene render texture
      * @return Scene texture with depth attachment
      */
@@ -157,8 +181,13 @@ private:
     RenderTexture2D sceneTexture;  ///< Main scene render target with depth attachment
     MSAARenderTexture msaaTexture; ///< MSAA render texture (if MSAA enabled)
 
-    Shader grayscaleShader; ///< Grayscale effect shader
-    Shader depthShader;     ///< Depth visualization shader
+    Shader grayscaleShader;    ///< Grayscale effect shader
+    Shader depthShader;        ///< Depth visualization shader
+    Shader colorGradingShader; ///< Color grading shader
+
+    Texture lutTexture;   ///< 3D LUT texture for color grading
+    int currentLUTPreset; ///< Current LUT preset index
+    float lutIntensity;   ///< Color grading intensity (0.0 to 1.0)
 
     int width;  ///< Screen width
     int height; ///< Screen height
@@ -186,4 +215,53 @@ private:
      * @param target Render texture to unload
      */
     void UnloadRenderTextureWithDepth(RenderTexture2D target);
+
+    /**
+     * @brief Generate a 3D LUT texture from preset
+     * @param preset Preset index
+     * @return 3D LUT texture
+     */
+    Texture Generate3DLUT(int preset);
+
+    /**
+     * @brief Create identity LUT (no color change)
+     * @param size LUT size (e.g., 32 for 32x32x32)
+     * @return LUT data
+     */
+    static unsigned char *CreateIdentityLUT(int size);
+
+    /**
+     * @brief Apply warm color grading to LUT data
+     * @param data LUT data to modify
+     * @param size LUT size
+     */
+    static void ApplyWarmGrading(unsigned char *data, int size);
+
+    /**
+     * @brief Apply cool color grading to LUT data
+     * @param data LUT data to modify
+     * @param size LUT size
+     */
+    static void ApplyCoolGrading(unsigned char *data, int size);
+
+    /**
+     * @brief Apply cinematic color grading to LUT data
+     * @param data LUT data to modify
+     * @param size LUT size
+     */
+    static void ApplyCinematicGrading(unsigned char *data, int size);
+
+    /**
+     * @brief Apply vintage color grading to LUT data
+     * @param data LUT data to modify
+     * @param size LUT size
+     */
+    static void ApplyVintageGrading(unsigned char *data, int size);
+
+    /**
+     * @brief Apply noir (black & white) color grading to LUT data
+     * @param data LUT data to modify
+     * @param size LUT size
+     */
+    static void ApplyNoirGrading(unsigned char *data, int size);
 };
