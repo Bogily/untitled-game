@@ -38,10 +38,12 @@ public:
     // Rendering configuration - single place to configure all rendering settings
     void EnablePostProcessing(bool enable);
     void EnableGrayscale(bool enable);
+    void EnableDepthDebug(bool enable);
     void SetSunDirection(Vector3 direction);
 
     bool IsPostProcessingEnabled() const { return postProcessingEnabled; }
     bool IsGrayscaleEnabled() const { return grayscaleEnabled; }
+    bool IsDepthDebugEnabled() const { return depthDebugEnabled; }
     Vector3 GetSunDirection() const { return sunDirection; }
 
     // Subsystem access for configuration and updates
@@ -98,6 +100,7 @@ private:
     bool initialized;
     bool postProcessingEnabled;
     bool grayscaleEnabled;
+    bool depthDebugEnabled;
     Vector3 sunDirection;
 
     // Rendering subsystems - all managed here (standardized naming)

@@ -54,6 +54,7 @@ private:
     bool showFPS = true;
     bool enablePostProcessing = false;
     bool enableGrayscale = false;
+    bool enableDepthDebug = false;
     bool rmlReady = false;
     Rml::ElementDocument *rmlMainMenu = nullptr;
     // Culling margins
@@ -72,6 +73,7 @@ private:
     void HandleWindowResize();
     void DrawSettings();
     void SetupDebugMenu();
+    void SetupPostProcessingMenu();
 
     // Scene setup
     void InitializeScene();

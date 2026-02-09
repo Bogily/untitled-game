@@ -7,6 +7,7 @@ RenderManager::RenderManager()
       initialized(false),
       postProcessingEnabled(true),
       grayscaleEnabled(false),
+      depthDebugEnabled(false),
       sunDirection({0.3f, 0.5f, 0.8f})
 {
 }
@@ -190,6 +191,16 @@ void RenderManager::EnableGrayscale(bool enable)
     grayscaleEnabled = enable;
     postProcessingRenderer.SetGrayscaleEnabled(enable);
     TraceLog(LOG_INFO, "RenderManager: Grayscale %s", enable ? "enabled" : "disabled");
+}
+
+void RenderManager::EnableDepthDebug(bool enable)
+{
+    if (depthDebugEnabled == enable)
+        return;
+
+    depthDebugEnabled = enable;
+    postProcessingRenderer.SetDepthDebugEnabled(enable);
+    TraceLog(LOG_INFO, "RenderManager: Depth debug %s", enable ? "enabled" : "disabled");
 }
 
 void RenderManager::SetSunDirection(Vector3 direction)

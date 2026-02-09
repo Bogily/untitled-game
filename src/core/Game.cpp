@@ -423,6 +423,10 @@ void Game::DrawPlaying()
         return;
     }
 
+    // Apply post-processing menu settings to render manager
+    renderManager.EnableGrayscale(enableGrayscale);
+    renderManager.EnableDepthDebug(enableDepthDebug);
+
     // Use RenderManager for all rendering
     renderManager.BeginFrame();
 
@@ -490,8 +494,9 @@ void Game::InitializeScene()
     SetupWater(level);
     SetupParticles(level);
 
-    // Now that models and systems are ready, set up the debug menu safely
+    // Now that models and systems are ready, set up the menus safely
     SetupDebugMenu();
+    SetupPostProcessingMenu();
 
     TraceLog(LOG_INFO, "Game: Scene initialization complete");
 }
@@ -560,6 +565,14 @@ void Game::SetupDebugMenu()
     debugMenu.AddFloat("Camera FOV", &cameraController.camera.fovy, 20.0f, 120.0f, 1.0f);
 
     TraceLog(LOG_INFO, "Game: Debug menu initialized");
+}
+
+void Game::SetupPostProcessingMenu()
+{
+    postProcessingMenu.AddBool("Grayscale", &enableGrayscale);
+    postProcessingMenu.AddBool("Depth Debug", &enableDepthDebug);
+
+    TraceLog(LOG_INFO, "Game: Post-processing menu initialized");
 }
 
 void Game::SetupCamera(const LevelData &level)
