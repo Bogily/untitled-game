@@ -9,6 +9,9 @@
 #include "WaterRenderer.h"
 #include "GeometryRenderer.h"
 #include "ParticleSystem.h"
+#include "DebugRenderer.h"
+#include "CameraController.h"
+#include "../world/Level.h"
 #include <functional>
 #include <vector>
 
@@ -30,10 +33,13 @@ public:
     int GetScreenWidth() const { return screenWidth; }
     int GetScreenHeight() const { return screenHeight; }
 
-    // Main rendering entry point
+    // Main rendering entry point - legacy support
     void BeginFrame();
     void RenderScene(std::function<void()> sceneRenderer, Camera3D camera);
     void EndFrame();
+
+    // New simplified rendering pipeline
+    void DrawFrame(std::function<void()> sceneCallback, bool showDebug = false);
 
     // Rendering configuration - single place to configure all rendering settings
     void EnablePostProcessing(bool enable);
@@ -54,6 +60,25 @@ public:
     WaterRenderer *GetWaterRenderer() { return &waterRenderer; }
     GeometryRenderer *GetGeometryRenderer() { return &geometryRenderer; }
     ParticleSystem *GetParticleSystem() { return &particleSystem; }
+    CameraController *GetCameraController() { return &cameraController; }
+
+    // Consolidated setup from level data
+    void SetupFromLevelData(const LevelData &level);
+
+    // Apply cumulative frame settings (culling, post-processing)
+    struct FrameSettings
+    {
+        float geometryCullMargin = 1.0f;
+        float grassCullMargin = 1.70f;
+        bool grayscaleEnabled = false;
+        bool depthDebugEnabled = false;
+        bool showDebugGrid = false;
+        bool showGrass = true;
+    };
+    void ApplyFrameSettings(const FrameSettings &settings);
+
+    // Unified update call for all rendering systems
+    void UpdateAllSystems(float deltaTime);
 
     // Update methods - centralized update for all rendering subsystems
     void UpdateCamera(Camera3D camera, int maxActiveLights = 64);
@@ -111,6 +136,11 @@ private:
     GeometryRenderer geometryRenderer;
     WaterRenderer waterRenderer;
     ParticleSystem particleSystem;
+    DebugRenderer debugRenderer;
+    CameraController cameraController;
+
+    // Frame settings cache
+    FrameSettings currentFrameSettings;
 
     // Internal rendering methods
     void RenderDirect(std::function<void()> sceneRenderer);

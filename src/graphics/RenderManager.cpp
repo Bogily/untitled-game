@@ -37,6 +37,8 @@ void RenderManager::Init(int width, int height)
     geometryRenderer.Init();
     TraceLog(LOG_INFO, "RenderManager: Initializing ParticleSystem...");
     particleSystem.Init();
+    TraceLog(LOG_INFO, "RenderManager: Initializing DebugRenderer...");
+    debugRenderer.Init();
 
     initialized = true;
     TraceLog(LOG_INFO, "RenderManager: Initialized (%dx%d)", width, height);
@@ -54,6 +56,7 @@ void RenderManager::Shutdown()
     geometryRenderer.Shutdown();
     particleSystem.Shutdown();
     skyboxRenderer.Unload();
+    debugRenderer.Shutdown();
     // WaterRenderer shutdown is handled by its destructor
 
     initialized = false;
@@ -300,4 +303,159 @@ void RenderManager::UpdateGeometry(float deltaTime, Camera3D camera)
 void RenderManager::UpdateParticles(float deltaTime, Vector3 camPos)
 {
     particleSystem.Update(deltaTime, camPos);
+}
+
+// NEW: Consolidated setup from level data
+void RenderManager::SetupFromLevelData(const LevelData &level)
+{
+    TraceLog(LOG_INFO, "RenderManager: Setting up from level data '%s'...", level.name.c_str());
+
+    // Setup sun direction
+    Vector3 sunDirection = {0.3f, 0.5f, 0.8f};
+    SetSunDirection(sunDirection);
+
+    // Setup base lights
+    lightRenderer.CreateDirectionalLight(sunDirection, {1.0f, 0.95f, 0.8f, 1.0f}, 2.0f);
+    lightRenderer.CreatePointLight({-5.0f, 4.0f, -5.0f}, {1.0f, 0.9f, 0.8f, 1.0f}, 12.0f, 15.0f);
+    lightRenderer.CreatePointLight({5.0f, 4.0f, 5.0f}, {0.8f, 0.9f, 1.0f, 1.0f}, 12.0f, 15.0f);
+    lightRenderer.CreatePointLight({0.0f, 6.0f, 0.0f}, {1.0f, 1.0f, 1.0f, 1.0f}, 15.0f, 20.0f);
+
+    // Add scene lights on top
+    for (const auto &lightData : level.lights)
+    {
+        if (lightData.type == 0) // Directional
+        {
+            Vector4 colorVec = ColorNormalize(lightData.color);
+            lightRenderer.CreateDirectionalLight(lightData.direction, colorVec, lightData.intensity);
+        }
+        else // Point
+        {
+            Vector4 colorVec = ColorNormalize(lightData.color);
+            lightRenderer.CreatePointLight(lightData.position, colorVec, lightData.intensity, lightData.radius);
+        }
+    }
+
+    // Setup skybox
+    if (!level.skyboxTexture.empty())
+    {
+        skyboxRenderer.Load("assets/shader/skybox.vs", "assets/shader/skybox.fs");
+    }
+
+    // Setup grass (200000 grass blades over 30x30 area)
+    InitializeGrass(200000, 30.0f);
+    ConfigureGrass({1.0f, 0.5f}, 0.5f, 2.0f);
+
+    // Setup water (50x50 water plane at -0.5 height)
+    InitializeWater(50.0f, 50.0f, -0.5f);
+
+    // Setup particles
+    for (const auto &pData : level.particles)
+    {
+        EmitterConfig config;
+        config.position = pData.position;
+        config.offset = pData.offset;
+        config.velocity = pData.velocity;
+        config.velocityRandom = pData.velocityRandom;
+        config.acceleration = pData.acceleration;
+        config.colorStart = pData.colorStart;
+        config.colorEnd = pData.colorEnd;
+        config.sizeStart = pData.sizeStart;
+        config.sizeEnd = pData.sizeEnd;
+        config.sizeRandom = pData.sizeRandom;
+        config.lifeMin = pData.lifeMin;
+        config.lifeMax = pData.lifeMax;
+        config.emissionRate = pData.emissionRate;
+        config.maxParticles = pData.maxParticles;
+
+        // Map blend mode string to enum
+        config.blendMode = ParticleBlendMode::ALPHA;
+        if (pData.blendMode == "add")
+            config.blendMode = ParticleBlendMode::ADD;
+        else if (pData.blendMode == "mul")
+            config.blendMode = ParticleBlendMode::MULTIPLY;
+        else if (pData.blendMode == "sub")
+            config.blendMode = ParticleBlendMode::SUBTRACT;
+
+        // Load texture priority: Path > Name > Default
+        if (!pData.texturePath.empty())
+        {
+            config.texture = LoadTexture(pData.texturePath.c_str());
+        }
+        else if (!pData.textureName.empty())
+        {
+            config.texture = particleSystem.GetTexture(pData.textureName);
+        }
+        else
+        {
+            config.texture = particleSystem.GetTexture("soft_circle");
+        }
+
+        particleSystem.CreateEmitter(config);
+    }
+
+    // Setup camera from level data
+    cameraController.Initialize(
+        level.camera.startPosition,
+        level.camera.startTarget,
+        level.camera.startFOV);
+    cameraController.SetFollowDistance(level.camera.followDistance);
+    cameraController.SetFollowHeight(level.camera.followHeight);
+    cameraController.SetSmoothness(level.camera.smoothness);
+
+    TraceLog(LOG_INFO, "RenderManager: Setup complete (%d lights, %d particles)",
+             (int)level.lights.size() + 4, (int)level.particles.size());
+}
+
+// NEW: Apply frame settings (culling, post-processing)
+void RenderManager::ApplyFrameSettings(const FrameSettings &settings)
+{
+    // Apply culling margins
+    geometryRenderer.SetCullingRadiusMultiplier(settings.geometryCullMargin);
+    grassRenderer.SetCullingRadiusMultiplier(settings.grassCullMargin);
+
+    // Apply post-processing settings
+    EnableGrayscale(settings.grayscaleEnabled);
+    EnableDepthDebug(settings.depthDebugEnabled);
+
+    // Cache settings for drawing
+    currentFrameSettings = settings;
+}
+
+// NEW: Unified update for all rendering systems
+void RenderManager::UpdateAllSystems(float deltaTime)
+{
+    // Update camera
+    cameraController.Update(deltaTime);
+    cameraController.camera.UpdateEntity(deltaTime);
+
+    // Update all rendering subsystems with camera
+    lightRenderer.Update(cameraController.camera, 64);
+    grassRenderer.Update(deltaTime, cameraController.camera);
+    geometryRenderer.Update(deltaTime, cameraController.camera);
+    waterRenderer.Update(deltaTime, cameraController.camera);
+    particleSystem.Update(deltaTime, cameraController.camera.position);
+    skyboxRenderer.Update(deltaTime);
+}
+
+// =======================================
+// NEW SIMPLIFIED PIPELINE METHODS
+// =======================================
+
+void RenderManager::DrawFrame(std::function<void()> sceneCallback, bool showDebug)
+{
+    if (!initialized)
+    {
+        TraceLog(LOG_ERROR, "RenderManager: Not initialized!");
+        return;
+    }
+
+    // Complete frame rendering with post-processing and debug overlay
+    if (postProcessingEnabled)
+    {
+        RenderWithPostProcessing(sceneCallback);
+    }
+    else
+    {
+        RenderDirect(sceneCallback);
+    }
 }

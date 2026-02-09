@@ -3,7 +3,6 @@
 #include "raymath.h"
 #include "../entities/Player.h"
 #include "../utils/custommodel.h"
-#include "../graphics/CameraController.h"
 #include "../graphics/RenderManager.h"
 #include "../world/World.h"
 #include "../world/SceneManager.h"
@@ -29,7 +28,6 @@ private:
     PauseMenu pauseMenu;
 
     // Game systems
-    CameraController cameraController;
     Player player;
     RenderManager renderManager;
     World::WorldManager world; // ECS world manager
@@ -48,18 +46,23 @@ private:
     std::unordered_map<std::string, Model> sceneModels;
     std::unordered_map<std::string, int> modelIDs;
 
-    // Debug/UI state
+    // RmlUI state
+    bool rmlReady = false;
+    Rml::ElementDocument *rmlMainMenu = nullptr;
+
+    // Rendering frame settings
+    RenderManager::FrameSettings renderFrameSettings;
+
+    // UI-related state (modified by menus and debug systems)
     bool showGrid = true;
     bool showGrass = true;
     bool showFPS = true;
-    bool enablePostProcessing = false;
+    float geometryCullMargin = 1.0f;
+    float grassCullMargin = 1.70f;
     bool enableGrayscale = false;
     bool enableDepthDebug = false;
-    bool rmlReady = false;
-    Rml::ElementDocument *rmlMainMenu = nullptr;
-    // Culling margins
-    float geometryCullMargin = 1.0f;
-    float grassCullMargin = 1.70f; // default per request
+
+    // Player model selection
     int currentModelIndex = 0;
     int previousModelIndex = -1;
 
@@ -78,15 +81,8 @@ private:
     // Scene setup
     void InitializeScene();
     void ShutdownScene();
-    void SetupRenderer();
-    void SetupCamera(const LevelData &level);
     void SetupPlayer(const LevelData &level);
     void SetupModels(const LevelData &level);
-    void SetupLights(const LevelData &level);
-    void SetupSkybox(const LevelData &level);
-    void SetupGrass(const LevelData &level);
-    void SetupWater(const LevelData &level);
-    void SetupParticles(const LevelData &level);
 
     // Game loop helpers
     void UpdateNPCs(float deltaTime);

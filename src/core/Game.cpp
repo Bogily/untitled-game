@@ -68,10 +68,6 @@ void Game::Init()
     // Initialize rendering system BEFORE creating scenes
     renderManager.Init(SCREEN_WIDTH, SCREEN_HEIGHT);
 
-    TraceLog(LOG_INFO, "Setting up renderer...");
-    // Setup base renderer and lights
-    SetupRenderer();
-
     TraceLog(LOG_INFO, "Loading scene from Lua...");
     // Register and load scene from Lua file
     LuaScene *testScene = new LuaScene("assets/scenes/test_scene.lua");
@@ -88,63 +84,6 @@ void Game::Init()
         rmlMainMenu->Show();
 
     TraceLog(LOG_INFO, "Game initialization complete");
-}
-
-void Game::SetupParticles(const LevelData &level)
-{
-    ParticleSystem *ps = renderManager.GetParticleSystem();
-    if (!ps)
-        return;
-
-    for (const auto &pData : level.particles)
-    {
-        EmitterConfig config;
-        config.position = pData.position;
-        config.offset = pData.offset;
-        config.velocity = pData.velocity;
-        config.velocityRandom = pData.velocityRandom;
-        config.acceleration = pData.acceleration;
-        config.colorStart = pData.colorStart;
-        config.colorEnd = pData.colorEnd;
-        config.sizeStart = pData.sizeStart;
-        config.sizeEnd = pData.sizeEnd;
-        config.sizeRandom = pData.sizeRandom;
-        config.lifeMin = pData.lifeMin;
-        config.lifeMax = pData.lifeMax;
-        config.emissionRate = pData.emissionRate;
-        config.maxParticles = pData.maxParticles;
-
-        // Map blend mode string to enum
-        config.blendMode = ParticleBlendMode::ALPHA;
-        if (pData.blendMode == "add")
-            config.blendMode = ParticleBlendMode::ADD;
-        else if (pData.blendMode == "mul")
-            config.blendMode = ParticleBlendMode::MULTIPLY;
-        else if (pData.blendMode == "sub")
-            config.blendMode = ParticleBlendMode::SUBTRACT;
-
-        // Load texture priority: Path > Name > Default
-        if (!pData.texturePath.empty())
-        {
-            config.texture = LoadTexture(pData.texturePath.c_str());
-        }
-        else if (!pData.textureName.empty())
-        {
-            config.texture = ps->GetTexture(pData.textureName);
-        }
-        else
-        {
-            config.texture = {0}; // Use default (which ps->CreateEmitter handles by calling GetTexture("soft_circle") if 0 or similar logic, but let's be safe)
-            // CreateEmitter currently checks if texture.id > 0, else uses GetTextureDefault().
-            // But wait, I changed GetTextureDefault usage.
-            // Let's explicitly set it.
-            config.texture = ps->GetTexture("soft_circle");
-        }
-
-        ps->CreateEmitter(config);
-    }
-
-    TraceLog(LOG_INFO, "Game: Particle system setup complete with %d emitters", (int)level.particles.size());
 }
 
 void Game::SetupMenus()
@@ -230,21 +169,11 @@ void Game::UpdatePlaying()
         return; // Skip rest of update on first frame to let rendering catch up
     }
 
-    // Update debug menu
+    // Update debug menu (modifies member variables via pointers)
     debugMenu.Update();
     postProcessingMenu.Update();
 
-    // Apply cull margins from debug menu
-    {
-        GeometryRenderer *geoRenderer = renderManager.GetGeometryRenderer();
-        if (geoRenderer)
-            geoRenderer->SetCullingRadiusMultiplier(geometryCullMargin);
-        GrassRenderer *grassRenderer = renderManager.GetGrassRenderer();
-        if (grassRenderer)
-            grassRenderer->SetCullingRadiusMultiplier(grassCullMargin);
-    }
-
-    // Apply player model selection from debug menu with safe clamping
+    // Apply player model selection from debug menu
     {
         int modelCount = customModel.getModelCount();
         if (modelCount > 0)
@@ -264,16 +193,21 @@ void Game::UpdatePlaying()
     // Handle input
     HandleInput(deltaTime);
 
-    // Update camera and rendering subsystems
-    cameraController.Update(deltaTime);
-    // CameraEntity applies smoothing and desired-state updates
-    cameraController.camera.UpdateEntity(deltaTime);
-    renderManager.UpdateCamera(cameraController.camera);
-    renderManager.UpdateGrass(deltaTime, cameraController.camera);
-    renderManager.UpdateGeometry(deltaTime, cameraController.camera);
-    renderManager.UpdateWater(deltaTime, cameraController.camera);
-    renderManager.UpdateParticles(deltaTime, cameraController.camera.position);
-    renderManager.UpdateSkybox(deltaTime);
+    // Apply frame settings to render manager (from member variables modified by menus)
+    renderFrameSettings.showDebugGrid = showGrid;
+    renderFrameSettings.showGrass = showGrass;
+    renderFrameSettings.geometryCullMargin = geometryCullMargin;
+    renderFrameSettings.grassCullMargin = grassCullMargin;
+    renderFrameSettings.grayscaleEnabled = enableGrayscale;
+    renderFrameSettings.depthDebugEnabled = enableDepthDebug;
+    renderManager.ApplyFrameSettings(renderFrameSettings);
+
+    // Unified rendering system update - handles camera and all subsystems
+    renderManager.UpdateAllSystems(deltaTime);
+
+    // Set follow target for camera
+    CameraController *camCtrl = renderManager.GetCameraController();
+    camCtrl->SetFollowTarget(&player.position);
 
     // Update NPCs
     UpdateNPCs(deltaTime);
@@ -423,19 +357,47 @@ void Game::DrawPlaying()
         return;
     }
 
-    // Apply post-processing menu settings to render manager
-    renderManager.EnableGrayscale(enableGrayscale);
-    renderManager.EnableDepthDebug(enableDepthDebug);
-
-    // Use RenderManager for all rendering
+    // Unified rendering pipeline - simpler and more efficient
     renderManager.BeginFrame();
 
-    // Render 3D scene using callback with BeginMode3D inside
-    renderManager.RenderScene([this]()
+    // Render 3D scene with all subsystems
+    Camera3D renderCamera = renderManager.GetCameraController()->camera;
+    renderManager.RenderScene([this, renderCamera]()
                               {
-        BeginMode3D(cameraController.camera);
-        DrawScene();
-        EndMode3D(); }, cameraController.camera);
+        BeginMode3D(renderCamera);
+        
+        // Draw all 3D elements (order matters for proper layering)
+        renderManager.GetSkyboxRenderer()->Draw(renderCamera);
+        renderManager.GetGeometryRenderer()->Draw(renderCamera);
+        
+        // Draw player with proper rotation transform
+        customModel.drawPlayerModel(player);
+        
+        // Draw NPCs
+        Scene *s = sceneManager.GetCurrentScene();
+        if (s)
+        {
+            for (auto &npc : s->GetNPCs())
+            {
+                npc.Draw();
+            }
+        }
+        
+        // Draw water
+        renderManager.GetWaterRenderer()->Draw();
+        
+        // Draw grass if enabled
+        if (showGrass)
+            renderManager.GetGrassRenderer()->Draw(renderCamera);
+        
+        // Draw particles
+        renderManager.GetParticleSystem()->Draw(renderCamera);
+        
+        // Draw debug grid if enabled
+        if (showGrid)
+            DrawGrid(20, 1.0f);
+        
+        EndMode3D(); }, renderCamera);
 
     renderManager.EndFrame();
 
@@ -485,36 +447,23 @@ void Game::InitializeScene()
 
     TraceLog(LOG_INFO, "Game: Initializing scene '%s'...", level.name.c_str());
 
-    SetupCamera(level);
+    // Game-logic specific setup
     SetupPlayer(level);
     SetupModels(level);
-    SetupLights(level);
-    SetupSkybox(level);
-    SetupGrass(level);
-    SetupWater(level);
-    SetupParticles(level);
+
+    // All rendering setup delegated to RenderManager
+    renderManager.SetupFromLevelData(level);
+
+    // Setup camera controller's follow target
+    CameraController *camCtrl = renderManager.GetCameraController();
+    camCtrl->SetFollowTarget(&player.position);
+    camCtrl->SetMode(CAMERA_MODE_FOLLOW);
 
     // Now that models and systems are ready, set up the menus safely
     SetupDebugMenu();
     SetupPostProcessingMenu();
 
     TraceLog(LOG_INFO, "Game: Scene initialization complete");
-}
-
-void Game::SetupRenderer()
-{
-    // Setup sun direction
-    Vector3 sunDirection = {0.3f, 0.5f, 0.8f};
-    renderManager.SetSunDirection(sunDirection);
-
-    // Create lights (used by the PBR renderer) - matching old code
-    LightRenderer *lightRenderer = renderManager.GetLightRenderer();
-    lightRenderer->CreateDirectionalLight(sunDirection, {1.0f, 0.95f, 0.8f, 1.0f}, 2.0f);
-    lightRenderer->CreatePointLight({-5.0f, 4.0f, -5.0f}, {1.0f, 0.9f, 0.8f, 1.0f}, 12.0f, 15.0f);
-    lightRenderer->CreatePointLight({5.0f, 4.0f, 5.0f}, {0.8f, 0.9f, 1.0f, 1.0f}, 12.0f, 15.0f);
-    lightRenderer->CreatePointLight({0.0f, 6.0f, 0.0f}, {1.0f, 1.0f, 1.0f, 1.0f}, 15.0f, 20.0f);
-
-    TraceLog(LOG_INFO, "Game: Base renderer initialized with lights");
 }
 
 void Game::ShutdownScene()
@@ -562,7 +511,9 @@ void Game::SetupDebugMenu()
         modelNames.push_back(customModel.getModelName(i));
     debugMenu.AddString("Player Model", &currentModelIndex, modelNames);
 
-    debugMenu.AddFloat("Camera FOV", &cameraController.camera.fovy, 20.0f, 120.0f, 1.0f);
+    // Access camera from RenderManager
+    CameraController *camCtrl = renderManager.GetCameraController();
+    debugMenu.AddFloat("Camera FOV", &camCtrl->camera.fovy, 20.0f, 120.0f, 1.0f);
 
     TraceLog(LOG_INFO, "Game: Debug menu initialized");
 }
@@ -573,20 +524,6 @@ void Game::SetupPostProcessingMenu()
     postProcessingMenu.AddBool("Depth Debug", &enableDepthDebug);
 
     TraceLog(LOG_INFO, "Game: Post-processing menu initialized");
-}
-
-void Game::SetupCamera(const LevelData &level)
-{
-    cameraController.Initialize(
-        level.camera.startPosition,
-        level.camera.startTarget,
-        level.camera.startFOV);
-
-    cameraController.SetMode(CAMERA_MODE_FOLLOW);
-    cameraController.SetFollowTarget(&player.position);
-    cameraController.SetFollowDistance(level.camera.followDistance);
-    cameraController.SetFollowHeight(level.camera.followHeight);
-    cameraController.SetSmoothness(level.camera.smoothness);
 }
 
 void Game::SetupPlayer(const LevelData &level)
@@ -681,58 +618,6 @@ void Game::SetupModels(const LevelData &level)
     renderManager.ApplyShaders(modelsToShader);
 }
 
-void Game::SetupLights(const LevelData &level)
-{
-    LightRenderer *lightRenderer = renderManager.GetLightRenderer();
-
-    // Clear existing lights (except we want to keep the sun from SetupRenderer)
-    // So we'll just add the scene lights on top
-
-    for (const auto &lightData : level.lights)
-    {
-        if (lightData.type == 0) // Directional
-        {
-            Vector4 colorVec = ColorNormalize(lightData.color);
-            lightRenderer->CreateDirectionalLight(
-                lightData.direction,
-                colorVec,
-                lightData.intensity);
-        }
-        else // Point
-        {
-            Vector4 colorVec = ColorNormalize(lightData.color);
-            lightRenderer->CreatePointLight(
-                lightData.position,
-                colorVec,
-                lightData.intensity,
-                lightData.radius);
-        }
-    }
-}
-
-void Game::SetupSkybox(const LevelData &level)
-{
-    if (!level.skyboxTexture.empty())
-    {
-        renderManager.GetSkyboxRenderer()->Load("assets/shader/skybox.vs", "assets/shader/skybox.fs");
-    }
-}
-
-void Game::SetupGrass(const LevelData &level)
-{
-    // Initialize grass renderer with fixed reasonable values like old code
-    // 200000 grass blades over a 30x30 area (old code used these exact values)
-    renderManager.InitializeGrass(200000, 30.0f);
-    renderManager.ConfigureGrass({1.0f, 0.5f}, 0.5f, 2.0f);
-}
-
-void Game::SetupWater(const LevelData &level)
-{
-    // Initialize water renderer with fixed reasonable values like old code
-    // 50x50 water plane at -0.5 height
-    renderManager.InitializeWater(50.0f, 50.0f, -0.5f);
-}
-
 // ===== GAME LOOP =====
 
 void Game::UpdateNPCs(float deltaTime)
@@ -790,58 +675,6 @@ void Game::HandleInput(float deltaTime)
     }
 }
 
-void Game::DrawScene()
-{
-    // Draw skybox
-    renderManager.GetSkyboxRenderer()->Draw(cameraController.camera);
-
-    // Draw culled geometry via GeometryRenderer
-    renderManager.GetGeometryRenderer()->Draw(cameraController.camera);
-
-    // Draw player with proper rotation transform
-    customModel.drawPlayerModel(player);
-
-    // Draw colored spheres at point light positions from scene data
-    {
-        Scene *s = sceneManager.GetCurrentScene();
-        if (s)
-        {
-            const LevelData &lvl = s->GetLevelData();
-            for (const auto &light : lvl.lights)
-            {
-                if (light.type == 1) // point light
-                {
-                    DrawSphere(light.position, 0.3f, light.color);
-                }
-            }
-        }
-    }
-
-    // Draw NPCs
-    Scene *scene = sceneManager.GetCurrentScene();
-    if (scene)
-    {
-        for (auto &npc : scene->GetNPCs())
-        {
-            npc.Draw();
-        }
-    }
-
-    // Draw water
-    renderManager.GetWaterRenderer()->Draw();
-
-    // Draw grass
-    if (showGrass)
-        renderManager.GetGrassRenderer()->Draw(cameraController.camera);
-
-    // Draw particles
-    renderManager.GetParticleSystem()->Draw(cameraController.camera);
-
-    // Draw grid for debugging
-    if (showGrid)
-        DrawGrid(20, 1.0f);
-}
-
 void Game::DrawUI()
 {
     const int UI_MARGIN = 10;
@@ -872,9 +705,10 @@ void Game::DrawUI()
         }
     }
 
-    // Camera mode
+    // Camera mode - get from RenderManager
+    CameraController *camCtrl = renderManager.GetCameraController();
     const char *modeText = "";
-    switch (cameraController.mode)
+    switch (camCtrl->mode)
     {
     case CAMERA_MODE_FREE:
         modeText = "FREE";
