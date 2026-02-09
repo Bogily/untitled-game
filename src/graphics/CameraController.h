@@ -1,23 +1,34 @@
+/**
+ * @file CameraController.h
+ * @brief Camera controller with multiple control modes
+ */
+
 #pragma once
 #include "raylib.h"
 #include "raymath.h"
 #include "entities/Camera.h"
 #include <vector>
 
+/**
+ * @brief Camera control modes
+ */
 enum CameraControllerMode
 {
-    CAMERA_MODE_FREE,     // Free camera (manual control)
-    CAMERA_MODE_FOLLOW,   // Follow a target (player)
-    CAMERA_MODE_CUTSCENE, // Cutscene mode with waypoints
-    CAMERA_MODE_FIXED     // Fixed camera position
+    CAMERA_MODE_FREE,     ///< Free camera with manual control
+    CAMERA_MODE_FOLLOW,   ///< Follow a target position (player)
+    CAMERA_MODE_CUTSCENE, ///< Cutscene mode with waypoints
+    CAMERA_MODE_FIXED     ///< Fixed camera position
 };
 
+/**
+ * @brief Camera waypoint for cutscene paths
+ */
 struct CameraWaypoint
 {
-    Vector3 position;
-    Vector3 target;
-    float duration; // Time to reach this waypoint
-    float fov;      // Field of view at this waypoint
+    Vector3 position; ///< Camera position
+    Vector3 target;   ///< Look-at target
+    float duration;   ///< Time to reach this waypoint (seconds)
+    float fov;        ///< Field of view at waypoint (degrees)
 };
 
 class CameraController
@@ -59,30 +70,39 @@ public:
     bool IsTransitioning() const { return isTransitioning; }
 
 private:
-    // Follow mode settings
-    Vector3 *followTargetPtr;
-    float followDistance;
-    float followHeight;
-    float followYaw;
-    float followPitch;
-    float cameraSmoothness;
+    Vector3 *followTargetPtr; ///< Pointer to follow target
+    float followDistance;     ///< Distance from target
+    float followHeight;       ///< Height offset from target
+    float followYaw;          ///< Follow camera yaw angle
+    float followPitch;        ///< Follow camera pitch angle
+    float cameraSmoothness;   ///< Movement smoothness factor
 
-    // Cutscene data
-    std::vector<CameraWaypoint> cutsceneWaypoints;
-    int currentWaypointIndex;
-    float cutsceneTimer;
-    bool isPlayingCutscene;
+    std::vector<CameraWaypoint> cutsceneWaypoints; ///< Cutscene waypoint path
+    int currentWaypointIndex;                      ///< Current waypoint index
+    float cutsceneTimer;                           ///< Cutscene time accumulator
+    bool isPlayingCutscene;                        ///< Cutscene active flag
 
-    // Transition data
-    bool isTransitioning;
-    float transitionTimer;
-    float transitionDuration;
-    Vector3 transitionStartPos;
-    Vector3 transitionEndPos;
-    Vector3 transitionStartTarget;
-    Vector3 transitionEndTarget;
+    bool isTransitioning;          ///< Transition active flag
+    float transitionTimer;         ///< Transition time accumulator
+    float transitionDuration;      ///< Transition total duration
+    Vector3 transitionStartPos;    ///< Transition start position
+    Vector3 transitionEndPos;      ///< Transition end position
+    Vector3 transitionStartTarget; ///< Transition start target
+    Vector3 transitionEndTarget;   ///< Transition end target
 
-    // Helper functions
+    /**
+     * @brief Linearly interpolate between vectors
+     * @param start Start vector
+     * @param end End vector
+     * @param t Interpolation factor [0,1]
+     * @return Interpolated vector
+     */
     Vector3 LerpVector3(Vector3 start, Vector3 end, float t);
+
+    /**
+     * @brief Ease-in-out cubic interpolation
+     * @param t Input value [0,1]
+     * @return Smoothed value [0,1]
+     */
     float EaseInOutCubic(float t);
 };

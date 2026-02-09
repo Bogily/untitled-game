@@ -1,3 +1,8 @@
+/**
+ * @file Level.h
+ * @brief Level data structures and scene configuration
+ */
+
 #pragma once
 #include "raylib.h"
 #include <vector>
@@ -5,103 +10,124 @@
 
 namespace World
 {
-    // Forward declarations
     class WorldManager;
 }
 
-// Stores pure scene data - no rendering or update logic
+/**
+ * @brief Pure scene data container without rendering or update logic
+ *
+ * Stores all data needed to configure a game level including objects,
+ * NPCs, lights, particles, and environment settings.
+ */
 class LevelData
 {
 public:
+    /**
+     * @brief Static object data
+     */
     struct ObjectData
     {
-        std::string name;
-        Vector3 position;
-        Vector3 rotation;
-        Vector3 scale;
-        Color albedo;
-        float metallic;
-        float roughness;
-        std::string modelType; // "sphere", "cube", "cylinder", etc.
+        std::string name;      ///< Object name
+        Vector3 position;      ///< World position
+        Vector3 rotation;      ///< Euler rotation
+        Vector3 scale;         ///< Scale factors
+        Color albedo;          ///< Base color
+        float metallic;        ///< Metallic factor
+        float roughness;       ///< Roughness factor
+        std::string modelType; ///< Model type: "sphere", "cube", "cylinder", etc.
     };
 
+    /**
+     * @brief NPC data and dialogue configuration
+     */
     struct NPCData
     {
-        std::string name;
-        Vector3 position;
-        std::vector<std::string> dialogueLines;
-        float interactionRange;
+        std::string name;                       ///< NPC name
+        Vector3 position;                       ///< World position
+        std::vector<std::string> dialogueLines; ///< Dialogue sequence
+        float interactionRange;                 ///< Interaction distance
     };
 
+    /**
+     * @brief Light source configuration
+     */
     struct LightData
     {
-        std::string name;
-        int type; // 0=directional, 1=point
-        Vector3 position;
-        Vector3 direction;
-        Color color;
-        float intensity;
-        float radius;
+        std::string name;  ///< Light name
+        int type;          ///< 0=directional, 1=point
+        Vector3 position;  ///< World position (point lights)
+        Vector3 direction; ///< Light direction (directional lights)
+        Color color;       ///< Light color
+        float intensity;   ///< Light intensity
+        float radius;      ///< Light radius (point lights)
     };
 
+    /**
+     * @brief Camera configuration
+     */
     struct CameraData
     {
-        Vector3 startPosition;
-        Vector3 startTarget;
-        float startFOV;
-        float followDistance;
-        float followHeight;
-        float smoothness;
+        Vector3 startPosition; ///< Initial camera position
+        Vector3 startTarget;   ///< Initial look-at target
+        float startFOV;        ///< Initial field of view
+        float followDistance;  ///< Camera follow distance from player
+        float followHeight;    ///< Camera height above player
+        float smoothness;      ///< Camera smoothing factor
     };
 
+    /**
+     * @brief Particle emitter configuration
+     */
     struct ParticleEmitterData
     {
-        Vector3 position;
-        Vector3 offset;
-        Vector3 velocity;
-        Vector3 velocityRandom;
-        Vector3 acceleration;
-        Color colorStart;
-        Color colorEnd;
-        float sizeStart;
-        float sizeEnd;
-        float sizeRandom;
-        float lifeMin;
-        float lifeMax;
-        float emissionRate;
-        int maxParticles;
-        std::string blendMode; // "alpha", "add", "mul", "sub"
-        std::string textureName; // "soft_circle", "star", etc. or path
-        std::string texturePath; // Optional: load from file if not built-in
+        Vector3 position;        ///< Emitter position
+        Vector3 offset;          ///< Random spawn offset
+        Vector3 velocity;        ///< Base particle velocity
+        Vector3 velocityRandom;  ///< Velocity randomization
+        Vector3 acceleration;    ///< Particle acceleration
+        Color colorStart;        ///< Initial particle color
+        Color colorEnd;          ///< Final particle color
+        float sizeStart;         ///< Initial particle size
+        float sizeEnd;           ///< Final particle size
+        float sizeRandom;        ///< Size randomization
+        float lifeMin;           ///< Minimum particle lifetime
+        float lifeMax;           ///< Maximum particle lifetime
+        float emissionRate;      ///< Particles per second
+        int maxParticles;        ///< Maximum active particles
+        std::string blendMode;   ///< "alpha", "add", "mul", "sub"
+        std::string textureName; ///< Built-in texture name
+        std::string texturePath; ///< Optional: load from file
     };
 
-    // Level data
-    std::string name;
-    CameraData camera;
-    Vector3 playerStartPosition;
-    std::vector<ObjectData> objects;
-    std::vector<NPCData> npcs;
-    std::vector<LightData> lights;
-    std::vector<ParticleEmitterData> particles;
+    std::string name;                           ///< Level name
+    CameraData camera;                          ///< Camera configuration
+    Vector3 playerStartPosition;                ///< Player spawn position
+    std::vector<ObjectData> objects;            ///< Static objects
+    std::vector<NPCData> npcs;                  ///< Non-player characters
+    std::vector<LightData> lights;              ///< Light sources
+    std::vector<ParticleEmitterData> particles; ///< Particle emitters
 
-    // Grass/Water settings
-    Vector3 grassPosition;
-    float grassWidth;
-    float grassLength;
-    int grassBladeCount;
+    Vector3 grassPosition; ///< Grass area position
+    float grassWidth;      ///< Grass area width
+    float grassLength;     ///< Grass area length
+    int grassBladeCount;   ///< Number of grass blades
 
-    Vector3 waterPosition;
-    float waterWidth;
-    float waterLength;
+    Vector3 waterPosition; ///< Water surface position
+    float waterWidth;      ///< Water surface width
+    float waterLength;     ///< Water surface length
 
-    // Skybox settings
-    std::string skyboxTexture;
+    std::string skyboxTexture; ///< Skybox texture path
 
-    // Physics settings
-    float gravity = 9.8f;
+    float gravity = 9.8f; ///< Physics gravity
 
+    /**
+     * @brief Construct default level
+     */
     LevelData() : name("Untitled Level") {}
 
-    // Factory method to create the test scene level
+    /**
+     * @brief Create test level with sample data
+     * @return Test level configuration
+     */
     static LevelData CreateTestLevel();
 };

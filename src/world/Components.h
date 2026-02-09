@@ -1,3 +1,8 @@
+/**
+ * @file Components.h
+ * @brief ECS component storage using Structure of Arrays (SoA)
+ */
+
 #pragma once
 
 #include "raylib.h"
@@ -7,16 +12,28 @@
 
 namespace World
 {
-// SIMD alignment
+/**
+ * @def COMPONENT_ALIGN
+ * @brief SIMD alignment for performance
+ */
 #define COMPONENT_ALIGN alignas(16)
 
-    // Transform component (Structure of Arrays)
+    /**
+     * @brief Transform component data (Structure of Arrays)
+     *
+     * Stores position, rotation, and scale for all entities.
+     * SoA layout improves cache performance when iterating transforms.
+     */
     struct TransformComponents
     {
-        std::vector<Vector3> positions;
-        std::vector<Vector3> rotations; // Euler angles in degrees
-        std::vector<Vector3> scales;
+        std::vector<Vector3> positions; ///< Entity positions
+        std::vector<Vector3> rotations; ///< Entity rotations (Euler angles in degrees)
+        std::vector<Vector3> scales;    ///< Entity scales
 
+        /**
+         * @brief Reserve memory for components
+         * @param count Number of components to reserve
+         */
         void Reserve(size_t count)
         {
             positions.reserve(count);
@@ -24,6 +41,12 @@ namespace World
             scales.reserve(count);
         }
 
+        /**
+         * @brief Add new transform component
+         * @param pos Position vector
+         * @param rot Rotation vector (default {0,0,0})
+         * @param scale Scale vector (default {1,1,1})
+         */
         void Add(Vector3 pos, Vector3 rot = {0, 0, 0}, Vector3 scale = {1, 1, 1})
         {
             positions.push_back(pos);
@@ -31,6 +54,10 @@ namespace World
             scales.push_back(scale);
         }
 
+        /**
+         * @brief Remove transform at index
+         * @param index Component index to remove
+         */
         void Remove(size_t index)
         {
             if (index >= positions.size())
@@ -40,7 +67,15 @@ namespace World
             scales.erase(scales.begin() + index);
         }
 
+        /**
+         * @brief Get number of transform components
+         * @return Component count
+         */
         size_t Size() const { return positions.size(); }
+
+        /**
+         * @brief Clear all transform data
+         */
         void Clear()
         {
             positions.clear();
@@ -49,15 +84,23 @@ namespace World
         }
     };
 
-    // Render component
+    /**
+     * @brief Render component data for visual representation
+     *
+     * Stores model references and PBR material properties.
+     */
     struct RenderComponents
     {
-        std::vector<Model *> models;
-        std::vector<int> geometryModelIDs; // Pre-registered IDs in GeometryRenderer
-        std::vector<Color> albedos;
-        std::vector<float> metallics;
-        std::vector<float> roughnesses;
+        std::vector<Model *> models;       ///< Model pointers
+        std::vector<int> geometryModelIDs; ///< Geometry renderer model IDs
+        std::vector<Color> albedos;        ///< Base colors
+        std::vector<float> metallics;      ///< Metallic factors
+        std::vector<float> roughnesses;    ///< Roughness factors
 
+        /**
+         * @brief Reserve memory for components
+         * @param count Number of components to reserve
+         */
         void Reserve(size_t count)
         {
             models.reserve(count);
@@ -67,6 +110,14 @@ namespace World
             roughnesses.reserve(count);
         }
 
+        /**
+         * @brief Add new render component
+         * @param model Model pointer
+         * @param geoID Geometry renderer model ID
+         * @param albedo Base color
+         * @param metallic Metallic factor
+         * @param roughness Roughness factor
+         */
         void Add(Model *model, int geoID, Color albedo, float metallic, float roughness)
         {
             models.push_back(model);
@@ -76,6 +127,10 @@ namespace World
             roughnesses.push_back(roughness);
         }
 
+        /**
+         * @brief Remove render component at index
+         * @param index Component index to remove
+         */
         void Remove(size_t index)
         {
             if (index >= models.size())
@@ -87,7 +142,15 @@ namespace World
             roughnesses.erase(roughnesses.begin() + index);
         }
 
+        /**
+         * @brief Get number of render components
+         * @return Component count
+         */
         size_t Size() const { return models.size(); }
+
+        /**
+         * @brief Clear all render data
+         */
         void Clear()
         {
             models.clear();
@@ -98,24 +161,41 @@ namespace World
         }
     };
 
-    // Metadata component
+    /**
+     * @brief Metadata component for entity identification
+     *
+     * Stores entity names and static/dynamic hints.
+     */
     struct MetadataComponents
     {
-        std::vector<std::string> names;
-        std::vector<bool> isStatic; // Optimization hint: static objects don't move
+        std::vector<std::string> names; ///< Entity names
+        std::vector<bool> isStatic;     ///< Static optimization hint (doesn't move)
 
+        /**
+         * @brief Reserve memory for components
+         * @param count Number of components to reserve
+         */
         void Reserve(size_t count)
         {
             names.reserve(count);
             isStatic.reserve(count);
         }
 
+        /**
+         * @brief Add new metadata component
+         * @param name Entity name
+         * @param staticObj Whether entity is static
+         */
         void Add(const std::string &name, bool staticObj)
         {
             names.push_back(name);
             isStatic.push_back(staticObj);
         }
 
+        /**
+         * @brief Remove metadata at index
+         * @param index Component index to remove
+         */
         void Remove(size_t index)
         {
             if (index >= names.size())
@@ -124,7 +204,15 @@ namespace World
             isStatic.erase(isStatic.begin() + index);
         }
 
+        /**
+         * @brief Get number of metadata components
+         * @return Component count
+         */
         size_t Size() const { return names.size(); }
+
+        /**
+         * @brief Clear all metadata
+         */
         void Clear()
         {
             names.clear();

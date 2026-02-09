@@ -1,24 +1,59 @@
+/**
+ * @file Scene.h
+ * @brief Base scene interface for game scenes
+ */
+
 #pragma once
 #include "raylib.h"
 #include "Level.h"
 #include "entities/NPC.h"
 #include <vector>
 
-// Base class for all game scenes - provides ONLY data, no logic
+/**
+ * @brief Base class for all game scenes
+ *
+ * Scenes provide level data and NPCs without containing logic.
+ * The game loop is responsible for all updates and rendering.
+ */
 class Scene
 {
 public:
+    /**
+     * @brief Virtual destructor
+     */
     virtual ~Scene() = default;
 
-    // Scene lifecycle (for loading/unloading resources)
+    /**
+     * @brief Load scene resources
+     */
     virtual void Load() = 0;
+
+    /**
+     * @brief Unload scene resources
+     */
     virtual void Unload() = 0;
 
-    // Data access - scene provides data, game loop uses it
+    /**
+     * @brief Get scene level data
+     * @return Level data reference
+     */
     virtual LevelData &GetLevelData() = 0;
+
+    /**
+     * @brief Get scene NPCs
+     * @return NPC vector reference
+     */
     virtual std::vector<NPC> &GetNPCs() = 0;
 
-    // Scene state queries
+    /**
+     * @brief Check if scene wants to change
+     * @return True if should change scene
+     */
     virtual bool ShouldChangeScene() const { return false; }
+
+    /**
+     * @brief Get name of next scene
+     * @return Scene name or nullptr
+     */
     virtual const char *GetNextSceneName() const { return nullptr; }
 };

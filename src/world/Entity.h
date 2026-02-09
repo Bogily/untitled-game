@@ -1,26 +1,43 @@
+/**
+ * @file Entity.h
+ * @brief Entity type definitions and component flags
+ */
+
 #pragma once
 
 #include <cstdint>
 
 namespace World
 {
-    // Entity is just an ID (index into component arrays)
+    /**
+     * @brief Entity identifier type
+     *
+     * Entity is simply an index into component arrays in the ECS.
+     */
     using Entity = uint32_t;
+
+    /**
+     * @brief Null/invalid entity constant
+     */
     constexpr Entity NULL_ENTITY = UINT32_MAX;
 
-    // Component type flags (bitfield for fast queries)
+    /**
+     * @brief Component type bitflags for fast component queries
+     */
     enum ComponentType : uint32_t
     {
-        COMPONENT_NONE = 0,
-        COMPONENT_TRANSFORM = 1 << 0, // Position, rotation, scale
-        COMPONENT_RENDER = 1 << 1,    // Visual representation
-        COMPONENT_METADATA = 1 << 2,  // Name, tags, etc.
+        COMPONENT_NONE = 0,           ///< No components
+        COMPONENT_TRANSFORM = 1 << 0, ///< Position, rotation, scale
+        COMPONENT_RENDER = 1 << 1,    ///< Visual representation
+        COMPONENT_METADATA = 1 << 2,  ///< Name, tags, etc.
     };
 
-    // Entity metadata
+    /**
+     * @brief Entity metadata and state
+     */
     struct EntityInfo
     {
-        uint32_t componentMask = COMPONENT_NONE;
-        bool active = true;
+        uint32_t componentMask = COMPONENT_NONE; ///< Bitmask of attached components
+        bool active = true;                      ///< Whether entity is active
     };
 }
