@@ -12,17 +12,8 @@
 
 namespace World
 {
-/**
- * @def COMPONENT_ALIGN
- * @brief SIMD alignment for performance
- */
-#define COMPONENT_ALIGN alignas(16)
-
     /**
-     * @brief Transform component data (Structure of Arrays)
-     *
-     * Stores position, rotation, and scale for all entities.
-     * SoA layout improves cache performance when iterating transforms.
+     * @brief Transform component data
      */
     struct TransformComponents
     {
@@ -43,28 +34,36 @@ namespace World
 
         /**
          * @brief Add new transform component
-         * @param pos Position vector
-         * @param rot Rotation vector (default {0,0,0})
-         * @param scale Scale vector (default {1,1,1})
          */
-        void Add(Vector3 pos, Vector3 rot = {0, 0, 0}, Vector3 scale = {1, 1, 1})
+        size_t Add(Vector3 pos, Vector3 rot = {0, 0, 0}, Vector3 scale = {1, 1, 1})
+            size_t Add(Vector3 pos, Vector3 rot = {0, 0, 0}, Vector3 scale = {1, 1, 1})
         {
             positions.push_back(pos);
             rotations.push_back(rot);
             scales.push_back(scale);
+            return positions.size() - 1;
         }
 
         /**
          * @brief Remove transform at index
-         * @param index Component index to remove
          */
-        void Remove(size_t index)
+        int RemoveSwap(size_t index)
         {
             if (index >= positions.size())
-                return;
-            positions.erase(positions.begin() + index);
-            rotations.erase(rotations.begin() + index);
-            scales.erase(scales.begin() + index);
+                return -1;
+
+            size_t lastIndex = positions.size() - 1;
+            if (index != lastIndex)
+            {
+                positions[index] = positions[lastIndex];
+                rotations[index] = rotations[lastIndex];
+                scales[index] = scales[lastIndex];
+            }
+            positions.pop_back();
+            rotations.pop_back();
+            scales.pop_back();
+
+            return (index == lastIndex) ? -1 : static_cast<int>(index);
         }
 
         /**
@@ -85,9 +84,7 @@ namespace World
     };
 
     /**
-     * @brief Render component data for visual representation
-     *
-     * Stores model references and PBR material properties.
+     * @brief Render component data
      */
     struct RenderComponents
     {
@@ -112,34 +109,41 @@ namespace World
 
         /**
          * @brief Add new render component
-         * @param model Model pointer
-         * @param geoID Geometry renderer model ID
-         * @param albedo Base color
-         * @param metallic Metallic factor
-         * @param roughness Roughness factor
          */
-        void Add(Model *model, int geoID, Color albedo, float metallic, float roughness)
+        size_t Add(Model *model, int geoID, Color albedo, float metallic, float roughness)
         {
             models.push_back(model);
             geometryModelIDs.push_back(geoID);
             albedos.push_back(albedo);
             metallics.push_back(metallic);
             roughnesses.push_back(roughness);
+            return models.size() - 1;
         }
 
         /**
          * @brief Remove render component at index
-         * @param index Component index to remove
          */
-        void Remove(size_t index)
+        int RemoveSwap(size_t index)
         {
             if (index >= models.size())
-                return;
-            models.erase(models.begin() + index);
-            geometryModelIDs.erase(geometryModelIDs.begin() + index);
-            albedos.erase(albedos.begin() + index);
-            metallics.erase(metallics.begin() + index);
-            roughnesses.erase(roughnesses.begin() + index);
+                return -1;
+
+            size_t lastIndex = models.size() - 1;
+            if (index != lastIndex)
+            {
+                models[index] = models[lastIndex];
+                geometryModelIDs[index] = geometryModelIDs[lastIndex];
+                albedos[index] = albedos[lastIndex];
+                metallics[index] = metallics[lastIndex];
+                roughnesses[index] = roughnesses[lastIndex];
+            }
+            models.pop_back();
+            geometryModelIDs.pop_back();
+            albedos.pop_back();
+            metallics.pop_back();
+            roughnesses.pop_back();
+
+            return (index == lastIndex) ? -1 : static_cast<int>(index);
         }
 
         /**
@@ -162,9 +166,7 @@ namespace World
     };
 
     /**
-     * @brief Metadata component for entity identification
-     *
-     * Stores entity names and static/dynamic hints.
+     * @brief Metadata component
      */
     struct MetadataComponents
     {
@@ -183,25 +185,32 @@ namespace World
 
         /**
          * @brief Add new metadata component
-         * @param name Entity name
-         * @param staticObj Whether entity is static
          */
-        void Add(const std::string &name, bool staticObj)
+        size_t Add(const std::string &name, bool staticObj)
         {
             names.push_back(name);
             isStatic.push_back(staticObj);
+            return names.size() - 1;
         }
 
         /**
          * @brief Remove metadata at index
-         * @param index Component index to remove
          */
-        void Remove(size_t index)
+        int RemoveSwap(size_t index)
         {
             if (index >= names.size())
-                return;
-            names.erase(names.begin() + index);
-            isStatic.erase(isStatic.begin() + index);
+                return -1;
+
+            size_t lastIndex = names.size() - 1;
+            if (index != lastIndex)
+            {
+                names[index] = names[lastIndex];
+                isStatic[index] = isStatic[lastIndex];
+            }
+            names.pop_back();
+            isStatic.pop_back();
+
+            return (index == lastIndex) ? -1 : static_cast<int>(index);
         }
 
         /**

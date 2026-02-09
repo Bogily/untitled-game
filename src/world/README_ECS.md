@@ -1,102 +1,101 @@
-# Entity Component System
+# Entity Component System Refactored
 
-## What is this?
+## Overview
 
-Data-oriented ECS for better performance and cleaner code. Instead of scattering object data everywhere, components are grouped by type in contiguous arrays.
+Clean, cache-efficient ECS using Structure of Arrays with O(1) component removal.
 
-## Why?
+## Design Principles
 
-**Better cache usage**  
-CPU can prefetch what it needs instead of loading entire objects.
+**1. Data-Oriented Layout**
+Component data is stored in separate contiguous arrays, bringing better CPU cache behavior and SIMD opportunities.
 
-**Easier to maintain**  
-Add an entity once. Systems automatically pick it up.
+**2. Efficient Removal**
+Uses swap-and-pop pattern (O(1)) instead of erase (O(n)). When removing a component at index i, we swap the last element into position i and pop the end.
 
-**SIMD-ready**  
-Process multiple entities at once with vector instructions.
+**3. Sparse Entity Indexing**
+Entities map to component indices via lookup arrays. An entity can have any combination of components without wasting memory.
 
-## How it works
+**4. Simple Component Queries**
+Bitmask-based queries are fast and flexible, supporting queries like "all entities with Transform AND Render".
+
+## Memory Layout
 
 ```
-Entity (just an ID)
-    ↓
-Components (arrays of data)
-    - positions[], rotations[], scales[]
-    - models[], colors[], materials[]
-    - shapes[], sizes[], radii[]
-    ↓
-Systems (process components)
-    - Iterate arrays directly
-    - No virtual calls
-    - Cache-friendly
+Entities:           [Info0][Info1][Info2][Info3]...
+                    [mask, active][mask, active]...
+
+Transforms:
+  positions:        [pos0][pos1][pos2][pos3]...
+  rotations:        [rot0][rot1][rot2][rot3]...
+  scales:           [scale0][scale1][scale2][scale3]...
+
+Renders:
+  models:           [model0][model1][model2]...
+  colors:           [color0][color1][color2]...
+  materials:        [mat0][mat1][mat2]...
+
+Entity->Component Mapping:
+  transformIdx:     [t0][t1][-1][t2]...  (-1 = no component)
+  renderIdx:        [-1][r0][r1][-1]...
+  metadataIdx:      [m0][-1][m2][m3]...
 ```
 
-## Usage
+When iterating renders, all model pointers are sequential in memory ✓ Cache friendly!
+
+## Usage Example
 
 ```cpp
-// Create an entity
-Entity e = world.CreateEntity();
+// Create and setup entity
+Entity player = world.CreateEntity();
+world.AddMetadata(player, "Player", false);
+world.AddTransform(player, {0, 1, 0}, {0, 0, 0}, {1, 1, 1});
+world.AddRender(player, &playerModel, modelID, WHITE, 0.5f, 0.3f);
 
-// Add components
-world.AddTransform(e, {0, 1, 0});
-world.AddRender(e, &model, modelID, color, 0.5f, 0.3f);
-world.AddCollision(e, COLLISION_BOX, {2,2,2}, 0,0, {0,0,0}, RED);
-```
-
-Done. Rendering and collision systems will find it automatically.
-
-## Memory layout
-
-**Old way (bad for cache):**
-
-```
-[Object0: pos,rot,model,color] [Object1: pos,rot,model,color] ...
-```
-
-**New way (cache-friendly):**
-
-```
-positions: [pos0][pos1][pos2][pos3]...
-rotations: [rot0][rot1][rot2][rot3]...
-models:    [mdl0][mdl1][mdl2][mdl3]...
-```
-
-When you need positions, CPU loads just positions. No wasted cache space.
-
-## Example
-
-```cpp
-// Get all entities that can be rendered
-auto entities = world.GetEntitiesWithComponents(
+// Get entities for rendering
+auto toRender = world.GetEntitiesWithComponents(
     COMPONENT_TRANSFORM | COMPONENT_RENDER
 );
 
-// Process them
+// Fast iteration over component data
 const auto& transforms = world.GetTransforms();
 const auto& renders = world.GetRenders();
 
-for (Entity e : entities) {
+for (Entity e : toRender) {
     int tIdx = world.GetTransformIndex(e);
     int rIdx = world.GetRenderIndex(e);
 
     Vector3 pos = transforms.positions[tIdx];
-    Model* model = renders.models[rIdx];
+    Model* mdl = renders.models[rIdx];
 
-    DrawModel(*model, pos, 1.0f, WHITE);
+    DrawModel(*mdl, pos, 1.0f, WHITE);
 }
+
+// Removing is also fast (O(1))
+world.RemoveRender(player);  // Swap-and-pop, no array scanning
 ```
 
-Sequential memory access = fast.
+## Performance Notes
 
-## Files
+| Operation                 | Complexity | Notes                             |
+| ------------------------- | ---------- | --------------------------------- |
+| CreateEntity              | O(1)       | Reuses from freelist if available |
+| DestroyEntity             | O(1)       | Mark inactive, add to freelist    |
+| AddComponent              | O(1)       | Just append to arrays             |
+| RemoveComponent           | O(1)       | Swap-and-pop, no reindexing       |
+| HasComponent              | O(1)       | Bitmap check                      |
+| GetEntitiesWithComponents | O(N)       | Linear scan by entity count       |
 
-- `Entity.h` - Entity IDs and component flags
-- `Components.h` - Component data (Structure of Arrays)
-- `World.h` - Entity/component manager
-- `Game.cpp` - See SetupModels() for examples
+## Architecture Files
 
-## What's next
+- **Entity.h** - Entity IDs and component type flags
+- **Components.h** - Component structs (SoA layout, swap-and-pop removal)
+- **World.h** - WorldManager (entity/component manager)
+- **Scene.h** - Base scene interface
+- **LuaScene.cpp** - Lua-scripted scene loading
 
-- Multi-threading: Split arrays across threads
-- SIMD: Process 4-8 entities per iteration
-- Archetypes: Group entities by component combo for even better locality
+## Future Improvements
+
+- Multi-threaded component processing
+- Per-component removal callbacks
+- Entity serialization
+- Archetype-based queries for SIMD operations
