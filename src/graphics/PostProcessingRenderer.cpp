@@ -14,7 +14,13 @@ PostProcessingRenderer::PostProcessingRenderer()
       contactShadowMaxDist(0.1f),
       contactShadowSteps(8),
       contactShadowThickness(0.01f),
-      contactShadowIntensity(0.5f)
+      contactShadowIntensity(0.5f),
+      enableSSAO(false),
+      ssaoNumSamples(8),
+      ssaoRadius(0.02f),
+      ssaoBias(0.001f),
+      ssaoIntensity(0.5f),
+      ssaoContrast(1.0f)
 {
     lutTexture.id = 0;
 }
@@ -39,11 +45,13 @@ void PostProcessingRenderer::Init(int screenWidth, int screenHeight)
     depthShader = LoadShader(0, "assets/shader/depth_render.fs");
     colorGradingShader = LoadShader(0, "assets/shader/color_grading.fs");
     screenSpaceShadowsShader = LoadShader(0, "assets/shader/screen_space_shadows.fs");
+    ssaoShader = LoadShader(0, "assets/shader/ssao.fs");
 
     TraceLog(LOG_INFO, "PostProcessingRenderer: Grayscale shader loaded successfully");
     TraceLog(LOG_INFO, "PostProcessingRenderer: Depth render shader loaded successfully");
     TraceLog(LOG_INFO, "PostProcessingRenderer: Color grading shader loaded successfully");
     TraceLog(LOG_INFO, "PostProcessingRenderer: Screen-space shadows shader loaded successfully");
+    TraceLog(LOG_INFO, "PostProcessingRenderer: SSAO shader loaded successfully");
 
     // Generate identity LUT by default (no color change)
     lutTexture = Generate3DLUT(0);
@@ -66,6 +74,8 @@ void PostProcessingRenderer::Shutdown()
         UnloadShader(colorGradingShader);
     if (screenSpaceShadowsShader.id > 0)
         UnloadShader(screenSpaceShadowsShader);
+    if (ssaoShader.id > 0)
+        UnloadShader(ssaoShader);
     if (lutTexture.id > 0)
         UnloadTexture(lutTexture);
 
@@ -177,6 +187,34 @@ void PostProcessingRenderer::ApplyEffects()
         SetShaderValue(screenSpaceShadowsShader, enabledLoc, &enabledVal, SHADER_UNIFORM_INT);
 
         RenderFullscreenQuad(screenSpaceShadowsShader, targetTexture);
+
+        EndShaderMode();
+    }
+
+    // Apply SSAO as final post-effect
+    if (enableSSAO && ssaoIntensity > 0.0f)
+    {
+        BeginShaderMode(ssaoShader);
+
+        // Set shader uniforms
+        int depthTexLoc = GetShaderLocation(ssaoShader, "depthTexture");
+        int numSamplesLoc = GetShaderLocation(ssaoShader, "numSamples");
+        int radiusLoc = GetShaderLocation(ssaoShader, "radius");
+        int biasLoc = GetShaderLocation(ssaoShader, "bias");
+        int intensityLoc = GetShaderLocation(ssaoShader, "intensity");
+        int contrastLoc = GetShaderLocation(ssaoShader, "contrast");
+        int enabledLoc = GetShaderLocation(ssaoShader, "enabled");
+
+        SetShaderValueTexture(ssaoShader, depthTexLoc, targetTexture.depth);
+        SetShaderValue(ssaoShader, numSamplesLoc, &ssaoNumSamples, SHADER_UNIFORM_INT);
+        SetShaderValue(ssaoShader, radiusLoc, &ssaoRadius, SHADER_UNIFORM_FLOAT);
+        SetShaderValue(ssaoShader, biasLoc, &ssaoBias, SHADER_UNIFORM_FLOAT);
+        SetShaderValue(ssaoShader, intensityLoc, &ssaoIntensity, SHADER_UNIFORM_FLOAT);
+        SetShaderValue(ssaoShader, contrastLoc, &ssaoContrast, SHADER_UNIFORM_FLOAT);
+        int enabledVal = 1;
+        SetShaderValue(ssaoShader, enabledLoc, &enabledVal, SHADER_UNIFORM_INT);
+
+        RenderFullscreenQuad(ssaoShader, targetTexture);
 
         EndShaderMode();
     }
@@ -722,4 +760,19 @@ void PostProcessingRenderer::SetContactShadowParams(float maxDist, int steps, fl
 
     TraceLog(LOG_INFO, "PostProcessingRenderer: Contact shadow params updated (dist=%.3f, steps=%d, thickness=%.4f, intensity=%.2f)",
              contactShadowMaxDist, contactShadowSteps, contactShadowThickness, contactShadowIntensity);
+}
+
+// Screen-Space Ambient Occlusion Implementation
+
+void PostProcessingRenderer::SetSSAOParams(int samples, float radius, float bias, float intensity, float contrast)
+{
+    // Clamp values to reasonable ranges
+    ssaoNumSamples = fmaxf(4, fminf(32, samples));
+    ssaoRadius = fmaxf(0.001f, fminf(0.1f, radius));
+    ssaoBias = fmaxf(0.001f, fminf(0.01f, bias));
+    ssaoIntensity = fmaxf(0.0f, fminf(2.0f, intensity));
+    ssaoContrast = fmaxf(0.5f, fminf(2.0f, contrast));
+
+    TraceLog(LOG_INFO, "PostProcessingRenderer: SSAO params updated (samples=%d, radius=%.4f, bias=%.5f, intensity=%.2f, contrast=%.2f)",
+             ssaoNumSamples, ssaoRadius, ssaoBias, ssaoIntensity, ssaoContrast);
 }

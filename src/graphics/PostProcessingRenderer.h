@@ -173,6 +173,28 @@ public:
     float GetContactShadowIntensity() const { return contactShadowIntensity; }
 
     /**
+     * @brief Enable or disable screen-space ambient occlusion
+     * @param enable True to enable
+     */
+    void SetSSAOEnabled(bool enable) { enableSSAO = enable; }
+
+    /**
+     * @brief Check if SSAO is enabled
+     * @return True if enabled
+     */
+    bool GetSSAOEnabled() const { return enableSSAO; }
+
+    /**
+     * @brief Set SSAO parameters
+     * @param samples Number of samples (4-32)
+     * @param radius Sample radius in screen space (0.001-0.1)
+     * @param bias Depth bias (0.001-0.01)
+     * @param intensity AO intensity (0.0-2.0)
+     * @param contrast AO contrast (0.5-2.0)
+     */
+    void SetSSAOParams(int samples, float radius, float bias, float intensity, float contrast);
+
+    /**
      * @brief Get scene render texture
      * @return Scene texture with depth attachment
      */
@@ -230,6 +252,7 @@ private:
     Shader depthShader;              ///< Depth visualization shader
     Shader colorGradingShader;       ///< Color grading shader
     Shader screenSpaceShadowsShader; ///< Screen-space shadows shader
+    Shader ssaoShader;               ///< Screen-space ambient occlusion shader
 
     Texture lutTexture;   ///< 3D LUT texture for color grading
     int currentLUTPreset; ///< Current LUT preset index
@@ -240,6 +263,13 @@ private:
     int contactShadowSteps;       ///< Number of ray march steps
     float contactShadowThickness; ///< Surface thickness tolerance
     float contactShadowIntensity; ///< Shadow intensity (0.0 to 1.0)
+
+    bool enableSSAO;     ///< SSAO toggle
+    int ssaoNumSamples;  ///< Number of SSAO samples
+    float ssaoRadius;    ///< SSAO sample radius
+    float ssaoBias;      ///< SSAO depth bias
+    float ssaoIntensity; ///< SSAO intensity
+    float ssaoContrast;  ///< SSAO contrast
 
     int width;  ///< Screen width
     int height; ///< Screen height

@@ -73,6 +73,12 @@ private:
     int contactShadowSteps = 8;           ///< Contact shadow ray march steps
     float contactShadowThickness = 0.01f; ///< Contact shadow thickness
     float contactShadowIntensity = 0.5f;  ///< Contact shadow intensity
+    bool enableSSAO = false;              ///< Screen-space ambient occlusion toggle
+    int ssaoNumSamples = 8;               ///< SSAO number of samples
+    float ssaoRadius = 0.02f;             ///< SSAO sample radius
+    float ssaoBias = 0.001f;              ///< SSAO depth bias
+    float ssaoIntensity = 0.5f;           ///< SSAO intensity
+    float ssaoContrast = 1.0f;            ///< SSAO contrast
 
     int currentModelIndex = 0;   ///< Currently selected player model
     int previousModelIndex = -1; ///< Previous player model (for change detection)

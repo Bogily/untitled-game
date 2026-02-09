@@ -212,6 +212,10 @@ void Game::UpdatePlaying()
         postProc->SetContactShadowsEnabled(enableContactShadows);
         postProc->SetContactShadowParams(contactShadowDistance, contactShadowSteps,
                                          contactShadowThickness, contactShadowIntensity);
+
+        // Apply SSAO settings
+        postProc->SetSSAOEnabled(enableSSAO);
+        postProc->SetSSAOParams(ssaoNumSamples, ssaoRadius, ssaoBias, ssaoIntensity, ssaoContrast);
     }
 
     // Map MSAA index to MSAALevel
@@ -563,6 +567,12 @@ void Game::SetupPostProcessingMenu()
     postProcessingMenu.AddInt("Shadow Steps", &contactShadowSteps, 4, 64, 4);
     postProcessingMenu.AddFloat("Shadow Thickness", &contactShadowThickness, 0.001f, 0.1f, 0.005f);
     postProcessingMenu.AddFloat("Shadow Intensity", &contactShadowIntensity, 0.0f, 1.0f, 0.05f);
+    postProcessingMenu.AddBool("SSAO", &enableSSAO);
+    postProcessingMenu.AddInt("AO Samples", &ssaoNumSamples, 4, 32, 2);
+    postProcessingMenu.AddFloat("AO Radius", &ssaoRadius, 0.001f, 0.1f, 0.005f);
+    postProcessingMenu.AddFloat("AO Bias", &ssaoBias, 0.001f, 0.01f, 0.001f);
+    postProcessingMenu.AddFloat("AO Intensity", &ssaoIntensity, 0.0f, 2.0f, 0.05f);
+    postProcessingMenu.AddFloat("AO Contrast", &ssaoContrast, 0.5f, 2.0f, 0.05f);
 
     TraceLog(LOG_INFO, "Game: Post-processing menu initialized");
 }
