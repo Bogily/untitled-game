@@ -182,11 +182,4 @@ private:
      * @param camera Camera for frustum extraction
      */
     void RunCPUCulling(Camera3D camera);
-
-    /**
-     * @brief Compile compute shader program
-     * @param path Shader file path
-     * @return Compute program ID
-     */
-    unsigned int CompileComputeProgram(const char *path);
 };
