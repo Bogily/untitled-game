@@ -38,6 +38,10 @@ void PostProcessingRenderer::Init(int screenWidth, int screenHeight)
     // Create render texture with depth texture attached
     sceneTexture = LoadRenderTextureWithDepth(width, height);
 
+    // Create ping-pong textures for effect chaining (no depth needed)
+    pingPongTextures[0] = LoadRenderTexture(width, height);
+    pingPongTextures[1] = LoadRenderTexture(width, height);
+
     TraceLog(LOG_INFO, "PostProcessingRenderer: Render texture created with depth (%dx%d)", width, height);
 
     // Load shaders
@@ -66,6 +70,10 @@ void PostProcessingRenderer::Shutdown()
 
     if (sceneTexture.id > 0)
         UnloadRenderTextureWithDepth(sceneTexture);
+    if (pingPongTextures[0].id > 0)
+        UnloadRenderTexture(pingPongTextures[0]);
+    if (pingPongTextures[1].id > 0)
+        UnloadRenderTexture(pingPongTextures[1]);
     if (grayscaleShader.id > 0)
         UnloadShader(grayscaleShader);
     if (depthShader.id > 0)
@@ -121,116 +129,97 @@ void PostProcessingRenderer::ApplyEffects()
         targetTexture.depth = msaaTexture.depthResolved;
     }
 
+    // Ping-pong rendering: apply effects in sequence
+    int currentRead = 0;  // Index of texture to read from
+    int currentWrite = 1; // Index of texture to write to
+    bool hasEffects = false;
+
+    // Helper lambda to draw fullscreen quad
+    auto drawFullscreen = [this](Texture2D tex)
+    {
+        Rectangle sourceRec = {0, 0, (float)tex.width, (float)-tex.height};
+        Rectangle destRec = {0, 0, (float)width, (float)height};
+        DrawTexturePro(tex, sourceRec, destRec, {0, 0}, 0.0f, WHITE);
+    };
+
+    // Helper lambda to apply shader pass
+    auto applyShaderPass = [&](Shader shader, Texture2D source, auto setupShader)
+    {
+        ScopedTextureMode texMode(pingPongTextures[currentWrite]);
+        ScopedShaderMode shaderMode(shader);
+        setupShader();
+        drawFullscreen(source);
+        hasEffects = true;
+        currentRead = currentWrite;
+        currentWrite = 1 - currentWrite;
+    };
+
+    // Special case: depth debug renders directly and skips other effects
     if (enableDepthDebug)
     {
-        // Render depth buffer with shader
-        BeginShaderMode(depthShader);
-        int depthLoc = GetShaderLocation(depthShader, "depthTexture");
-        int flipTextureLoc = GetShaderLocation(depthShader, "flipY");
-        SetShaderValue(depthShader, flipTextureLoc, (int[]){1}, SHADER_UNIFORM_INT);
-        SetShaderValueTexture(depthShader, depthLoc, targetTexture.depth);
-
-        // Render fullscreen quad with depth texture
-        Rectangle sourceRec = {0, 0, (float)targetTexture.depth.width, (float)-targetTexture.depth.height};
-        Rectangle destRec = {0, 0, (float)width, (float)height};
-        DrawTexturePro(targetTexture.depth, sourceRec, destRec, {0, 0}, 0.0f, WHITE);
-
-        EndShaderMode();
+        ScopedShaderMode shaderMode(depthShader);
+        ShaderUtil util(depthShader);
+        util.SetTexture("depthTexture", targetTexture.depth);
+        drawFullscreen(targetTexture.depth);
+        return; // Skip all other effects
     }
-    else if (enableGrayscale)
+
+    // First effect: grayscale or color grading
+    if (enableGrayscale)
     {
-        RenderFullscreenQuad(grayscaleShader, targetTexture);
+        applyShaderPass(grayscaleShader, targetTexture.texture, []() {});
     }
     else if (currentLUTPreset > 0 && lutIntensity > 0.0f)
     {
-        // Apply color grading with LUT
-        BeginShaderMode(colorGradingShader);
+        applyShaderPass(colorGradingShader, targetTexture.texture, [&]()
+                        {
+            ShaderUtil util(colorGradingShader);
+            util.SetTexture("lutTexture", lutTexture);
+            util.SetFloat("lutIntensity", lutIntensity); });
+    }
 
-        // Set shader uniforms
-        int lutTexLoc = GetShaderLocation(colorGradingShader, "lutTexture");
-        int lutIntensityLoc = GetShaderLocation(colorGradingShader, "lutIntensity");
+    // Apply contact shadows if enabled
+    if (enableContactShadows && contactShadowIntensity > 0.0f)
+    {
+        Texture2D sourceTexture = hasEffects ? pingPongTextures[currentRead].texture : targetTexture.texture;
 
-        SetShaderValueTexture(colorGradingShader, lutTexLoc, lutTexture);
-        SetShaderValue(colorGradingShader, lutIntensityLoc, &lutIntensity, SHADER_UNIFORM_FLOAT);
+        applyShaderPass(screenSpaceShadowsShader, sourceTexture, [&]()
+                        {
+            ShaderUtil util(screenSpaceShadowsShader);
+            util.SetTexture("depthTexture", targetTexture.depth);
+            util.SetFloat("maxDistance", contactShadowMaxDist);
+            util.SetInt("numSteps", contactShadowSteps);
+            util.SetFloat("thickness", contactShadowThickness);
+            util.SetFloat("intensity", contactShadowIntensity);
+            util.SetInt("enabled", 1); });
+    }
 
-        RenderFullscreenQuad(colorGradingShader, targetTexture);
+    // Apply SSAO if enabled
+    if (enableSSAO && ssaoIntensity > 0.0f)
+    {
+        Texture2D sourceTexture = hasEffects ? pingPongTextures[currentRead].texture : targetTexture.texture;
 
-        EndShaderMode();
+        applyShaderPass(ssaoShader, sourceTexture, [&]()
+                        {
+            ShaderUtil util(ssaoShader);
+            util.SetTexture("depthTexture", targetTexture.depth);
+            util.SetInt("numSamples", ssaoNumSamples);
+            util.SetFloat("radius", ssaoRadius);
+            util.SetFloat("bias", ssaoBias);
+            util.SetFloat("intensity", ssaoIntensity);
+            util.SetFloat("contrast", ssaoContrast);
+            util.SetInt("enabled", 1); });
+    }
+
+    // Final render to screen
+    if (hasEffects)
+    {
+        drawFullscreen(pingPongTextures[currentRead].texture);
     }
     else
     {
-        // Just render the scene texture directly
-        Rectangle sourceRec = {0, 0, (float)targetTexture.texture.width, (float)-targetTexture.texture.height};
-        Rectangle destRec = {0, 0, (float)width, (float)height};
-        DrawTexturePro(targetTexture.texture, sourceRec, destRec, {0, 0}, 0.0f, WHITE);
+        drawFullscreen(targetTexture.texture);
     }
-
-    // Apply screen-space shadows as a post-effect on top of everything
-    if (enableContactShadows && contactShadowIntensity > 0.0f)
-    {
-        BeginShaderMode(screenSpaceShadowsShader);
-
-        // Set shader uniforms
-        int depthTexLoc = GetShaderLocation(screenSpaceShadowsShader, "depthTexture");
-        int maxDistLoc = GetShaderLocation(screenSpaceShadowsShader, "maxDistance");
-        int numStepsLoc = GetShaderLocation(screenSpaceShadowsShader, "numSteps");
-        int thicknessLoc = GetShaderLocation(screenSpaceShadowsShader, "thickness");
-        int intensityLoc = GetShaderLocation(screenSpaceShadowsShader, "intensity");
-        int enabledLoc = GetShaderLocation(screenSpaceShadowsShader, "enabled");
-
-        SetShaderValueTexture(screenSpaceShadowsShader, depthTexLoc, targetTexture.depth);
-        SetShaderValue(screenSpaceShadowsShader, maxDistLoc, &contactShadowMaxDist, SHADER_UNIFORM_FLOAT);
-        SetShaderValue(screenSpaceShadowsShader, numStepsLoc, &contactShadowSteps, SHADER_UNIFORM_INT);
-        SetShaderValue(screenSpaceShadowsShader, thicknessLoc, &contactShadowThickness, SHADER_UNIFORM_FLOAT);
-        SetShaderValue(screenSpaceShadowsShader, intensityLoc, &contactShadowIntensity, SHADER_UNIFORM_FLOAT);
-        int enabledVal = 1;
-        SetShaderValue(screenSpaceShadowsShader, enabledLoc, &enabledVal, SHADER_UNIFORM_INT);
-
-        RenderFullscreenQuad(screenSpaceShadowsShader, targetTexture);
-
-        EndShaderMode();
-    }
-
-    // Apply SSAO as final post-effect
-    if (enableSSAO && ssaoIntensity > 0.0f)
-    {
-        BeginShaderMode(ssaoShader);
-
-        // Set shader uniforms
-        int depthTexLoc = GetShaderLocation(ssaoShader, "depthTexture");
-        int numSamplesLoc = GetShaderLocation(ssaoShader, "numSamples");
-        int radiusLoc = GetShaderLocation(ssaoShader, "radius");
-        int biasLoc = GetShaderLocation(ssaoShader, "bias");
-        int intensityLoc = GetShaderLocation(ssaoShader, "intensity");
-        int contrastLoc = GetShaderLocation(ssaoShader, "contrast");
-        int enabledLoc = GetShaderLocation(ssaoShader, "enabled");
-
-        SetShaderValueTexture(ssaoShader, depthTexLoc, targetTexture.depth);
-        SetShaderValue(ssaoShader, numSamplesLoc, &ssaoNumSamples, SHADER_UNIFORM_INT);
-        SetShaderValue(ssaoShader, radiusLoc, &ssaoRadius, SHADER_UNIFORM_FLOAT);
-        SetShaderValue(ssaoShader, biasLoc, &ssaoBias, SHADER_UNIFORM_FLOAT);
-        SetShaderValue(ssaoShader, intensityLoc, &ssaoIntensity, SHADER_UNIFORM_FLOAT);
-        SetShaderValue(ssaoShader, contrastLoc, &ssaoContrast, SHADER_UNIFORM_FLOAT);
-        int enabledVal = 1;
-        SetShaderValue(ssaoShader, enabledLoc, &enabledVal, SHADER_UNIFORM_INT);
-
-        RenderFullscreenQuad(ssaoShader, targetTexture);
-
-        EndShaderMode();
-    }
-}
-
-void PostProcessingRenderer::RenderFullscreenQuad(Shader shader, RenderTexture2D source)
-{
-    BeginShaderMode(shader);
-
-    // Flip texture vertically (raylib texture coordinate system)
-    Rectangle sourceRec = {0, 0, (float)source.texture.width, (float)-source.texture.height};
-    Rectangle destRec = {0, 0, (float)width, (float)height};
-
-    DrawTexturePro(source.texture, sourceRec, destRec, {0, 0}, 0.0f, WHITE);
-
-    EndShaderMode();
 }
 
 RenderTexture2D PostProcessingRenderer::LoadRenderTextureWithDepth(int screenWidth, int screenHeight)

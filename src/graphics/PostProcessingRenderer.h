@@ -7,6 +7,7 @@
 
 #include "raylib.h"
 #include "raymath.h"
+#include "../utils/ShaderUtil.h"
 
 /**
  * @brief MSAA render texture with resolve support
@@ -245,8 +246,9 @@ public:
     static void UnloadMSAARenderTexture(MSAARenderTexture &msaaTexture);
 
 private:
-    RenderTexture2D sceneTexture;  ///< Main scene render target with depth attachment
-    MSAARenderTexture msaaTexture; ///< MSAA render texture (if MSAA enabled)
+    RenderTexture2D sceneTexture;        ///< Main scene render target with depth attachment
+    RenderTexture2D pingPongTextures[2]; ///< Ping-pong textures for chaining effects
+    MSAARenderTexture msaaTexture;       ///< MSAA render texture (if MSAA enabled)
 
     Shader grayscaleShader;          ///< Grayscale effect shader
     Shader depthShader;              ///< Depth visualization shader
@@ -276,13 +278,6 @@ private:
 
     bool enableGrayscale;  ///< Grayscale effect toggle
     bool enableDepthDebug; ///< Depth debug toggle
-
-    /**
-     * @brief Render fullscreen quad with shader
-     * @param shader Shader to apply
-     * @param source Source texture
-     */
-    void RenderFullscreenQuad(Shader shader, RenderTexture2D source);
 
     /**
      * @brief Create render texture with depth attachment
