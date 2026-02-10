@@ -55,6 +55,8 @@ private:
 
     bool rmlReady = false;                       ///< RmlUI initialization status
     Rml::ElementDocument *rmlMainMenu = nullptr; ///< RmlUI main menu document
+    Shader mainMenuBackgroundShader = {0};       ///< Shader for main menu background
+    bool mainMenuShaderReady = false;            ///< Background shader ready flag
 
     RenderManager::FrameSettings renderFrameSettings; ///< Per-frame rendering configuration
 

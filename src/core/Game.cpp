@@ -1,6 +1,7 @@
 #include "Game.h"
 #include "../world/LuaScene.h"
 #include "../graphics/BillboardText.h"
+#include "../utils/ShaderUtil.h"
 #include "ui/rmlui/GameEventListener.h"
 #include "rlgl.h"
 #include <glad/glad.h>
@@ -348,7 +349,7 @@ void Game::Draw()
     switch (currentState)
     {
     case GameState::MAIN_MENU:
-        ClearBackground(RAYWHITE);
+        ClearBackground(BLACK);
         DrawMainMenu();
         break;
     case GameState::PLAYING:
@@ -372,6 +373,22 @@ void Game::Draw()
 
 void Game::DrawMainMenu()
 {
+    if (mainMenuShaderReady)
+    {
+        ShaderUtil util(mainMenuBackgroundShader);
+        util.SetFloat("uTime", (float)GetTime());
+        util.SetVec2("uResolution", {(float)GetScreenWidth(), (float)GetScreenHeight()});
+        util.SetVec3("uColor", {1.0f, 0.42f, 0.12f});
+        util.SetFloat("uStrength", 1.0f);
+
+        ScopedShaderMode shaderMode(mainMenuBackgroundShader);
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), WHITE);
+    }
+    else
+    {
+        ClearBackground(BLACK);
+    }
+
     if (rmlReady)
         RaylibRmlUi::Draw();
 }
@@ -463,6 +480,9 @@ void Game::Shutdown()
 
     if (rmlReady)
         RaylibRmlUi::DeInitialize();
+
+    if (mainMenuShaderReady)
+        UnloadShader(mainMenuBackgroundShader);
 
     CloseWindow();
 }
