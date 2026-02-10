@@ -4,6 +4,7 @@
  */
 
 #pragma once
+#include "Actor.h"
 #include "raylib.h"
 #include <string>
 #include <vector>
@@ -14,7 +15,7 @@
  * NPCs can be positioned in the world, have multiple dialogue lines,
  * and detect when the player is in interaction range.
  */
-class NPC
+class NPC : public Actor
 {
 public:
     /**
@@ -114,8 +115,6 @@ public:
     void SetPosition(Vector3 pos);
 
 private:
-    Vector3 m_Position;                       ///< World position
-    std::string m_Name;                       ///< NPC name
     std::vector<std::string> m_DialogueLines; ///< All dialogue lines
     size_t m_CurrentDialogueLine;             ///< Current dialogue index
     Color m_Color;                            ///< Visual color

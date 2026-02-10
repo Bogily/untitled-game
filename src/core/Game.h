@@ -6,10 +6,9 @@
 #pragma once
 #include "raylib.h"
 #include "raymath.h"
-#include "../entities/Player.h"
+#include "../actors/Player.h"
 #include "../utils/custommodel.h"
 #include "../graphics/RenderManager.h"
-#include "../world/World.h"
 #include "../world/SceneManager.h"
 #include "../world/Level.h"
 #include "../ui/DebugMenu.h"
@@ -41,7 +40,6 @@ private:
 
     Player player;               ///< Player entity
     RenderManager renderManager; ///< Centralized rendering system
-    World::WorldManager world;   ///< ECS world manager
     SceneManager sceneManager;   ///< Scene management system
     CustomModel customModel;     ///< Custom model utilities
 
@@ -57,6 +55,8 @@ private:
     Rml::ElementDocument *rmlMainMenu = nullptr; ///< RmlUI main menu document
     Shader mainMenuBackgroundShader = {0};       ///< Shader for main menu background
     bool mainMenuShaderReady = false;            ///< Background shader ready flag
+    Vector3 flameColor = {1.0f, 0.42f, 0.12f};   ///< Flame color (RGB)
+    float flameIntensity = 1.0f;                 ///< Flame intensity (0.0 = off, 1.0 = full)
 
     RenderManager::FrameSettings renderFrameSettings; ///< Per-frame rendering configuration
 

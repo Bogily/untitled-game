@@ -16,6 +16,8 @@
 
 # Semi Important
 
+- Fix Background Main Menu shader (basic idea flame of like candle then turns off when we press play should have customizebale color and strength)
+
 ---
 
 # Not Important

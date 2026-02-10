@@ -6,7 +6,7 @@
 #pragma once
 #include "raylib.h"
 #include "raymath.h"
-#include "entities/Camera.h"
+#include "actors/Camera.h"
 #include <vector>
 
 /**

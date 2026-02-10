@@ -2,20 +2,24 @@
 #include "raymath.h"
 
 NPC::NPC()
-    : m_Position({0, 0, 0}), m_Name("NPC"), m_CurrentDialogueLine(0), m_Color(BLUE), m_Radius(0.5f), m_Height(2.0f), m_CanInteract(false), m_InteractionRange(3.0f)
+    : m_DialogueLines(), m_CurrentDialogueLine(0), m_Color(BLUE), m_Radius(0.5f), m_Height(2.0f), m_CanInteract(false), m_InteractionRange(3.0f)
 {
+    metadata.name = "NPC";
 }
 
 NPC::NPC(Vector3 position, const std::string &name, const std::vector<std::string> &dialogue, Color color)
-    : m_Position(position), m_Name(name), m_DialogueLines(dialogue), m_CurrentDialogueLine(0), m_Color(color), m_Radius(0.5f), m_Height(2.0f), m_CanInteract(false), m_InteractionRange(3.0f)
+    : m_DialogueLines(dialogue), m_CurrentDialogueLine(0), m_Color(color), m_Radius(0.5f), m_Height(2.0f), m_CanInteract(false), m_InteractionRange(3.0f)
 {
+    transform.position = position;
+    metadata.name = name;
 }
 
 void NPC::Update(Vector3 playerPosition)
 {
     // Ignore y axis for distance check to allow interaction even if heights differ slightly
+    Vector3 pos = transform.position;
     float distance = Vector3Distance(
-        {m_Position.x, playerPosition.y, m_Position.z},
+        {pos.x, playerPosition.y, pos.z},
         playerPosition);
     m_CanInteract = (distance <= m_InteractionRange);
 }
@@ -23,16 +27,16 @@ void NPC::Update(Vector3 playerPosition)
 void NPC::Draw()
 {
     // Draw body
-    DrawCylinder(m_Position, m_Radius, m_Radius, m_Height, 16, m_Color);
+    DrawCylinder(transform.position, m_Radius, m_Radius, m_Height, 16, m_Color);
 
     // Draw head (positioned on top of the body)
-    Vector3 headPos = Vector3Add(m_Position, {0, m_Height + m_Radius * 0.8f, 0});
+    Vector3 headPos = Vector3Add(transform.position, {0, m_Height + m_Radius * 0.8f, 0});
     DrawSphere(headPos, m_Radius * 0.8f, Fade(m_Color, 0.8f));
 
     // Draw interaction indicator if player is nearby
     if (m_CanInteract)
     {
-        Vector3 indicatorPos = Vector3Add(m_Position, {0, m_Height + 1.5f, 0});
+        Vector3 indicatorPos = Vector3Add(transform.position, {0, m_Height + 1.5f, 0});
         float pulse = (sinf(GetTime() * 5.0f) + 1.0f) * 0.5f; // Simple pulse animation
         Color indicatorColor = ColorLerp(YELLOW, GOLD, pulse);
         DrawSphere(indicatorPos, 0.15f, indicatorColor);
@@ -68,17 +72,17 @@ void NPC::ResetDialogue()
 
 Vector3 NPC::GetPosition() const
 {
-    return m_Position;
+    return transform.position;
 }
 
 const Vector3 &NPC::GetPositionRef() const
 {
-    return m_Position;
+    return transform.position;
 }
 
 Vector3 NPC::GetHeadPosition() const
 {
-    return Vector3Add(m_Position, {0, m_Height + m_Radius * 0.8f, 0});
+    return Vector3Add(transform.position, {0, m_Height + m_Radius * 0.8f, 0});
 }
 
 float NPC::GetRadius() const
@@ -93,7 +97,7 @@ float NPC::GetHeight() const
 
 const std::string &NPC::GetName() const
 {
-    return m_Name;
+    return metadata.name;
 }
 
 void NPC::SetInteractionRange(float range)
@@ -103,5 +107,5 @@ void NPC::SetInteractionRange(float range)
 
 void NPC::SetPosition(Vector3 pos)
 {
-    m_Position = pos;
+    transform.position = pos;
 }

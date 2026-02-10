@@ -6,7 +6,7 @@
 #pragma once
 #include "raylib.h"
 #include "Level.h"
-#include "entities/NPC.h"
+#include "actors/NPC.h"
 #include <vector>
 
 /**

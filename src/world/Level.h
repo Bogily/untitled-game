@@ -8,11 +8,6 @@
 #include <vector>
 #include <string>
 
-namespace World
-{
-    class WorldManager;
-}
-
 /**
  * @brief Pure scene data container without rendering or update logic
  *

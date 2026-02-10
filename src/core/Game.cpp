@@ -69,6 +69,19 @@ void Game::Init()
     // Initialize rendering system BEFORE creating scenes
     renderManager.Init(SCREEN_WIDTH, SCREEN_HEIGHT);
 
+    // Load main menu background shader
+    TraceLog(LOG_INFO, "Loading main menu background shader...");
+    mainMenuBackgroundShader = LoadShader("assets/shader/fullscreen.vs", "assets/shader/fire.fs");
+    if (mainMenuBackgroundShader.id > 0)
+    {
+        mainMenuShaderReady = true;
+        TraceLog(LOG_INFO, "Main menu fire shader loaded successfully");
+    }
+    else
+    {
+        TraceLog(LOG_WARNING, "Failed to load main menu fire shader");
+    }
+
     TraceLog(LOG_INFO, "Loading scene from Lua...");
     // Register and load scene from Lua file
     LuaScene *testScene = new LuaScene("assets/scenes/test_scene.lua");
@@ -245,7 +258,7 @@ void Game::UpdatePlaying()
 
     // Set follow target for camera
     CameraController *camCtrl = renderManager.GetCameraController();
-    camCtrl->SetFollowTarget(&player.position);
+    camCtrl->SetFollowTarget(&player.GetTransform().position);
 
     // Update NPCs
     UpdateNPCs(deltaTime);
@@ -373,20 +386,20 @@ void Game::Draw()
 
 void Game::DrawMainMenu()
 {
-    if (mainMenuShaderReady)
+    ClearBackground(BLACK);
+
+    if (mainMenuShaderReady && flameIntensity > 0.0f)
     {
+        // Set shader uniforms
         ShaderUtil util(mainMenuBackgroundShader);
         util.SetFloat("uTime", (float)GetTime());
-        util.SetVec2("uResolution", {(float)GetScreenWidth(), (float)GetScreenHeight()});
-        util.SetVec3("uColor", {1.0f, 0.42f, 0.12f});
-        util.SetFloat("uStrength", 1.0f);
+        util.SetVec3("uFlameColor", flameColor);
+        util.SetFloat("uIntensity", flameIntensity);
 
-        ScopedShaderMode shaderMode(mainMenuBackgroundShader);
+        // Draw fullscreen quad with shader
+        BeginShaderMode(mainMenuBackgroundShader);
         DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), WHITE);
-    }
-    else
-    {
-        ClearBackground(BLACK);
+        EndShaderMode();
     }
 
     if (rmlReady)
@@ -513,7 +526,7 @@ void Game::InitializeScene()
 
     // Setup camera controller's follow target
     CameraController *camCtrl = renderManager.GetCameraController();
-    camCtrl->SetFollowTarget(&player.position);
+    camCtrl->SetFollowTarget(&player.GetTransform().position);
     camCtrl->SetMode(CAMERA_MODE_FOLLOW);
 
     // Now that models and systems are ready, set up the menus safely
@@ -531,8 +544,8 @@ void Game::ShutdownScene()
     TraceLog(LOG_INFO, "Game: Shutting down scene...");
 
     // Unload player model
-    if (player.modelLoaded)
-        UnloadModel(player.model);
+    if (player.GetRender().modelLoaded)
+        UnloadModel(player.GetRender().model);
 
     // Unload all scene models
     for (auto &pair : sceneModels)
@@ -541,9 +554,6 @@ void Game::ShutdownScene()
     }
     sceneModels.clear();
     modelIDs.clear();
-
-    // Clear world entities
-    world.Clear();
 
     sceneInitialized = false;
 
@@ -599,7 +609,7 @@ void Game::SetupPostProcessingMenu()
 
 void Game::SetupPlayer(const LevelData &level)
 {
-    player.position = level.playerStartPosition;
+    player.GetTransform().position = level.playerStartPosition;
 
     // Load player model
     customModel.addModel("Rat", "assets/models/rat.obj", "assets/textures/rat.png", {0.04f, 0.04f, 0.04f}, {0.0f, 0.0f, 0.0f});
@@ -676,13 +686,6 @@ void Game::SetupModels(const LevelData &level)
         // Add to shader application list
         Vector4 albedoVec = ColorNormalize(objData.albedo);
         modelsToShader.push_back({model, albedoVec, objData.metallic, objData.roughness});
-
-        // Create world entity
-        using namespace World;
-        Entity e = world.CreateEntity();
-        world.AddMetadata(e, objData.name, true);
-        world.AddTransform(e, objData.position, objData.rotation, objData.scale);
-        world.AddRender(e, model, modelIDs[objData.name], objData.albedo, objData.metallic, objData.roughness);
     }
 
     // Apply PBR shaders to all models
@@ -701,7 +704,7 @@ void Game::UpdateNPCs(float deltaTime)
 
     for (auto &npc : npcs)
     {
-        npc.Update(player.position);
+        npc.Update(player.GetTransform().position);
     }
 }
 
