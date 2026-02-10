@@ -1,7 +1,8 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 4.0)
 
 project(ZeldaLikeGame VERSION 1.0.0 LANGUAGES C CXX)
 
+set(CMAKE_BUILD_TYPE RelWithDebInfo)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -30,7 +31,7 @@ FetchContent_Declare(
 )
 # Some older third-party projects require compatibility with older CMake minimal versions.
 # Set this to allow those projects to configure under newer CMake without failing.
-set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE INTERNAL "")
+set(CMAKE_POLICY_VERSION_MINIMUM 4.0 CACHE INTERNAL "")
 FetchContent_MakeAvailable(glad)
 
 # Lua (scripting for scene loading and game logic)
@@ -161,7 +162,7 @@ if(WIN32)
         "$<TARGET_FILE:raylib>"
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>/"
     )
-    
+
     # Copy glad DLL
     if(TARGET glad)
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
@@ -170,7 +171,7 @@ if(WIN32)
             "$<TARGET_FILE_DIR:${PROJECT_NAME}>/"
         )
     endif()
-    
+
     # Copy freetype DLL
     if(TARGET freetype)
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
@@ -179,7 +180,7 @@ if(WIN32)
             "$<TARGET_FILE_DIR:${PROJECT_NAME}>/"
         )
     endif()
-    
+
     # Copy rmlui DLLs
     if(TARGET rmlui_core)
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
@@ -188,7 +189,7 @@ if(WIN32)
             "$<TARGET_FILE_DIR:${PROJECT_NAME}>/"
         )
     endif()
-    
+
     if(TARGET rmlui_debugger)
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
