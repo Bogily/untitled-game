@@ -73,6 +73,16 @@ public:
     float GetFreeCameraYaw() const { return freeCameraYaw; }
     float GetFreeCameraPitch() const { return freeCameraPitch; }
 
+    // Camera shake effects
+    void ApplyShake(float intensity, float duration);
+    void StopShake()
+    {
+        shakeIntensity = 0.0f;
+        shakeTimer = 0.0f;
+    }
+    float GetShakeIntensity() const { return shakeIntensity; }
+    float GetShakeDuration() const { return shakeDuration; }
+
     // Smooth transitions
     void TransitionTo(Vector3 newPosition, Vector3 newTarget, float duration);
     bool IsTransitioning() const { return isTransitioning; }
@@ -95,6 +105,11 @@ private:
     int currentWaypointIndex;                      ///< Current waypoint index
     float cutsceneTimer;                           ///< Cutscene time accumulator
     bool isPlayingCutscene;                        ///< Cutscene active flag
+
+    // Camera shake parameters
+    float shakeIntensity = 0.0f; ///< Current shake intensity
+    float shakeDuration = 0.0f;  ///< Total shake duration
+    float shakeTimer = 0.0f;     ///< Shake time accumulator
 
     bool isTransitioning;          ///< Transition active flag
     float transitionTimer;         ///< Transition time accumulator

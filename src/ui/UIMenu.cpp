@@ -26,9 +26,14 @@ void UIMenu::AddString(std::string name, int *selectedIndex, std::vector<std::st
     stringSettings.emplace_back(StringSetting{std::move(name), selectedIndex, std::move(options)});
 }
 
+void UIMenu::AddButton(std::string name, std::function<void()> callback)
+{
+    buttonSettings.emplace_back(ButtonSetting{std::move(name), std::move(callback)});
+}
+
 int UIMenu::GetTotalItems() const
 {
-    return boolSettings.size() + floatSettings.size() + intSettings.size() + stringSettings.size();
+    return boolSettings.size() + floatSettings.size() + intSettings.size() + stringSettings.size() + buttonSettings.size();
 }
 
 void UIMenu::HandleNavigation()
@@ -58,6 +63,7 @@ void UIMenu::HandleSelection()
         int boolCount = boolSettings.size();
         int floatCount = floatSettings.size();
         int intCount = intSettings.size();
+        int stringCount = stringSettings.size();
 
         if (selectedIndex < boolCount)
         {
@@ -74,10 +80,19 @@ void UIMenu::HandleSelection()
             // Toggle editing mode for int
             editingValue = !editingValue;
         }
-        else
+        else if (selectedIndex < boolCount + floatCount + intCount + stringCount)
         {
             // Toggle editing mode for string
             editingValue = !editingValue;
+        }
+        else if (selectedIndex < boolCount + floatCount + intCount + stringCount + (int)buttonSettings.size())
+        {
+            // Trigger button callback
+            int buttonIndex = selectedIndex - (boolCount + floatCount + intCount + stringCount);
+            if (buttonIndex >= 0 && buttonIndex < (int)buttonSettings.size())
+            {
+                buttonSettings[buttonIndex].callback();
+            }
         }
     }
 }
@@ -257,6 +272,25 @@ void UIMenu::DrawStringSettings(int &x, int &y, int lineHeight, Color highlightC
                 DrawText("<", x + 260, y, 20, YELLOW);
                 DrawText(">", x + 340, y, 20, YELLOW);
             }
+        }
+
+        y += lineHeight;
+        const_cast<UIMenu *>(this)->currentDrawIndex++;
+    }
+}
+
+void UIMenu::DrawButtonSettings(int &x, int &y, int lineHeight, Color highlightColor) const
+{
+    for (const auto &setting : buttonSettings)
+    {
+        Color textColor = (currentDrawIndex == selectedIndex) ? highlightColor : WHITE;
+
+        DrawText(setting.name.c_str(), x, y, 20, textColor);
+
+        if (currentDrawIndex == selectedIndex)
+        {
+            DrawText(">", x - 20, y, 20, highlightColor);
+            DrawText("[ENTER to activate]", x + 280, y, 16, YELLOW);
         }
 
         y += lineHeight;

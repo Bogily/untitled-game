@@ -92,6 +92,10 @@ private:
     float freeCameraSpeed = 10.0f;           ///< Free camera movement speed
     float freeCameraMouseSensitivity = 0.3f; ///< Free camera mouse sensitivity (0-1 scale for UI)
 
+    // Camera effects
+    float cameraShakeIntensity = 0.1f; ///< Camera shake intensity (0-1)
+    float cameraShakeDuration = 0.5f;  ///< Camera shake duration (seconds)
+
     /**
      * @brief Setup game menus with callbacks
      */

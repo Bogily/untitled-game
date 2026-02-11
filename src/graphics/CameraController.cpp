@@ -76,6 +76,36 @@ void CameraController::Update(float deltaTime)
         // Do nothing - camera is fixed
         break;
     }
+
+    // Apply camera shake as offset to final position (after all mode calculations)
+    // This is applied directly to position, bypassing SetDesired to avoid conflicts
+    if (shakeIntensity > 0.0f && shakeDuration > 0.0f)
+    {
+        shakeTimer += deltaTime;
+        float shakeProgress = shakeTimer / shakeDuration;
+
+        if (shakeProgress >= 1.0f)
+        {
+            // Shake complete
+            shakeIntensity = 0.0f;
+            shakeTimer = 0.0f;
+        }
+        else
+        {
+            // Apply shake with easing (fade out)
+            float easeOut = 1.0f - (shakeProgress * shakeProgress); // Quadratic ease-out
+            float currentIntensity = shakeIntensity * easeOut;
+
+            // Generate random offset
+            Vector3 shakeOffset;
+            shakeOffset.x = (GetRandomValue(-100, 100) / 100.0f) * currentIntensity;
+            shakeOffset.y = (GetRandomValue(-100, 100) / 100.0f) * currentIntensity;
+            shakeOffset.z = (GetRandomValue(-100, 100) / 100.0f) * currentIntensity;
+
+            // Apply shake offset directly to position (temporary, won't interfere with smoothing)
+            camera.position = Vector3Add(camera.position, shakeOffset);
+        }
+    }
 }
 
 void CameraController::UpdateFreeCamera(float deltaTime)
@@ -234,6 +264,13 @@ void CameraController::StopCutscene()
 
     // Return to follow mode or free mode
     mode = CAMERA_MODE_FREE;
+}
+
+void CameraController::ApplyShake(float intensity, float duration)
+{
+    shakeIntensity = fmaxf(0.0f, fminf(1.0f, intensity)); // Clamp to 0-1
+    shakeDuration = fmaxf(0.1f, duration);                // Min 0.1 seconds
+    shakeTimer = 0.0f;
 }
 
 void CameraController::SetMode(CameraControllerMode newMode)

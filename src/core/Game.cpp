@@ -1,6 +1,5 @@
 #include "Game.h"
 #include "../world/LuaScene.h"
-#include "../graphics/BillboardText.h"
 #include "../utils/ShaderUtil.h"
 #include "ui/rmlui/GameEventListener.h"
 #include "rlgl.h"
@@ -608,6 +607,39 @@ void Game::SetupDebugMenu()
     debugMenu.AddFloat("Free Cam Speed", &freeCameraSpeed, 1.0f, 50.0f, 1.0f);
     debugMenu.AddFloat("Free Cam Sens", &freeCameraMouseSensitivity, 0.1f, 1.0f, 0.05f);
 
+    // Camera effects
+    debugMenu.AddFloat("Shake Intensity", &cameraShakeIntensity, 0.0f, 1.0f, 0.1f);
+    debugMenu.AddFloat("Shake Duration", &cameraShakeDuration, 0.1f, 5.0f, 0.1f);
+
+    // Button triggers
+    debugMenu.AddButton("Apply Shake", [this, camCtrl]()
+                        {
+        if (camCtrl && cameraShakeIntensity > 0.0f && cameraShakeDuration > 0.0f)
+        {
+            camCtrl->ApplyShake(cameraShakeIntensity, cameraShakeDuration);
+            TraceLog(LOG_INFO, "Camera shake applied (intensity=%.2f, duration=%.2f)", cameraShakeIntensity, cameraShakeDuration);
+        } });
+
+    debugMenu.AddButton("Play Example Cutscene", [this, camCtrl]()
+                        {
+        if (camCtrl)
+        {
+            // Define example cutscene waypoints
+            std::vector<CameraWaypoint> cutsceneWaypoints = {
+                // Start position: above and behind
+                {{-15.0f, 12.0f, 15.0f}, {0.0f, 5.0f, 0.0f}, 3.0f, 45.0f},
+                // Pan to the center sphere
+                {{0.0f, 8.0f, 12.0f}, {0.0f, 1.0f, 0.0f}, 2.0f, 50.0f},
+                // Zoom in on red cube
+                {{-4.0f, 5.0f, -8.0f}, {-4.0f, 1.0f, -4.0f}, 2.5f, 35.0f},
+                // Final pan back out
+                {{10.0f, 10.0f, 10.0f}, {0.0f, 0.0f, 0.0f}, 3.0f, 45.0f}
+            };
+
+            camCtrl->StartCutscene(cutsceneWaypoints);
+            TraceLog(LOG_INFO, "Cutscene started from debug menu");
+        } });
+
     TraceLog(LOG_INFO, "Game: Debug menu initialized");
 }
 
@@ -773,26 +805,6 @@ void Game::HandleInput(float deltaTime)
     {
         RaylibRmlUi::ToggleDebugger();
     }
-
-    // Example cutscene trigger (C key)
-    if (IsKeyPressed(KEY_C))
-    {
-        CameraController *camCtrl = renderManager.GetCameraController();
-
-        // Define example cutscene waypoints
-        std::vector<CameraWaypoint> cutsceneWaypoints = {
-            // Start position: above and behind
-            {{-15.0f, 12.0f, 15.0f}, {0.0f, 5.0f, 0.0f}, 3.0f, 45.0f},
-            // Pan to the center sphere
-            {{0.0f, 8.0f, 12.0f}, {0.0f, 1.0f, 0.0f}, 2.0f, 50.0f},
-            // Zoom in on red cube
-            {{-4.0f, 5.0f, -8.0f}, {-4.0f, 1.0f, -4.0f}, 2.5f, 35.0f},
-            // Final pan back out
-            {{10.0f, 10.0f, 10.0f}, {0.0f, 0.0f, 0.0f}, 3.0f, 45.0f}};
-
-        camCtrl->StartCutscene(cutsceneWaypoints);
-        TraceLog(LOG_INFO, "Cutscene started (press C to replay)");
-    }
 }
 
 void Game::DrawUI()
@@ -805,7 +817,7 @@ void Game::DrawUI()
     int yPos = UI_MARGIN;
 
     // Controls help
-    DrawText("WASD: Move | Mouse: Look | E: Talk | C: Cutscene | TAB: Cursor | ESC: Pause | DELETE: Exit",
+    DrawText("WASD: Move | Mouse: Look | E: Talk | TAB: Cursor | ESC: Pause | DELETE: Exit | TAB: Debug Menu",
              UI_MARGIN, yPos, UI_TEXT_SIZE, DARKGRAY);
     yPos += UI_LINE_SPACING;
 

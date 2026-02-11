@@ -74,6 +74,7 @@ void DebugMenu::Draw()
     DrawFloatSettings(x, y, lineHeight, YELLOW);
     DrawIntSettings(x, y, lineHeight, YELLOW);
     DrawStringSettings(x, y, lineHeight, YELLOW);
+    DrawButtonSettings(x, y, lineHeight, YELLOW);
 
     // Instructions at bottom
     if (totalItems > 0)
