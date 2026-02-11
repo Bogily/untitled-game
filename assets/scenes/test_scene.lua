@@ -305,7 +305,24 @@ scene = {
     },
     
     -- Skybox
-    skybox = "assets/textures/skybox.png"
-}
+    skybox = "assets/textures/skybox.png",
 
+    -- Example Cutscene: Camera flythrough
+    cutscenes = {
+        {
+            name = "IntroFlythrough",
+            description = "Cinematic flythrough of the scene",
+            waypoints = {
+                -- Start position: above and behind
+                {position = {-15.0, 12.0, 15.0}, target = {0.0, 5.0, 0.0}, fov = 45.0, duration = 3.0},
+                -- Pan to the center sphere
+                {position = {0.0, 8.0, 12.0}, target = {0.0, 1.0, 0.0}, fov = 50.0, duration = 2.0},
+                -- Zoom in on red cube
+                {position = {-4.0, 5.0, -8.0}, target = {-4.0, 1.0, -4.0}, fov = 35.0, duration = 2.5},
+                -- Final pan back out
+                {position = {10.0, 10.0, 10.0}, target = {0.0, 0.0, 0.0}, fov = 45.0, duration = 3.0}
+            }
+        }
+    }
+}
 return scene

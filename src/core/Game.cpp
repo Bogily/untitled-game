@@ -204,6 +204,27 @@ void Game::UpdatePlaying()
         }
     }
 
+    // Apply camera mode selection from debug menu
+    {
+        CameraController *camCtrl = renderManager.GetCameraController();
+        if (camCtrl)
+        {
+            // Clamp camera mode index
+            if (cameraModeIndex < 0)
+                cameraModeIndex = 0;
+            if (cameraModeIndex > 3)
+                cameraModeIndex = 3;
+
+            // Map index to camera mode and apply
+            CameraControllerMode modes[] = {CAMERA_MODE_FREE, CAMERA_MODE_FOLLOW, CAMERA_MODE_CUTSCENE, CAMERA_MODE_FIXED};
+            camCtrl->SetMode(modes[cameraModeIndex]);
+
+            // Apply free camera parameters (convert 0-1 sensitivity to actual value)
+            camCtrl->SetFreeCameraSpeed(freeCameraSpeed);
+            camCtrl->SetFreeCameraMouseSensitivity(freeCameraMouseSensitivity * 0.01f);
+        }
+    }
+
     // Handle input
     HandleInput(deltaTime);
 
@@ -582,6 +603,11 @@ void Game::SetupDebugMenu()
     CameraController *camCtrl = renderManager.GetCameraController();
     debugMenu.AddFloat("Camera FOV", &camCtrl->camera.fovy, 20.0f, 120.0f, 1.0f);
 
+    // Camera mode selection
+    debugMenu.AddString("Camera Mode", &cameraModeIndex, {"Free", "Follow", "Cutscene", "Fixed"});
+    debugMenu.AddFloat("Free Cam Speed", &freeCameraSpeed, 1.0f, 50.0f, 1.0f);
+    debugMenu.AddFloat("Free Cam Sens", &freeCameraMouseSensitivity, 0.1f, 1.0f, 0.05f);
+
     TraceLog(LOG_INFO, "Game: Debug menu initialized");
 }
 
@@ -747,6 +773,26 @@ void Game::HandleInput(float deltaTime)
     {
         RaylibRmlUi::ToggleDebugger();
     }
+
+    // Example cutscene trigger (C key)
+    if (IsKeyPressed(KEY_C))
+    {
+        CameraController *camCtrl = renderManager.GetCameraController();
+
+        // Define example cutscene waypoints
+        std::vector<CameraWaypoint> cutsceneWaypoints = {
+            // Start position: above and behind
+            {{-15.0f, 12.0f, 15.0f}, {0.0f, 5.0f, 0.0f}, 3.0f, 45.0f},
+            // Pan to the center sphere
+            {{0.0f, 8.0f, 12.0f}, {0.0f, 1.0f, 0.0f}, 2.0f, 50.0f},
+            // Zoom in on red cube
+            {{-4.0f, 5.0f, -8.0f}, {-4.0f, 1.0f, -4.0f}, 2.5f, 35.0f},
+            // Final pan back out
+            {{10.0f, 10.0f, 10.0f}, {0.0f, 0.0f, 0.0f}, 3.0f, 45.0f}};
+
+        camCtrl->StartCutscene(cutsceneWaypoints);
+        TraceLog(LOG_INFO, "Cutscene started (press C to replay)");
+    }
 }
 
 void Game::DrawUI()
@@ -759,7 +805,7 @@ void Game::DrawUI()
     int yPos = UI_MARGIN;
 
     // Controls help
-    DrawText("WASD: Move | Mouse: Look | E: Talk | TAB: Cursor | ESC: Pause | DELETE: Exit",
+    DrawText("WASD: Move | Mouse: Look | E: Talk | C: Cutscene | TAB: Cursor | ESC: Pause | DELETE: Exit",
              UI_MARGIN, yPos, UI_TEXT_SIZE, DARKGRAY);
     yPos += UI_LINE_SPACING;
 

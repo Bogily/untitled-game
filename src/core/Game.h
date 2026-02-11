@@ -88,6 +88,10 @@ private:
     int fullscreenMode = 0;          ///< Display mode: 0=Windowed, 1=Fullscreen, 2=Borderless
     int previousFullscreenMode = -1; ///< Previous display mode (for change detection)
 
+    int cameraModeIndex = 1;                 ///< Camera mode selection for debug menu
+    float freeCameraSpeed = 10.0f;           ///< Free camera movement speed
+    float freeCameraMouseSensitivity = 0.3f; ///< Free camera mouse sensitivity (0-1 scale for UI)
+
     /**
      * @brief Setup game menus with callbacks
      */

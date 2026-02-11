@@ -746,9 +746,6 @@ void PostProcessingRenderer::SetContactShadowParams(float maxDist, int steps, fl
     contactShadowSteps = fmaxf(4, fminf(64, steps));
     contactShadowThickness = fmaxf(0.001f, fminf(0.1f, thickness));
     contactShadowIntensity = fmaxf(0.0f, fminf(1.0f, intensity));
-
-    TraceLog(LOG_INFO, "PostProcessingRenderer: Contact shadow params updated (dist=%.3f, steps=%d, thickness=%.4f, intensity=%.2f)",
-             contactShadowMaxDist, contactShadowSteps, contactShadowThickness, contactShadowIntensity);
 }
 
 // Screen-Space Ambient Occlusion Implementation
@@ -761,7 +758,4 @@ void PostProcessingRenderer::SetSSAOParams(int samples, float radius, float bias
     ssaoBias = fmaxf(0.001f, fminf(0.01f, bias));
     ssaoIntensity = fmaxf(0.0f, fminf(2.0f, intensity));
     ssaoContrast = fmaxf(0.5f, fminf(2.0f, contrast));
-
-    TraceLog(LOG_INFO, "PostProcessingRenderer: SSAO params updated (samples=%d, radius=%.4f, bias=%.5f, intensity=%.2f, contrast=%.2f)",
-             ssaoNumSamples, ssaoRadius, ssaoBias, ssaoIntensity, ssaoContrast);
 }

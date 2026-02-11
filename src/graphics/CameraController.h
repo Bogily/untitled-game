@@ -65,6 +65,14 @@ public:
     void SetFollowHeight(float height) { followHeight = height; }
     void SetSmoothness(float smoothness);
 
+    // Free camera controls
+    void SetFreeCameraSpeed(float speed) { freeCameraSpeed = speed; }
+    void SetFreeCameraMouseSensitivity(float sensitivity) { freeCameraMouseSensitivity = sensitivity; }
+    float GetFreeCameraSpeed() const { return freeCameraSpeed; }
+    float GetFreeCameraMouseSensitivity() const { return freeCameraMouseSensitivity; }
+    float GetFreeCameraYaw() const { return freeCameraYaw; }
+    float GetFreeCameraPitch() const { return freeCameraPitch; }
+
     // Smooth transitions
     void TransitionTo(Vector3 newPosition, Vector3 newTarget, float duration);
     bool IsTransitioning() const { return isTransitioning; }
@@ -76,6 +84,12 @@ private:
     float followYaw;          ///< Follow camera yaw angle
     float followPitch;        ///< Follow camera pitch angle
     float cameraSmoothness;   ///< Movement smoothness factor
+
+    // Free camera parameters
+    float freeCameraSpeed = 10.0f;             ///< Free camera movement speed
+    float freeCameraMouseSensitivity = 0.003f; ///< Mouse look sensitivity
+    float freeCameraYaw = 0.0f;                ///< Free camera yaw angle
+    float freeCameraPitch = 0.0f;              ///< Free camera pitch angle
 
     std::vector<CameraWaypoint> cutsceneWaypoints; ///< Cutscene waypoint path
     int currentWaypointIndex;                      ///< Current waypoint index

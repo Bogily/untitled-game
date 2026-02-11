@@ -9,6 +9,10 @@ CameraController::CameraController()
       followYaw(0.0f),
       followPitch(-20.0f),
       cameraSmoothness(0.1f),
+      freeCameraSpeed(10.0f),
+      freeCameraMouseSensitivity(0.003f),
+      freeCameraYaw(0.0f),
+      freeCameraPitch(0.0f),
       currentWaypointIndex(0),
       cutsceneTimer(0.0f),
       isPlayingCutscene(false),
@@ -76,6 +80,63 @@ void CameraController::Update(float deltaTime)
 
 void CameraController::UpdateFreeCamera(float deltaTime)
 {
+    // Handle mouse input for camera rotation
+    Vector2 mouseDelta = GetMouseDelta();
+
+    if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f)
+    {
+        // Update yaw and pitch based on mouse movement (negate yaw for correct direction)
+        freeCameraYaw -= mouseDelta.x * freeCameraMouseSensitivity * 100.0f;
+        freeCameraPitch -= mouseDelta.y * freeCameraMouseSensitivity * 100.0f;
+
+        // Clamp pitch to prevent camera flipping (+-89 degrees)
+        if (freeCameraPitch > 89.0f)
+            freeCameraPitch = 89.0f;
+        if (freeCameraPitch < -89.0f)
+            freeCameraPitch = -89.0f;
+    }
+
+    // Convert angles to radians
+    float yawRad = freeCameraYaw * DEG2RAD;
+    float pitchRad = freeCameraPitch * DEG2RAD;
+
+    // Calculate forward, right, and up vectors
+    Vector3 forward;
+    forward.x = sinf(yawRad) * cosf(pitchRad);
+    forward.y = sinf(pitchRad);
+    forward.z = cosf(yawRad) * cosf(pitchRad);
+    forward = Vector3Normalize(forward);
+
+    Vector3 right = Vector3CrossProduct(forward, {0.0f, 1.0f, 0.0f});
+    right = Vector3Normalize(right);
+
+    Vector3 up = Vector3CrossProduct(right, forward);
+    up = Vector3Normalize(up);
+
+    // Handle keyboard input for movement
+    Vector3 movement = {0.0f, 0.0f, 0.0f};
+
+    if (IsKeyDown(KEY_W))
+        movement = Vector3Add(movement, Vector3Scale(forward, freeCameraSpeed * deltaTime));
+    if (IsKeyDown(KEY_S))
+        movement = Vector3Add(movement, Vector3Scale(forward, -freeCameraSpeed * deltaTime));
+    if (IsKeyDown(KEY_D))
+        movement = Vector3Add(movement, Vector3Scale(right, freeCameraSpeed * deltaTime));
+    if (IsKeyDown(KEY_A))
+        movement = Vector3Add(movement, Vector3Scale(right, -freeCameraSpeed * deltaTime));
+    if (IsKeyDown(KEY_SPACE))
+        movement = Vector3Add(movement, Vector3Scale(up, freeCameraSpeed * deltaTime));
+    if (IsKeyDown(KEY_LEFT_CONTROL))
+        movement = Vector3Add(movement, Vector3Scale(up, -freeCameraSpeed * deltaTime));
+
+    // Apply movement to camera position
+    Vector3 newPosition = Vector3Add(camera.position, movement);
+
+    // Calculate new target (looking direction)
+    Vector3 newTarget = Vector3Add(newPosition, forward);
+
+    // Update camera
+    camera.SetDesired(newPosition, newTarget, camera.fovy);
 }
 
 void CameraController::UpdateFollowCamera(Vector3 targetPosition, float deltaTime)
