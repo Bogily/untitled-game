@@ -31,6 +31,17 @@ void UIMenu::AddButton(std::string name, std::function<void()> callback)
     buttonSettings.emplace_back(ButtonSetting{std::move(name), std::move(callback)});
 }
 
+void UIMenu::Clear()
+{
+    boolSettings.clear();
+    floatSettings.clear();
+    intSettings.clear();
+    stringSettings.clear();
+    buttonSettings.clear();
+    selectedIndex = 0;
+    editingValue = false;
+}
+
 int UIMenu::GetTotalItems() const
 {
     return boolSettings.size() + floatSettings.size() + intSettings.size() + stringSettings.size() + buttonSettings.size();

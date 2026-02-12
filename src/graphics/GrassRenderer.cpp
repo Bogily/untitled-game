@@ -12,7 +12,7 @@
 // No platform-specific code needed!
 
 GrassRenderer::GrassRenderer()
-    : windDirection({1.0f, 0.5f}), windStrength(0.5f), windSpeed(2.0f), currentTime(0.0f), fovCullingMultiplier(1.3f), timeLoc(-1), windDirLoc(-1), windStrengthLoc(-1), windSpeedLoc(-1), viewPosLoc(-1), matViewLoc(-1), matProjLoc(-1), lightDirLoc(-1), lightColorLoc(-1), grassColorTopLoc(-1), grassColorBottomLoc(-1), ambientStrengthLoc(-1), visibleCount(0), totalGrassCount(0), areaSize(0.0f), grassBladeMesh({0}), instanceVBO(0), lastUploadedCount(0), updateTimeMs(0.0), drawTimeMs(0.0), computeProgram(0), ssboAllInstances(0), ssboVisibleInstances(0), gpuCullingEnabled(true), cullRadiusMultiplier(1.15f)
+    : windDirection({1.0f, 0.5f}), windStrength(0.5f), windSpeed(2.0f), currentTime(0.0f), fovCullingMultiplier(1.3f), timeLoc(-1), windDirLoc(-1), windStrengthLoc(-1), windSpeedLoc(-1), viewPosLoc(-1), matViewLoc(-1), matProjLoc(-1), lightDirLoc(-1), lightColorLoc(-1), grassColorTopLoc(-1), grassColorBottomLoc(-1), ambientStrengthLoc(-1), visibleCount(0), totalGrassCount(0), areaSize(0.0f), grassBladeMesh({0}), instanceVBO(0), instanceVBOs{0, 0}, currentVBOIndex(0), lastUploadedCount(0), updateTimeMs(0.0), drawTimeMs(0.0), computeProgram(0), ssboAllInstances(0), ssboVisibleInstances(0), gpuCullingEnabled(true), cullRadiusMultiplier(1.15f), initialized(false)
 {
 }
 
@@ -106,6 +106,11 @@ void GrassRenderer::SetupInstanceBuffer()
 
 void GrassRenderer::Init(int grassCount, float size)
 {
+    if (initialized)
+    {
+        Shutdown();
+    }
+
     areaSize = size;
     totalGrassCount = grassCount;
 
@@ -179,6 +184,7 @@ void GrassRenderer::Init(int grassCount, float size)
     // Reserve space for visible instances
     visibleInstances.reserve(grassCount);
 
+    initialized = true;
     TraceLog(LOG_INFO, "GrassRenderer initialized with %d grass instances (GPU Instanced Rendering)", grassCount);
 }
 
@@ -460,6 +466,9 @@ void GrassRenderer::Draw(Camera3D camera)
 
 void GrassRenderer::Shutdown()
 {
+    if (!initialized)
+        return;
+
     for (int i = 0; i < 2; ++i)
     {
         if (instanceVBOs[i] > 0)
@@ -503,6 +512,11 @@ void GrassRenderer::Shutdown()
 
     allInstances.clear();
     visibleInstances.clear();
+    visibleCount = 0;
+    totalGrassCount = 0;
+    instanceVBO = 0;
+    currentVBOIndex = 0;
+    initialized = false;
     TraceLog(LOG_INFO, "GrassRenderer shutdown");
 }
 

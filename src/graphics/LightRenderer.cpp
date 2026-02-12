@@ -105,13 +105,20 @@ void LightRenderer::ApplyToModel(Model &model, const Vector4 &albedo, float meta
     // Assign shader to the model's first material
     model.materials[0].shader = pbrShader;
     model.materials[0].maps[MATERIAL_MAP_ALBEDO].color = WHITE;
-    model.materials[0].maps[MATERIAL_MAP_METALNESS].value = metallic;
-    model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].value = roughness;
+
+    // Apply overrides when provided, otherwise keep model defaults.
+    if (metallic >= 0.0f)
+        model.materials[0].maps[MATERIAL_MAP_METALNESS].value = metallic;
+    if (roughness >= 0.0f)
+        model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].value = roughness;
+
+    const float effectiveMetallic = model.materials[0].maps[MATERIAL_MAP_METALNESS].value;
+    const float effectiveRoughness = model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].value;
 
     // Set material uniforms
     SetShaderValue(pbrShader, GetShaderLocation(pbrShader, "albedoColor"), &albedo, SHADER_UNIFORM_VEC4);
-    SetShaderValue(pbrShader, GetShaderLocation(pbrShader, "metallicValue"), &metallic, SHADER_UNIFORM_FLOAT);
-    SetShaderValue(pbrShader, GetShaderLocation(pbrShader, "roughnessValue"), &roughness, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(pbrShader, GetShaderLocation(pbrShader, "metallicValue"), &effectiveMetallic, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(pbrShader, GetShaderLocation(pbrShader, "roughnessValue"), &effectiveRoughness, SHADER_UNIFORM_FLOAT);
 }
 
 void LightRenderer::Update(const Camera &camera, int maxActiveLights)

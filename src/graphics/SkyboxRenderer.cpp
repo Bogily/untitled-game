@@ -13,8 +13,11 @@ SkyboxRenderer::SkyboxRenderer() : time(0.0f),
                                    cloudScale(0.4f),
                                    cloudSpeed(0.3f),
                                    cloudCoverage(0.5f),
-                                   cloudOffset({0.0f, 0.0f, 0.0f})
+                                   cloudOffset({0.0f, 0.0f, 0.0f}),
+                                   loaded(false)
 {
+    shader = {0};
+    cube = {0};
 }
 
 SkyboxRenderer::~SkyboxRenderer()
@@ -23,6 +26,11 @@ SkyboxRenderer::~SkyboxRenderer()
 
 void SkyboxRenderer::Load(const char *vsPath, const char *fsPath)
 {
+    if (loaded)
+    {
+        Unload();
+    }
+
     // Load skybox shader
     shader = LoadShader(vsPath, fsPath);
 
@@ -44,6 +52,7 @@ void SkyboxRenderer::Load(const char *vsPath, const char *fsPath)
     // Generate a cube mesh for the skybox
     cube = LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f));
     cube.materials[0].shader = shader;
+    loaded = true;
 
     TraceLog(LOG_INFO, "SkyboxRenderer: Loaded successfully");
 }
@@ -104,6 +113,9 @@ void SkyboxRenderer::Update(float deltaTime)
 
 void SkyboxRenderer::Draw(Camera3D camera)
 {
+    if (!loaded)
+        return;
+
     // Update shader uniforms
     SetShaderValue(shader, timeLoc, &time, SHADER_UNIFORM_FLOAT);
     SetShaderValue(shader, skyColorLoc, &skyColor, SHADER_UNIFORM_VEC3);
@@ -146,7 +158,21 @@ void SkyboxRenderer::Draw(Camera3D camera)
 
 void SkyboxRenderer::Unload()
 {
-    UnloadModel(cube);
-    UnloadShader(shader);
+    if (!loaded)
+        return;
+
+    if (cube.meshCount > 0)
+    {
+        UnloadModel(cube);
+        cube = {0};
+    }
+
+    if (shader.id > 0)
+    {
+        UnloadShader(shader);
+        shader = {0};
+    }
+
+    loaded = false;
     TraceLog(LOG_INFO, "SkyboxRenderer: Unloaded");
 }

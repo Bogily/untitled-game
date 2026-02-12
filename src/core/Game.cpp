@@ -5,6 +5,8 @@
 #include "rlgl.h"
 #include <glad/glad.h>
 #include <memory>
+#include <filesystem>
+#include <algorithm>
 
 void Game::Init()
 {
@@ -81,14 +83,15 @@ void Game::Init()
         TraceLog(LOG_WARNING, "Failed to load main menu fire shader");
     }
 
-    TraceLog(LOG_INFO, "Loading scene from Lua...");
-    // Register and load scene from Lua file
-    LuaScene *testScene = new LuaScene("assets/scenes/test_scene.lua");
-    sceneManager.RegisterScene("TestScene", testScene);
-    sceneManager.LoadScene("TestScene");
-
-    TraceLog(LOG_INFO, "Scene loaded successfully");
-    // Debug menu will be initialized after scene setup, once models exist
+    DiscoverAndRegisterScenes();
+    if (sceneManager.HasScene("test_scene"))
+    {
+        sceneManager.LoadScene("test_scene");
+    }
+    else if (!availableScenes.empty())
+    {
+        sceneManager.LoadScene(availableScenes.front());
+    }
 
     // Start in main menu with RmlUI
     currentState = GameState::MAIN_MENU;
@@ -539,10 +542,12 @@ void Game::InitializeScene()
 
     // Game-logic specific setup
     SetupPlayer(level);
-    SetupModels(level);
 
-    // All rendering setup delegated to RenderManager
+    // Prepare scene-bound render systems first (lights, skybox, grass/water, particles, camera)
     renderManager.SetupFromLevelData(level);
+
+    // Register scene geometry after renderer scene reset so model pointers/instances stay valid
+    SetupModels(level);
 
     // Setup camera controller's follow target
     CameraController *camCtrl = renderManager.GetCameraController();
@@ -550,7 +555,10 @@ void Game::InitializeScene()
     camCtrl->SetMode(CAMERA_MODE_FOLLOW);
 
     // Now that models and systems are ready, set up the menus safely
+    // Clear and reinitialize debug menu to avoid duplicate entries
+    debugMenu.Clear();
     SetupDebugMenu();
+    postProcessingMenu.Clear();
     SetupPostProcessingMenu();
 
     TraceLog(LOG_INFO, "Game: Scene initialization complete");
@@ -565,7 +573,11 @@ void Game::ShutdownScene()
 
     // Unload player model
     if (player.GetRender().modelLoaded)
+    {
         UnloadModel(player.GetRender().model);
+        player.GetRender().model = {0};
+        player.GetRender().modelLoaded = false;
+    }
 
     // Unload all scene models
     for (auto &pair : sceneModels)
@@ -580,8 +592,61 @@ void Game::ShutdownScene()
     TraceLog(LOG_INFO, "Game: Scene shutdown complete");
 }
 
+void Game::DiscoverAndRegisterScenes()
+{
+    availableScenes.clear();
+
+    const std::filesystem::path scenesPath("assets/scenes");
+    if (!std::filesystem::exists(scenesPath) || !std::filesystem::is_directory(scenesPath))
+    {
+        TraceLog(LOG_WARNING, "Game: Scene directory not found: %s", scenesPath.string().c_str());
+        return;
+    }
+
+    for (const auto &entry : std::filesystem::directory_iterator(scenesPath))
+    {
+        if (!entry.is_regular_file() || entry.path().extension() != ".lua")
+            continue;
+
+        const std::string sceneName = entry.path().stem().string();
+        availableScenes.push_back(sceneName);
+
+        if (!sceneManager.HasScene(sceneName))
+        {
+            sceneManager.RegisterScene(sceneName, new LuaScene(entry.path().string()));
+        }
+    }
+
+    std::sort(availableScenes.begin(), availableScenes.end());
+    TraceLog(LOG_INFO, "Game: Discovered %d scenes", (int)availableScenes.size());
+}
+
+bool Game::SwitchToScene(const std::string &sceneName)
+{
+    if (!sceneManager.HasScene(sceneName))
+    {
+        TraceLog(LOG_ERROR, "Game: Scene '%s' is not registered", sceneName.c_str());
+        return false;
+    }
+
+    ShutdownScene();
+    sceneManager.LoadScene(sceneName);
+
+    if (!sceneManager.GetCurrentScene())
+    {
+        TraceLog(LOG_ERROR, "Game: Failed to activate scene '%s'", sceneName.c_str());
+        return false;
+    }
+
+    InitializeScene();
+    sceneInitialized = true;
+    return true;
+}
+
 void Game::SetupDebugMenu()
 {
+    DiscoverAndRegisterScenes();
+
     debugMenu.AddBool("Show Grid", &showGrid);
     debugMenu.AddBool("Show FPS", &showFPS);
     debugMenu.AddBool("Show Grass", &showGrass);
@@ -640,6 +705,20 @@ void Game::SetupDebugMenu()
             TraceLog(LOG_INFO, "Cutscene started from debug menu");
         } });
 
+    for (const auto &sceneName : availableScenes)
+    {
+        debugMenu.AddButton("Scene: " + sceneName, [this, sceneName]()
+                            {
+        if (!SwitchToScene(sceneName))
+        {
+            TraceLog(LOG_ERROR, "Game: Scene switch failed: %s", sceneName.c_str());
+        }
+        else
+        {
+            TraceLog(LOG_INFO, "Game: Switched to scene '%s'", sceneName.c_str());
+        } });
+    }
+
     TraceLog(LOG_INFO, "Game: Debug menu initialized");
 }
 
@@ -669,16 +748,48 @@ void Game::SetupPlayer(const LevelData &level)
 {
     player.GetTransform().position = level.playerStartPosition;
 
-    // Load player model
-    customModel.addModel("Rat", "assets/models/rat.obj", "assets/textures/rat.png", {0.04f, 0.04f, 0.04f}, {0.0f, 0.0f, 0.0f});
-    customModel.addModel("Miku", "assets/models/miku/scene.gltf", "", {1.8f, 1.8f, 1.8f}, {90.0f, 0.0f, 0.0f});
+    if (customModel.getModelCount() == 0)
+    {
+        customModel.addModel("Rat", "assets/models/rat.obj", "assets/textures/rat.png", {0.04f, 0.04f, 0.04f}, {0.0f, 0.0f, 0.0f});
+        customModel.addModel("Miku", "assets/models/miku/scene.gltf", "", {1.8f, 1.8f, 1.8f}, {90.0f, 0.0f, 0.0f});
+    }
+
     customModel.loadPlayerModel(player, currentModelIndex);
 }
 
 Model Game::CreateModelFromType(const std::string &modelType)
 {
+    // Check if this is an external model file (starts with assets/ or ends with .glb)
+    if (modelType.find("assets/") == 0 || modelType.find(".glb") != std::string::npos)
+    {
+        TraceLog(LOG_INFO, "Loading external model: %s", modelType.c_str());
+        try
+        {
+            Model model = LoadModel(modelType.c_str());
+            if (model.meshCount > 0)
+            {
+                TraceLog(LOG_INFO, "Successfully loaded external model with %d meshes", model.meshCount);
+                return model;
+            }
+            else
+            {
+                TraceLog(LOG_WARNING, "Failed to load external model: %s (no meshes loaded), falling back to cube", modelType.c_str());
+                return LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f));
+            }
+        }
+        catch (const std::exception &e)
+        {
+            TraceLog(LOG_ERROR, "Exception loading external model '%s': %s, falling back to cube", modelType.c_str(), e.what());
+            return LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f));
+        }
+        catch (...)
+        {
+            TraceLog(LOG_ERROR, "Unknown exception loading external model '%s', falling back to cube", modelType.c_str());
+            return LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f));
+        }
+    }
     // Parse model type string
-    if (modelType.find("plane") == 0)
+    else if (modelType.find("plane") == 0)
     {
         return LoadModelFromMesh(GenMeshPlane(32.0f, 32.0f, 10, 10));
     }
@@ -742,8 +853,11 @@ void Game::SetupModels(const LevelData &level)
         }
 
         // Add to shader application list
+        // Use -1.0 as sentinel to indicate "use GLB default"
         Vector4 albedoVec = ColorNormalize(objData.albedo);
-        modelsToShader.push_back({model, albedoVec, objData.metallic, objData.roughness});
+        float metallic = objData.metallic >= 0.0f ? objData.metallic : -1.0f;
+        float roughness = objData.roughness >= 0.0f ? objData.roughness : -1.0f;
+        modelsToShader.push_back({model, albedoVec, metallic, roughness});
     }
 
     // Apply PBR shaders to all models

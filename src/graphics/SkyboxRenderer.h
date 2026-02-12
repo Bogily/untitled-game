@@ -42,6 +42,7 @@ private:
     float cloudSpeed;    ///< Animation speed multiplier
     float cloudCoverage; ///< Cloud coverage [0,1]
     Vector3 cloudOffset; ///< 3D offset for cloud animation
+    bool loaded;         ///< Resource load state
 
 public:
     /**

@@ -50,6 +50,7 @@ private:
     bool sceneInitialized = false;                      ///< Whether scene has been initialized
     std::unordered_map<std::string, Model> sceneModels; ///< Scene-specific models
     std::unordered_map<std::string, int> modelIDs;      ///< Model ID lookup table
+    std::vector<std::string> availableScenes;           ///< Discovered scene names
 
     bool rmlReady = false;                       ///< RmlUI initialization status
     Rml::ElementDocument *rmlMainMenu = nullptr; ///< RmlUI main menu document
@@ -147,6 +148,18 @@ private:
      * @param level Level configuration data
      */
     void SetupModels(const LevelData &level);
+
+    /**
+     * @brief Discover and register Lua scenes from assets/scenes
+     */
+    void DiscoverAndRegisterScenes();
+
+    /**
+     * @brief Switch to a registered scene and initialize runtime state
+     * @param sceneName Registered scene identifier
+     * @return True on success
+     */
+    bool SwitchToScene(const std::string &sceneName);
 
     /**
      * @brief Update NPC entities and interactions

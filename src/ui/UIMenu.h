@@ -72,6 +72,9 @@ public:
     void AddString(std::string name, int *selectedIndex, std::vector<std::string> options);
     void AddButton(std::string name, std::function<void()> callback);
 
+    // Clear all settings
+    void Clear();
+
     // Core functionality
     void Toggle();
     virtual void Update() = 0; // Must be implemented by derived classes

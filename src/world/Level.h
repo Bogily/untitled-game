@@ -22,14 +22,14 @@ public:
      */
     struct ObjectData
     {
-        std::string name;      ///< Object name
-        Vector3 position;      ///< World position
-        Vector3 rotation;      ///< Euler rotation
-        Vector3 scale;         ///< Scale factors
-        Color albedo;          ///< Base color
-        float metallic;        ///< Metallic factor
-        float roughness;       ///< Roughness factor
-        std::string modelType; ///< Model type: "sphere", "cube", "cylinder", etc.
+        std::string name;        ///< Object name
+        Vector3 position;        ///< World position
+        Vector3 rotation;        ///< Euler rotation
+        Vector3 scale;           ///< Scale factors
+        Color albedo = WHITE;    ///< Base color
+        float metallic = -1.0f;  ///< Metallic factor (-1.0 = use model default)
+        float roughness = -1.0f; ///< Roughness factor (-1.0 = use model default)
+        std::string modelType;   ///< Model type: "sphere", "cube", "cylinder", etc.
     };
 
     /**
@@ -102,14 +102,14 @@ public:
     std::vector<LightData> lights;              ///< Light sources
     std::vector<ParticleEmitterData> particles; ///< Particle emitters
 
-    Vector3 grassPosition; ///< Grass area position
-    float grassWidth;      ///< Grass area width
-    float grassLength;     ///< Grass area length
-    int grassBladeCount;   ///< Number of grass blades
+    Vector3 grassPosition = {0.0f, 0.0f, 0.0f}; ///< Grass area position
+    float grassWidth = 0.0f;                    ///< Grass area width
+    float grassLength = 0.0f;                   ///< Grass area length
+    int grassBladeCount = 0;                    ///< Number of grass blades
 
-    Vector3 waterPosition; ///< Water surface position
-    float waterWidth;      ///< Water surface width
-    float waterLength;     ///< Water surface length
+    Vector3 waterPosition = {0.0f, 0.0f, 0.0f}; ///< Water surface position
+    float waterWidth = 0.0f;                    ///< Water surface width
+    float waterLength = 0.0f;                   ///< Water surface length
 
     std::string skyboxTexture; ///< Skybox texture path
 

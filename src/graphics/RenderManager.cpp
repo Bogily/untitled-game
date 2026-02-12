@@ -329,50 +329,66 @@ void RenderManager::UpdateParticles(float deltaTime, Vector3 camPos)
     particleSystem.Update(deltaTime, camPos);
 }
 
-// NEW: Consolidated setup from level data
+void RenderManager::ResetSceneResources()
+{
+    lightRenderer.ClearLights();
+
+    geometryRenderer.Shutdown();
+    geometryRenderer.Init();
+
+    grassRenderer.Shutdown();
+    waterRenderer.Cleanup();
+    skyboxRenderer.Unload();
+
+    particleSystem.Shutdown();
+    particleSystem.Init();
+}
+
 void RenderManager::SetupFromLevelData(const LevelData &level)
 {
     TraceLog(LOG_INFO, "RenderManager: Setting up from level data '%s'...", level.name.c_str());
 
-    // Setup sun direction
-    Vector3 sunDirection = {0.3f, 0.5f, 0.8f};
-    SetSunDirection(sunDirection);
+    ResetSceneResources();
 
-    // Setup base lights
-    lightRenderer.CreateDirectionalLight(sunDirection, {1.0f, 0.95f, 0.8f, 1.0f}, 2.0f);
+    Vector3 sceneSunDirection = {0.3f, 0.5f, 0.8f};
+    SetSunDirection(sceneSunDirection);
+
+    lightRenderer.CreateDirectionalLight(sceneSunDirection, {1.0f, 0.95f, 0.8f, 1.0f}, 2.0f);
     lightRenderer.CreatePointLight({-5.0f, 4.0f, -5.0f}, {1.0f, 0.9f, 0.8f, 1.0f}, 12.0f, 15.0f);
     lightRenderer.CreatePointLight({5.0f, 4.0f, 5.0f}, {0.8f, 0.9f, 1.0f, 1.0f}, 12.0f, 15.0f);
     lightRenderer.CreatePointLight({0.0f, 6.0f, 0.0f}, {1.0f, 1.0f, 1.0f, 1.0f}, 15.0f, 20.0f);
 
-    // Add scene lights on top
     for (const auto &lightData : level.lights)
     {
-        if (lightData.type == 0) // Directional
+        if (lightData.type == 0)
         {
             Vector4 colorVec = ColorNormalize(lightData.color);
             lightRenderer.CreateDirectionalLight(lightData.direction, colorVec, lightData.intensity);
         }
-        else // Point
+        else
         {
             Vector4 colorVec = ColorNormalize(lightData.color);
             lightRenderer.CreatePointLight(lightData.position, colorVec, lightData.intensity, lightData.radius);
         }
     }
 
-    // Setup skybox
     if (!level.skyboxTexture.empty())
     {
         skyboxRenderer.Load("assets/shader/skybox.vs", "assets/shader/skybox.fs");
     }
 
-    // Setup grass (200000 grass blades over 30x30 area)
-    InitializeGrass(200000, 30.0f);
-    ConfigureGrass({1.0f, 0.5f}, 0.5f, 2.0f);
+    if (level.grassBladeCount > 0 && level.grassWidth > 0.0f && level.grassLength > 0.0f)
+    {
+        const float areaSize = (level.grassWidth > level.grassLength) ? level.grassWidth : level.grassLength;
+        InitializeGrass(level.grassBladeCount, areaSize);
+        ConfigureGrass({1.0f, 0.5f}, 0.5f, 2.0f);
+    }
 
-    // Setup water (50x50 water plane at -0.5 height)
-    InitializeWater(50.0f, 50.0f, -0.5f);
+    if (level.waterWidth > 0.0f && level.waterLength > 0.0f)
+    {
+        InitializeWater(level.waterWidth, level.waterLength, level.waterPosition.y);
+    }
 
-    // Setup particles
     for (const auto &pData : level.particles)
     {
         EmitterConfig config;
@@ -391,7 +407,6 @@ void RenderManager::SetupFromLevelData(const LevelData &level)
         config.emissionRate = pData.emissionRate;
         config.maxParticles = pData.maxParticles;
 
-        // Map blend mode string to enum
         config.blendMode = ParticleBlendMode::ALPHA;
         if (pData.blendMode == "add")
             config.blendMode = ParticleBlendMode::ADD;
@@ -400,7 +415,6 @@ void RenderManager::SetupFromLevelData(const LevelData &level)
         else if (pData.blendMode == "sub")
             config.blendMode = ParticleBlendMode::SUBTRACT;
 
-        // Load texture priority: Path > Name > Default
         if (!pData.texturePath.empty())
         {
             config.texture = LoadTexture(pData.texturePath.c_str());

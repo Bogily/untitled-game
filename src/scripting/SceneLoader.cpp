@@ -206,11 +206,13 @@ void SceneLoader::ReadObjects(lua_State *L, LevelData &level)
                     obj.modelType = lua_tostring(L, -1);
                 lua_pop(L, 1);
 
+                // Metallic is optional, defaults to -1.0 (use GLB value)
                 lua_getfield(L, -1, "metallic");
                 if (lua_isnumber(L, -1))
                     obj.metallic = (float)lua_tonumber(L, -1);
                 lua_pop(L, 1);
 
+                // Roughness is optional, defaults to -1.0 (use GLB value)
                 lua_getfield(L, -1, "roughness");
                 if (lua_isnumber(L, -1))
                     obj.roughness = (float)lua_tonumber(L, -1);

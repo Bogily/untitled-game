@@ -405,6 +405,8 @@ public:
     bool IsInitialized() const { return initialized; }
 
 private:
+    void ResetSceneResources();
+
     int screenWidth;        ///< Current screen width
     int screenHeight;       ///< Current screen height
     int currentDisplayMode; ///< Display mode: 0=Windowed, 1=Fullscreen, 2=Borderless

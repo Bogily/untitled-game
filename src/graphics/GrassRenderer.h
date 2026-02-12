@@ -204,4 +204,5 @@ private:
     unsigned int ssboVisibleInstances; ///< Visible instances SSBO
     bool gpuCullingEnabled;            ///< GPU culling toggle
     float cullRadiusMultiplier;        ///< Culling radius multiplier
+    bool initialized;                  ///< Initialization status
 };
