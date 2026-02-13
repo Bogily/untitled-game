@@ -7,6 +7,15 @@
 #include <memory>
 #include <filesystem>
 #include <algorithm>
+#include <unordered_set>
+
+namespace
+{
+float GetUniformScale(Vector3 scale)
+{
+    return (scale.x + scale.y + scale.z) / 3.0f;
+}
+}
 
 void Game::Init()
 {
@@ -459,12 +468,34 @@ void Game::DrawPlaying()
         // Draw all 3D elements (order matters for proper layering)
         renderManager.GetSkyboxRenderer()->Draw(renderCamera);
         renderManager.GetGeometryRenderer()->Draw(renderCamera);
+
+        Scene *s = sceneManager.GetCurrentScene();
+        if (s)
+        {
+            for (const auto &objData : s->GetObjects())
+            {
+                if (objData.mobility != LevelData::ObjectData::Mobility::Dynamic)
+                    continue;
+
+                auto modelIt = sceneModels.find(objData.modelType);
+                if (modelIt == sceneModels.end())
+                    continue;
+
+                rlPushMatrix();
+                rlTranslatef(objData.position.x, objData.position.y, objData.position.z);
+                rlRotatef(objData.rotation.x, 1.0f, 0.0f, 0.0f);
+                rlRotatef(objData.rotation.y, 0.0f, 1.0f, 0.0f);
+                rlRotatef(objData.rotation.z, 0.0f, 0.0f, 1.0f);
+                rlScalef(objData.scale.x, objData.scale.y, objData.scale.z);
+                DrawModel(modelIt->second, {0, 0, 0}, 1.0f, WHITE);
+                rlPopMatrix();
+            }
+        }
         
         // Draw player with proper rotation transform
         customModel.drawPlayerModel(player);
         
         // Draw NPCs
-        Scene *s = sceneManager.GetCurrentScene();
         if (s)
         {
             for (auto &npc : s->GetNPCs())
@@ -547,7 +578,7 @@ void Game::InitializeScene()
     renderManager.SetupFromLevelData(level);
 
     // Register scene geometry after renderer scene reset so model pointers/instances stay valid
-    SetupModels(level);
+    SetupModels(*scene);
 
     // Setup camera controller's follow target
     CameraController *camCtrl = renderManager.GetCameraController();
@@ -825,12 +856,13 @@ Model Game::CreateModelFromType(const std::string &modelType)
     return LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f));
 }
 
-void Game::SetupModels(const LevelData &level)
+void Game::SetupModels(Scene &scene)
 {
     GeometryRenderer *geoRenderer = renderManager.GetGeometryRenderer();
     std::vector<RenderManager::ModelMaterial> modelsToShader;
+    std::unordered_set<std::string> shaderConfiguredTypes;
 
-    for (const auto &objData : level.objects)
+    for (const auto &objData : scene.GetObjects())
     {
         // Create model if not already created
         if (sceneModels.find(objData.modelType) == sceneModels.end())
@@ -840,24 +872,29 @@ void Game::SetupModels(const LevelData &level)
 
         Model *model = &sceneModels[objData.modelType];
 
-        // Register with geometry renderer if not already registered
-        if (modelIDs.find(objData.name) == modelIDs.end())
+        // Register model type with geometry renderer if not already registered
+        if (modelIDs.find(objData.modelType) == modelIDs.end())
         {
-            int modelID = geoRenderer->RegisterModel(objData.name, model);
-            modelIDs[objData.name] = modelID;
-        }
-        // Add instance for culling system (use rotation and position from Lua; models encode size)
-        {
-            int modelID = modelIDs[objData.name];
-            geoRenderer->AddInstance(modelID, objData.position, 1.0f, objData.rotation);
+            int modelID = geoRenderer->RegisterModel(objData.modelType, model);
+            modelIDs[objData.modelType] = modelID;
         }
 
-        // Add to shader application list
-        // Use -1.0 as sentinel to indicate "use GLB default"
-        Vector4 albedoVec = ColorNormalize(objData.albedo);
-        float metallic = objData.metallic >= 0.0f ? objData.metallic : -1.0f;
-        float roughness = objData.roughness >= 0.0f ? objData.roughness : -1.0f;
-        modelsToShader.push_back({model, albedoVec, metallic, roughness});
+        // Static objects are batched and culled by GeometryRenderer
+        if (objData.mobility == LevelData::ObjectData::Mobility::Static)
+        {
+            int modelID = modelIDs[objData.modelType];
+            geoRenderer->AddInstance(modelID, objData.position, GetUniformScale(objData.scale), objData.rotation);
+        }
+
+        // Configure each model type once (applies to static and dynamic objects)
+        if (shaderConfiguredTypes.insert(objData.modelType).second)
+        {
+            // Use -1.0 as sentinel to indicate "use GLB default"
+            Vector4 albedoVec = ColorNormalize(objData.albedo);
+            float metallic = objData.metallic >= 0.0f ? objData.metallic : -1.0f;
+            float roughness = objData.roughness >= 0.0f ? objData.roughness : -1.0f;
+            modelsToShader.push_back({model, albedoVec, metallic, roughness});
+        }
     }
 
     // Apply PBR shaders to all models

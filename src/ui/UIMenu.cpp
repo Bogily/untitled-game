@@ -102,7 +102,9 @@ void UIMenu::HandleSelection()
             int buttonIndex = selectedIndex - (boolCount + floatCount + intCount + stringCount);
             if (buttonIndex >= 0 && buttonIndex < (int)buttonSettings.size())
             {
-                buttonSettings[buttonIndex].callback();
+                // Copy callback so it remains valid even if callback mutates menu entries.
+                std::function<void()> callback = buttonSettings[buttonIndex].callback;
+                callback();
             }
         }
     }

@@ -19,7 +19,7 @@ extern "C"
  *
  * Parses Lua scene files containing:
  * - Camera configuration
- * - Objects (models, positions, rotations)
+ * - Objects (models, transforms, optional static/dynamic mobility)
  * - NPCs (characters, dialogue)
  * - Lights (dynamic lighting)
  * - Particles (effects)

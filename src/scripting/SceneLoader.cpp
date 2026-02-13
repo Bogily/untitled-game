@@ -206,6 +206,22 @@ void SceneLoader::ReadObjects(lua_State *L, LevelData &level)
                     obj.modelType = lua_tostring(L, -1);
                 lua_pop(L, 1);
 
+                lua_getfield(L, -1, "mobility");
+                if (lua_isstring(L, -1))
+                {
+                    std::string mobility = lua_tostring(L, -1);
+                    if (mobility == "dynamic" || mobility == "Dynamic")
+                        obj.mobility = LevelData::ObjectData::Mobility::Dynamic;
+                    else
+                        obj.mobility = LevelData::ObjectData::Mobility::Static;
+                }
+                lua_pop(L, 1);
+
+                lua_getfield(L, -1, "isDynamic");
+                if (lua_isboolean(L, -1) && lua_toboolean(L, -1))
+                    obj.mobility = LevelData::ObjectData::Mobility::Dynamic;
+                lua_pop(L, 1);
+
                 // Metallic is optional, defaults to -1.0 (use GLB value)
                 lua_getfield(L, -1, "metallic");
                 if (lua_isnumber(L, -1))

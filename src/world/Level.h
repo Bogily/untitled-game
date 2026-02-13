@@ -22,6 +22,12 @@ public:
      */
     struct ObjectData
     {
+        enum class Mobility
+        {
+            Static,
+            Dynamic
+        };
+
         std::string name;        ///< Object name
         Vector3 position;        ///< World position
         Vector3 rotation;        ///< Euler rotation
@@ -30,6 +36,7 @@ public:
         float metallic = -1.0f;  ///< Metallic factor (-1.0 = use model default)
         float roughness = -1.0f; ///< Roughness factor (-1.0 = use model default)
         std::string modelType;   ///< Model type: "sphere", "cube", "cylinder", etc.
+        Mobility mobility = Mobility::Static; ///< Object mobility for scene runtime (static/dynamic)
     };
 
     /**
@@ -97,7 +104,7 @@ public:
     std::string name;                           ///< Level name
     CameraData camera;                          ///< Camera configuration
     Vector3 playerStartPosition;                ///< Player spawn position
-    std::vector<ObjectData> objects;            ///< Static objects
+    std::vector<ObjectData> objects;            ///< Scene object definitions
     std::vector<NPCData> npcs;                  ///< Non-player characters
     std::vector<LightData> lights;              ///< Light sources
     std::vector<ParticleEmitterData> particles; ///< Particle emitters

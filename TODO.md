@@ -1,7 +1,7 @@
 # Important
 
 - Write the blender Plugins (scene system)
-- Recode Scene Loader ^preferrably do it simoutaniously to the blender Plugins^
+- Make NPC's be lua scripts for dynamic dialog
 
 ---
 

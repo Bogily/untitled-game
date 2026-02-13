@@ -17,6 +17,9 @@ void LuaScene::Load()
     // Load level data from Lua file
     levelData = SceneLoader::LoadFromFile(filePath);
 
+    // Build scene object pool from loaded level data
+    LoadObjects();
+
     // Create NPCs from level data
     LoadNPCs();
 
@@ -27,10 +30,16 @@ void LuaScene::Unload()
 {
     TraceLog(LOG_INFO, "LuaScene: Unloading '%s'...", levelData.name.c_str());
 
-    // Clear NPCs
+    // Clear scene runtime data
+    objects.clear();
     npcs.clear();
 
     TraceLog(LOG_INFO, "LuaScene: Unloaded");
+}
+
+void LuaScene::LoadObjects()
+{
+    objects = levelData.objects;
 }
 
 void LuaScene::LoadNPCs()

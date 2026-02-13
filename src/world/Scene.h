@@ -12,7 +12,7 @@
 /**
  * @brief Base class for all game scenes
  *
- * Scenes provide level data and NPCs without containing logic.
+ * Scenes provide level data, object pools, and NPCs without containing logic.
  * The game loop is responsible for all updates and rendering.
  */
 class Scene
@@ -38,6 +38,12 @@ public:
      * @return Level data reference
      */
     virtual LevelData &GetLevelData() = 0;
+
+    /**
+     * @brief Get scene object pool
+     * @return Object vector reference
+     */
+    virtual std::vector<LevelData::ObjectData> &GetObjects() = 0;
 
     /**
      * @brief Get scene NPCs
