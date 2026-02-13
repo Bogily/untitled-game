@@ -294,7 +294,7 @@ scene = {
         position = {0.0, 0.0, 0.0},
         width = 30.0,
         length = 30.0,
-        bladeCount = 10000
+        bladeCount = 100000
     },
     
     -- Water settings

@@ -49,7 +49,7 @@ private:
 
     bool sceneInitialized = false;                      ///< Whether scene has been initialized
     std::unordered_map<std::string, Model> sceneModels; ///< Scene-specific models
-    std::unordered_map<std::string, int> modelIDs;      ///< Model ID lookup table
+    std::unordered_map<std::string, int> modelIDs;      ///< Geometry renderer model IDs by model type
     std::vector<std::string> availableScenes;           ///< Discovered scene names
 
     bool rmlReady = false;                       ///< RmlUI initialization status
@@ -147,7 +147,7 @@ private:
      * @brief Setup scene models from level data
      * @param level Level configuration data
      */
-    void SetupModels(const LevelData &level);
+    void SetupModels(Scene &scene);
 
     /**
      * @brief Discover and register Lua scenes from assets/scenes
