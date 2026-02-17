@@ -92,6 +92,10 @@ void Game::Init()
         TraceLog(LOG_WARNING, "Failed to load main menu fire shader");
     }
 
+    // Initialize GPU-accelerated SDF collision system
+    collisionSystem.SetResolution(sdfResolution);
+    collisionSystem.Init();
+
     DiscoverAndRegisterScenes();
     if (sceneManager.HasScene("test_scene"))
     {
@@ -238,6 +242,9 @@ void Game::UpdatePlaying()
 
     // Handle input
     HandleInput(deltaTime);
+
+    // Move player with WASD, apply gravity, and resolve SDF collisions
+    UpdatePlayerMovement(deltaTime);
 
     // Apply frame settings to render manager (from member variables modified by menus)
     renderFrameSettings.showDebugGrid = showGrid;
@@ -518,6 +525,13 @@ void Game::DrawPlaying()
         if (showGrid)
             DrawGrid(20, 1.0f);
         
+        // Draw SDF collision debug visualisation
+        if (showCollisionDebug && collisionSystem.IsReady())
+        {
+            collisionSystem.DrawDebugSlice(renderCamera, collisionDebugYLevel);
+            collisionSystem.DrawDebugBounds(GREEN);
+        }
+        
         EndMode3D(); }, renderCamera);
 
     renderManager.EndFrame();
@@ -539,6 +553,9 @@ void Game::DrawSettings()
 void Game::Shutdown()
 {
     ShutdownScene();
+
+    // Shutdown SDF collision system (releases GPU resources)
+    collisionSystem.Shutdown();
 
     // Scene manager automatically unloads scenes on destruction
 
@@ -580,10 +597,25 @@ void Game::InitializeScene()
     // Register scene geometry after renderer scene reset so model pointers/instances stay valid
     SetupModels(*scene);
 
+    // Build the GPU-accelerated SDF collision field from static scene geometry
+    if (collisionSystem.IsEnabled())
+    {
+        Scene *s = sceneManager.GetCurrentScene();
+        if (s)
+        {
+            collisionSystem.BuildSDF(s->GetObjects(), sceneModels);
+            TraceLog(LOG_INFO, "Game: SDF collision field built (resolution=%d, voxel=%.4f)",
+                     collisionSystem.GetResolution(), collisionSystem.GetVoxelSize());
+        }
+    }
+
     // Setup camera controller's follow target
     CameraController *camCtrl = renderManager.GetCameraController();
     camCtrl->SetFollowTarget(&player.GetTransform().position);
     camCtrl->SetMode(CAMERA_MODE_FOLLOW);
+
+    // Reset player vertical velocity for the new scene
+    playerVerticalVelocity = 0.0f;
 
     // Now that models and systems are ready, set up the menus safely
     // Clear and reinitialize debug menu to avoid duplicate entries
@@ -702,6 +734,22 @@ void Game::SetupDebugMenu()
     debugMenu.AddString("Camera Mode", &cameraModeIndex, {"Free", "Follow", "Cutscene", "Fixed"});
     debugMenu.AddFloat("Free Cam Speed", &freeCameraSpeed, 1.0f, 50.0f, 1.0f);
     debugMenu.AddFloat("Free Cam Sens", &freeCameraMouseSensitivity, 0.1f, 1.0f, 0.05f);
+
+    // SDF Collision controls
+    debugMenu.AddBool("Enable Collision", &enableCollision);
+    debugMenu.AddBool("Show Collision Debug", &showCollisionDebug);
+    debugMenu.AddFloat("Collision Debug Y", &collisionDebugYLevel, -10.0f, 20.0f, 0.25f);
+    debugMenu.AddFloat("Player Move Speed", &playerMoveSpeed, 1.0f, 20.0f, 0.5f);
+    debugMenu.AddFloat("Player Collision Radius", &playerCollisionRadius, 0.1f, 2.0f, 0.05f);
+    debugMenu.AddFloat("Player Gravity", &playerGravity, 0.0f, 40.0f, 1.0f);
+    debugMenu.AddButton("Rebuild SDF", [this]()
+                        {
+        Scene *s = sceneManager.GetCurrentScene();
+        if (s && collisionSystem.IsEnabled())
+        {
+            collisionSystem.BuildSDF(s->GetObjects(), sceneModels);
+            TraceLog(LOG_INFO, "SDF collision field rebuilt from debug menu");
+        } });
 
     // Camera effects
     debugMenu.AddFloat("Shake Intensity", &cameraShakeIntensity, 0.0f, 1.0f, 0.1f);
@@ -958,6 +1006,89 @@ void Game::HandleInput(float deltaTime)
     }
 }
 
+void Game::UpdatePlayerMovement(float deltaTime)
+{
+    // Only move the player when the camera is in follow mode (gameplay mode).
+    // In free-camera mode the player stays put and the camera flies independently.
+    CameraController *camCtrl = renderManager.GetCameraController();
+    if (!camCtrl || camCtrl->mode != CAMERA_MODE_FOLLOW)
+        return;
+
+    // Clamp deltaTime to avoid physics explosions after a hitch
+    if (deltaTime > 0.1f)
+        deltaTime = 0.1f;
+
+    Vector3 &pos = player.GetTransform().position;
+
+    // -----------------------------------------------------------------------
+    // 1. Gather camera-relative movement input (WASD)
+    // -----------------------------------------------------------------------
+    // Compute a horizontal forward/right basis from the camera's look direction
+    Camera3D cam = camCtrl->camera;
+    Vector3 camForward = Vector3Subtract(cam.target, cam.position);
+    camForward.y = 0.0f; // project onto XZ plane
+    float forwardLen = Vector3Length(camForward);
+    if (forwardLen > 1e-6f)
+        camForward = Vector3Scale(camForward, 1.0f / forwardLen);
+    else
+        camForward = {0.0f, 0.0f, -1.0f};
+
+    Vector3 camRight = Vector3CrossProduct(camForward, {0.0f, 1.0f, 0.0f});
+    camRight = Vector3Normalize(camRight);
+
+    Vector3 moveDir = {0.0f, 0.0f, 0.0f};
+    if (IsKeyDown(KEY_W)) moveDir = Vector3Add(moveDir, camForward);
+    if (IsKeyDown(KEY_S)) moveDir = Vector3Subtract(moveDir, camForward);
+    if (IsKeyDown(KEY_D)) moveDir = Vector3Add(moveDir, camRight);
+    if (IsKeyDown(KEY_A)) moveDir = Vector3Subtract(moveDir, camRight);
+
+    float moveDirLen = Vector3Length(moveDir);
+    if (moveDirLen > 1e-6f)
+    {
+        moveDir = Vector3Scale(moveDir, 1.0f / moveDirLen); // normalize
+
+        float speed = playerMoveSpeed;
+        if (IsKeyDown(KEY_LEFT_SHIFT))
+            speed *= player.sprintMultiplier;
+
+        pos.x += moveDir.x * speed * deltaTime;
+        pos.z += moveDir.z * speed * deltaTime;
+
+        // Rotate player model to face movement direction
+        player.playerYaw = atan2f(moveDir.x, moveDir.z) * RAD2DEG;
+    }
+
+    // -----------------------------------------------------------------------
+    // 2. Apply gravity
+    // -----------------------------------------------------------------------
+    playerVerticalVelocity -= playerGravity * deltaTime;
+    pos.y += playerVerticalVelocity * deltaTime;
+
+    // Hard floor at y = 0 as an absolute safety net (prevents falling forever
+    // if the SDF grid doesn't cover the area below the scene).
+    if (pos.y < -50.0f)
+    {
+        pos.y = 0.0f;
+        playerVerticalVelocity = 0.0f;
+    }
+
+    // -----------------------------------------------------------------------
+    // 3. Resolve collisions via the SDF
+    // -----------------------------------------------------------------------
+    if (enableCollision && collisionSystem.IsReady())
+    {
+        Vector3 resolved = collisionSystem.ResolvePosition(pos, playerCollisionRadius, 4);
+
+        // If the resolved position is higher than where we were heading, we
+        // landed on a surface – zero out downward velocity so we don't
+        // accumulate gravity while standing on the ground.
+        if (resolved.y > pos.y + 1e-4f && playerVerticalVelocity < 0.0f)
+            playerVerticalVelocity = 0.0f;
+
+        pos = resolved;
+    }
+}
+
 void Game::DrawUI()
 {
     const int UI_MARGIN = 10;
@@ -1025,6 +1156,23 @@ void Game::DrawUI()
     int totalGrass = grassRenderer->GetTotalCount();
     DrawText(TextFormat("Grass: %d/%d", visibleGrass, totalGrass),
              GetScreenWidth() - 200, UI_MARGIN + 45, UI_SMALL_TEXT_SIZE, SKYBLUE);
+
+    // SDF collision stats
+    if (collisionSystem.IsReady())
+    {
+        const char *collisionStatus = enableCollision ? "ON" : "OFF";
+        Color collisionColor = enableCollision ? LIME : RED;
+        DrawText(TextFormat("SDF Collision: %s (res %d)", collisionStatus, collisionSystem.GetResolution()),
+                 GetScreenWidth() - 300, UI_MARGIN + 65, UI_SMALL_TEXT_SIZE, collisionColor);
+
+        SDFCollisionResult probe = collisionSystem.QueryCollision(
+            player.GetTransform().position, playerCollisionRadius);
+        DrawText(TextFormat("Player SDF dist: %.3f %s",
+                            probe.penetrationDepth,
+                            probe.colliding ? "COLLIDING" : ""),
+                 GetScreenWidth() - 300, UI_MARGIN + 85, UI_SMALL_TEXT_SIZE,
+                 probe.colliding ? RED : GREEN);
+    }
 
     // Draw debug menus
     debugMenu.Draw();

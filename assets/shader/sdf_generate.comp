@@ -1,0 +1,135 @@
+#version 430
+
+layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
+
+// Triangle data: each triangle is 4 vec4s (v0, v1, v2, faceNormal)
+struct Triangle
+{
+    vec4 v0;     // xyz = vertex 0 position, w = unused
+    vec4 v1;     // xyz = vertex 1 position, w = unused
+    vec4 v2;     // xyz = vertex 2 position, w = unused
+    vec4 normal; // xyz = face normal (unnormalized is fine, we normalize), w = unused
+};
+
+layout(std430, binding = 0) readonly buffer TriangleBuffer
+{
+    Triangle triangles[];
+};
+
+layout(r16f, binding = 0) writeonly uniform image3D sdfTexture;
+
+uniform uint  triangleCount;
+uniform vec3  gridOrigin;   // World-space position of voxel (0,0,0) corner
+uniform float voxelSize;    // World-space size of each voxel
+uniform ivec3 gridSize;     // Number of voxels per axis
+
+// ---------------------------------------------------------------------------
+// Closest point on triangle (Ericson, "Real-Time Collision Detection" ch 5.1.5)
+// Returns the closest point on triangle ABC to point P.
+// ---------------------------------------------------------------------------
+vec3 closestPointOnTriangle(vec3 p, vec3 a, vec3 b, vec3 c)
+{
+    vec3 ab = b - a;
+    vec3 ac = c - a;
+    vec3 ap = p - a;
+
+    float d1 = dot(ab, ap);
+    float d2 = dot(ac, ap);
+    // Vertex region A
+    if (d1 <= 0.0 && d2 <= 0.0)
+        return a;
+
+    vec3 bp = p - b;
+    float d3 = dot(ab, bp);
+    float d4 = dot(ac, bp);
+    // Vertex region B
+    if (d3 >= 0.0 && d4 <= d3)
+        return b;
+
+    // Edge region AB
+    float vc = d1 * d4 - d3 * d2;
+    if (vc <= 0.0 && d1 >= 0.0 && d3 <= 0.0)
+    {
+        float v = d1 / (d1 - d3);
+        return a + v * ab;
+    }
+
+    vec3 cp = p - c;
+    float d5 = dot(ab, cp);
+    float d6 = dot(ac, cp);
+    // Vertex region C
+    if (d6 >= 0.0 && d5 <= d6)
+        return c;
+
+    // Edge region AC
+    float vb = d5 * d2 - d1 * d6;
+    if (vb <= 0.0 && d2 >= 0.0 && d6 <= 0.0)
+    {
+        float w = d2 / (d2 - d6);
+        return a + w * ac;
+    }
+
+    // Edge region BC
+    float va = d3 * d6 - d5 * d4;
+    if (va <= 0.0 && (d4 - d3) >= 0.0 && (d5 - d6) >= 0.0)
+    {
+        float w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+        return b + w * (c - b);
+    }
+
+    // Inside triangle face
+    float denom = 1.0 / (va + vb + vc);
+    float v = vb * denom;
+    float w = vc * denom;
+    return a + ab * v + ac * w;
+}
+
+void main()
+{
+    ivec3 voxelCoord = ivec3(gl_GlobalInvocationID.xyz);
+
+    // Bounds check
+    if (any(greaterThanEqual(voxelCoord, gridSize)))
+        return;
+
+    // World-space center of this voxel
+    vec3 worldPos = gridOrigin + (vec3(voxelCoord) + 0.5) * voxelSize;
+
+    float minDist  = 1.0e10;
+    float bestSign = 1.0;
+
+    for (uint i = 0; i < triangleCount; i++)
+    {
+        Triangle tri = triangles[i];
+        vec3 a = tri.v0.xyz;
+        vec3 b = tri.v1.xyz;
+        vec3 c = tri.v2.xyz;
+
+        vec3 closest = closestPointOnTriangle(worldPos, a, b, c);
+        vec3 diff    = worldPos - closest;
+        float dist   = length(diff);
+
+        if (dist < minDist)
+        {
+            minDist = dist;
+
+            // Determine sign: positive = outside (same side as face normal),
+            // negative = inside (opposite side).
+            // Use the face normal stored in the triangle.
+            vec3 faceN = tri.normal.xyz;
+            // If diff is zero-length (point exactly on surface), treat as inside.
+            if (dist > 1.0e-8)
+                bestSign = (dot(diff, faceN) >= 0.0) ? 1.0 : -1.0;
+            else
+                bestSign = -1.0;
+        }
+    }
+
+    float signedDist = bestSign * minDist;
+
+    // If there are no triangles, store a large positive distance (empty space)
+    if (triangleCount == 0)
+        signedDist = 1.0e4;
+
+    imageStore(sdfTexture, voxelCoord, vec4(signedDist, 0.0, 0.0, 0.0));
+}
