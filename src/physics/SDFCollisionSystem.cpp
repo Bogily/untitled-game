@@ -64,7 +64,15 @@ SDFCollisionSystem::SDFCollisionSystem()
       sdfSampler(0),
       debugCullProgram(0),
       ssboDebugVisible(0),
-      debugMaxVisible(0)
+      debugMaxVisible(0),
+      debugCubeShader{0},
+      debugCubeMesh{0},
+      debugInstanceVBO(0),
+      debugInstanceCapacity(0),
+      debugMatViewLoc(-1),
+      debugMatProjLoc(-1),
+      debugCubeScaleLoc(-1),
+      debugShellThresholdLoc(-1)
 {
 }
 
@@ -121,6 +129,28 @@ void SDFCollisionSystem::Init()
     glSamplerParameteri(sdfSampler, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glSamplerParameteri(sdfSampler, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
+    debugCubeShader = LoadShader("assets/shader/colored_cube_instanced.vs",
+                                 "assets/shader/colored_cube_instanced.fs");
+    if (debugCubeShader.id > 0)
+    {
+        debugMatViewLoc = GetShaderLocation(debugCubeShader, "matView");
+        debugMatProjLoc = GetShaderLocation(debugCubeShader, "matProjection");
+        debugCubeScaleLoc = GetShaderLocation(debugCubeShader, "cubeScale");
+        debugShellThresholdLoc = GetShaderLocation(debugCubeShader, "shellThreshold");
+    }
+    else
+    {
+        TraceLog(LOG_WARNING, "SDFCollisionSystem: Failed to load colored_cube_instanced shader (fallback draw path active)");
+    }
+
+    debugCubeMesh = GenMeshCube(1.0f, 1.0f, 1.0f);
+    UploadMesh(&debugCubeMesh, false);
+
+    debugInstanceCapacity = 4096;
+    debugInstanceVBO = rlLoadVertexBuffer(nullptr,
+                                          debugInstanceCapacity * static_cast<int>(sizeof(DebugVisibleVoxel)),
+                                          true);
+
     initialized = true;
     TraceLog(LOG_INFO, "SDFCollisionSystem: Initialized successfully");
 }
@@ -172,10 +202,26 @@ void SDFCollisionSystem::Shutdown()
         glDeleteSamplers(1, &sdfSampler);
         sdfSampler = 0;
     }
+    if (debugInstanceVBO > 0)
+    {
+        rlUnloadVertexBuffer(debugInstanceVBO);
+        debugInstanceVBO = 0;
+    }
+    if (debugCubeMesh.vertexCount > 0)
+    {
+        UnloadMesh(debugCubeMesh);
+        debugCubeMesh = {0};
+    }
+    if (debugCubeShader.id > 0)
+    {
+        UnloadShader(debugCubeShader);
+        debugCubeShader = {0};
+    }
 
     sdfCPU.clear();
     debugVisibleCPU.clear();
     debugMaxVisible = 0;
+    debugInstanceCapacity = 0;
     sdfReady = false;
     initialized = false;
 
@@ -611,6 +657,88 @@ bool SDFCollisionSystem::IsPointInFrustum(const Frustum &frustum, Vector3 point,
 
     return true;
 }
+
+void SDFCollisionSystem::EnsureDebugInstanceCapacity(int count) const
+{
+    if (count <= debugInstanceCapacity)
+        return;
+
+    int newCapacity = debugInstanceCapacity > 0 ? debugInstanceCapacity : 1024;
+    while (newCapacity < count)
+        newCapacity *= 2;
+
+    if (debugInstanceVBO > 0)
+        rlUnloadVertexBuffer(debugInstanceVBO);
+
+    debugInstanceVBO = rlLoadVertexBuffer(nullptr,
+                                          newCapacity * static_cast<int>(sizeof(DebugVisibleVoxel)),
+                                          true);
+    debugInstanceCapacity = newCapacity;
+}
+
+void SDFCollisionSystem::DrawDebugVoxelsInstanced(const DebugVisibleVoxel *voxels,
+                                                  int count,
+                                                  float shellThreshold,
+                                                  float cubeSize) const
+{
+    if (count <= 0 || voxels == nullptr)
+        return;
+
+    if (debugCubeShader.id <= 0 || debugCubeMesh.vaoId == 0 || debugInstanceVBO == 0)
+    {
+        for (int i = 0; i < count; ++i)
+        {
+            float absDist = fabsf(voxels[i].dist);
+            float intensity = Clamp01(1.0f - absDist / shellThreshold);
+            unsigned char alpha = static_cast<unsigned char>(90.0f + intensity * 165.0f);
+            Color color = (voxels[i].dist < 0.0f)
+                              ? Color{255, 70, 70, alpha}
+                              : Color{80, 180, 255, alpha};
+            DrawCube({voxels[i].x, voxels[i].y, voxels[i].z}, cubeSize, cubeSize, cubeSize, color);
+        }
+        return;
+    }
+
+    EnsureDebugInstanceCapacity(count);
+    rlUpdateVertexBuffer(debugInstanceVBO,
+                         voxels,
+                         count * static_cast<int>(sizeof(DebugVisibleVoxel)),
+                         0);
+
+    rlDrawRenderBatchActive();
+
+    Matrix matView = rlGetMatrixModelview();
+    Matrix matProj = rlGetMatrixProjection();
+
+    if (debugMatViewLoc >= 0)
+        SetShaderValueMatrix(debugCubeShader, debugMatViewLoc, matView);
+    if (debugMatProjLoc >= 0)
+        SetShaderValueMatrix(debugCubeShader, debugMatProjLoc, matProj);
+    if (debugCubeScaleLoc >= 0)
+        SetShaderValue(debugCubeShader, debugCubeScaleLoc, &cubeSize, SHADER_UNIFORM_FLOAT);
+    if (debugShellThresholdLoc >= 0)
+        SetShaderValue(debugCubeShader, debugShellThresholdLoc, &shellThreshold, SHADER_UNIFORM_FLOAT);
+
+    rlEnableDepthTest();
+    rlEnableDepthMask();
+    rlEnableShader(debugCubeShader.id);
+    rlEnableVertexArray(debugCubeMesh.vaoId);
+
+    rlEnableVertexBuffer(debugInstanceVBO);
+    rlSetVertexAttribute(4, 4, RL_FLOAT, false, sizeof(DebugVisibleVoxel), 0);
+    rlEnableVertexAttribute(4);
+    rlSetVertexAttributeDivisor(4, 1);
+    rlDisableVertexBuffer();
+
+    if (debugCubeMesh.indices != nullptr)
+        rlDrawVertexArrayElementsInstanced(0, debugCubeMesh.triangleCount * 3, 0, count);
+    else
+        rlDrawVertexArrayInstanced(0, debugCubeMesh.vertexCount, count);
+
+    rlDisableVertexArray();
+    rlDisableShader();
+    rlDrawRenderBatchActive();
+}
 // ===========================================================================
 // Collision queries – single entity (CPU path)
 // ===========================================================================
@@ -742,20 +870,10 @@ void SDFCollisionSystem::DrawDebugVolume(const Camera3D &camera, float cullRadiu
             glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 16,
                                static_cast<GLsizeiptr>(visibleCount * sizeof(DebugVisibleVoxel)),
                                debugVisibleCPU.data());
-
-            for (unsigned int i = 0; i < visibleCount; ++i)
-            {
-                const DebugVisibleVoxel &v = debugVisibleCPU[i];
-                float absDist = fabsf(v.dist);
-                float intensity = Clamp01(1.0f - absDist / shellThreshold);
-                unsigned char alpha = static_cast<unsigned char>(90.0f + intensity * 165.0f);
-
-                Color color = (v.dist < 0.0f)
-                                  ? Color{255, 70, 70, alpha}
-                                  : Color{80, 180, 255, alpha};
-
-                DrawCube({v.x, v.y, v.z}, cubeSize, cubeSize, cubeSize, color);
-            }
+            DrawDebugVoxelsInstanced(debugVisibleCPU.data(),
+                                     static_cast<int>(visibleCount),
+                                     shellThreshold,
+                                     cubeSize);
         }
 
         glBindSampler(0, 0);
@@ -767,6 +885,7 @@ void SDFCollisionSystem::DrawDebugVolume(const Camera3D &camera, float cullRadiu
 
     // CPU fallback path (frustum behavior mirrors grass culling)
     const float cpuCullRadius = voxelCullRadius * cullRadiusMultiplier;
+    debugVisibleCPU.clear();
     for (int iz = 0; iz < gridResolution; iz += step)
     {
         for (int iy = 0; iy < gridResolution; iy += step)
@@ -788,17 +907,15 @@ void SDFCollisionSystem::DrawDebugVolume(const Camera3D &camera, float cullRadiu
                 if (!IsPointInFrustum(frustum, worldPos, cpuCullRadius))
                     continue;
 
-                float intensity = Clamp01(1.0f - absDist / shellThreshold);
-                unsigned char alpha = static_cast<unsigned char>(90.0f + intensity * 165.0f);
-
-                Color color = (dist < 0.0f)
-                                  ? Color{255, 70, 70, alpha}
-                                  : Color{80, 180, 255, alpha};
-
-                DrawCube(worldPos, cubeSize, cubeSize, cubeSize, color);
+                debugVisibleCPU.push_back({worldPos.x, worldPos.y, worldPos.z, dist});
             }
         }
     }
+
+    DrawDebugVoxelsInstanced(debugVisibleCPU.data(),
+                             static_cast<int>(debugVisibleCPU.size()),
+                             shellThreshold,
+                             cubeSize);
 }
 // ===========================================================================
 // Collision queries – batch (GPU path)

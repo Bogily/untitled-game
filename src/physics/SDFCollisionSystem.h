@@ -289,6 +289,12 @@ private:
         float x, y, z, dist;
     };
 
+    void EnsureDebugInstanceCapacity(int count) const;
+    void DrawDebugVoxelsInstanced(const DebugVisibleVoxel *voxels,
+                                  int count,
+                                  float shellThreshold,
+                                  float cubeSize) const;
+
     // -----------------------------------------------------------------------
     // State
     // -----------------------------------------------------------------------
@@ -322,4 +328,14 @@ private:
     unsigned int ssboDebugVisible;                          ///< SSBO: [counter+padding][DebugVisibleVoxel...]
     mutable unsigned int debugMaxVisible;                   ///< Maximum visible entries allocated
     mutable std::vector<DebugVisibleVoxel> debugVisibleCPU; ///< Readback cache
+
+    // GPU resources – debug voxel instanced drawing
+    Shader debugCubeShader;                ///< Instanced colored cube shader
+    Mesh debugCubeMesh;                    ///< Unit cube mesh for debug instances
+    mutable unsigned int debugInstanceVBO; ///< Per-instance VBO (x,y,z,dist)
+    mutable int debugInstanceCapacity;     ///< Current instance VBO capacity
+    int debugMatViewLoc;                   ///< Shader uniform: view matrix
+    int debugMatProjLoc;                   ///< Shader uniform: projection matrix
+    int debugCubeScaleLoc;                 ///< Shader uniform: cube scale
+    int debugShellThresholdLoc;            ///< Shader uniform: shell threshold
 };
