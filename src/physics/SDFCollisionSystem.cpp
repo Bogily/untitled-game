@@ -18,13 +18,11 @@
 // ---------------------------------------------------------------------------
 namespace
 {
-
     float AverageScale(Vector3 s)
     {
         return (s.x + s.y + s.z) / 3.0f;
     }
 
-    // Clamp an integer to [lo, hi]
     int ClampInt(int v, int lo, int hi)
     {
         if (v < lo)
@@ -592,42 +590,11 @@ Vector3 SDFCollisionSystem::SDFGradient(Vector3 worldPos) const
 
 Frustum SDFCollisionSystem::ExtractFrustum(const Camera3D &camera) const
 {
-    Frustum frustum;
-
-    float aspect = (float)GetScreenWidth() / (float)GetScreenHeight();
-    Matrix viewProj = MatrixMultiply(GetCameraMatrix(camera),
-                                     MatrixPerspective(camera.fovy * DEG2RAD, aspect, 0.1f, 1000.0f));
-
-    frustum.planes[0].normal = {viewProj.m3 + viewProj.m0, viewProj.m7 + viewProj.m4, viewProj.m11 + viewProj.m8};
-    frustum.planes[0].distance = viewProj.m15 + viewProj.m12;
-
-    frustum.planes[1].normal = {viewProj.m3 - viewProj.m0, viewProj.m7 - viewProj.m4, viewProj.m11 - viewProj.m8};
-    frustum.planes[1].distance = viewProj.m15 - viewProj.m12;
-
-    frustum.planes[2].normal = {viewProj.m3 + viewProj.m1, viewProj.m7 + viewProj.m5, viewProj.m11 + viewProj.m9};
-    frustum.planes[2].distance = viewProj.m15 + viewProj.m13;
-
-    frustum.planes[3].normal = {viewProj.m3 - viewProj.m1, viewProj.m7 - viewProj.m5, viewProj.m11 - viewProj.m9};
-    frustum.planes[3].distance = viewProj.m15 - viewProj.m13;
-
-    frustum.planes[4].normal = {viewProj.m3 + viewProj.m2, viewProj.m7 + viewProj.m6, viewProj.m11 + viewProj.m10};
-    frustum.planes[4].distance = viewProj.m15 + viewProj.m14;
-
-    frustum.planes[5].normal = {viewProj.m3 - viewProj.m2, viewProj.m7 - viewProj.m6, viewProj.m11 - viewProj.m10};
-    frustum.planes[5].distance = viewProj.m15 - viewProj.m14;
-
-    for (int i = 0; i < 6; i++)
+    if (!IsGlobalFrustumAvailable())
     {
-        float length = Vector3Length(frustum.planes[i].normal);
-        if (length > 0.0f)
-        {
-            frustum.planes[i].normal = Vector3Scale(frustum.planes[i].normal, 1.0f / length);
-            frustum.planes[i].distance /= length;
-        }
+        UpdateGlobalFrustum(camera);
     }
-
-    frustum.planes[4].distance -= 5.0f;
-    return frustum;
+    return GetGlobalFrustum();
 }
 
 bool SDFCollisionSystem::IsPointInFrustum(const Frustum &frustum, Vector3 point, float radius) const
