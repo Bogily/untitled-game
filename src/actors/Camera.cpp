@@ -1,7 +1,7 @@
 #include "Camera.h"
 
 CameraEntity::CameraEntity()
-    : m_DesiredPosition({0, 0, 0}), m_DesiredTarget({0, 0, 0}), m_DesiredFov(45.0f), m_Smoothing(0.1f)
+    : desiredPosition({0, 0, 0}), desiredTarget({0, 0, 0}), desiredFov(45.0f), smoothing(0.1f)
 {
     // Sensible defaults
     position = {0.0f, 10.0f, 10.0f};
@@ -11,9 +11,9 @@ CameraEntity::CameraEntity()
     projection = CAMERA_PERSPECTIVE;
 
     // Desired initial state matches immediate state
-    m_DesiredPosition = position;
-    m_DesiredTarget = target;
-    m_DesiredFov = fovy;
+    desiredPosition = position;
+    desiredTarget = target;
+    desiredFov = fovy;
 }
 
 void CameraEntity::Initialize(Vector3 position_, Vector3 target_, float fovy_)
@@ -24,48 +24,58 @@ void CameraEntity::Initialize(Vector3 position_, Vector3 target_, float fovy_)
     fovy = fovy_;
     projection = CAMERA_PERSPECTIVE;
 
-    m_DesiredPosition = position;
-    m_DesiredTarget = target;
-    m_DesiredFov = fovy;
+    desiredPosition = position;
+    desiredTarget = target;
+    desiredFov = fovy;
 }
 
 void CameraEntity::SetDesired(const Vector3 &position_, const Vector3 &target_, float fovy_)
 {
-    m_DesiredPosition = position_;
-    m_DesiredTarget = target_;
-    m_DesiredFov = fovy_;
+    desiredPosition = position_;
+    desiredTarget = target_;
+    desiredFov = fovy_;
 }
 
 void CameraEntity::SetPositionImmediate(const Vector3 &position_)
 {
     position = position_;
-    m_DesiredPosition = position_;
+    desiredPosition = position_;
 }
 
 void CameraEntity::SetTargetImmediate(const Vector3 &target_)
 {
     target = target_;
-    m_DesiredTarget = target_;
+    desiredTarget = target_;
 }
 
 void CameraEntity::SetFovImmediate(float fovy_)
 {
     fovy = fovy_;
-    m_DesiredFov = fovy_;
+    desiredFov = fovy_;
 }
 
 void CameraEntity::SetSmoothing(float smoothness)
 {
-    m_Smoothing = smoothness;
+    smoothing = smoothness;
 }
 
 void CameraEntity::UpdateEntity(float deltaTime)
 {
+    (void)deltaTime;
+
+    if (smoothing <= 0.0f)
+    {
+        position = desiredPosition;
+        target = desiredTarget;
+        fovy = desiredFov;
+        return;
+    }
+
     // Simple per-frame LERP smoothing towards desired values
     // Use fixed lerp factor each frame (camera smoothing is a small value like 0.1f)
-    position = CameraEntity::LerpVector3(position, m_DesiredPosition, m_Smoothing);
-    target = CameraEntity::LerpVector3(target, m_DesiredTarget, m_Smoothing);
-    fovy = Lerp(fovy, m_DesiredFov, m_Smoothing);
+    position = CameraEntity::LerpVector3(position, desiredPosition, smoothing);
+    target = CameraEntity::LerpVector3(target, desiredTarget, smoothing);
+    fovy = Lerp(fovy, desiredFov, smoothing);
 }
 
 Vector3 CameraEntity::LerpVector3(const Vector3 &start, const Vector3 &end, float t)

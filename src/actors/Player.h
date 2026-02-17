@@ -8,6 +8,8 @@
 #include "raylib.h"
 #include <vector>
 
+class SDFCollisionSystem;
+
 /**
  * @brief Player character entity
  *
@@ -27,6 +29,26 @@ public:
      * @brief Update player state
      */
     void Update();
+
+    /**
+     * @brief Update player movement using camera-relative input and optional SDF collision
+     * @param camera Current gameplay camera
+     * @param deltaTime Time elapsed since last frame
+     * @param moveSpeed Base move speed
+     * @param gravity Gravity acceleration
+     * @param collisionRadius Radius of player's collision sphere
+     * @param verticalVelocity Current vertical velocity (updated in place)
+     * @param collisionEnabled Whether collision resolution is enabled
+     * @param collisionSystem Optional SDF collision system
+     */
+    void UpdateMovement(const Camera3D &camera,
+                        float deltaTime,
+                        float moveSpeed,
+                        float gravity,
+                        float collisionRadius,
+                        float &verticalVelocity,
+                        bool collisionEnabled,
+                        const SDFCollisionSystem *collisionSystem);
 
     /**
      * @brief Render player model

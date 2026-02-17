@@ -84,8 +84,8 @@ public:
     static float EaseInOutCubic(float t);
 
 private:
-    Vector3 m_DesiredPosition; ///< Target position for smooth movement
-    Vector3 m_DesiredTarget;   ///< Target look-at point for smooth movement
-    float m_DesiredFov;        ///< Target field of view
-    float m_Smoothing;         ///< Lerp factor for smoothing [0,1]
+    Vector3 desiredPosition; ///< Target position for smooth movement
+    Vector3 desiredTarget;   ///< Target look-at point for smooth movement
+    float desiredFov;        ///< Target field of view
+    float smoothing;         ///< Lerp factor for smoothing [0,1]
 };

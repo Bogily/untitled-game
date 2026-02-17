@@ -101,6 +101,19 @@ public:
     SDFCollisionResult QueryCollision(Vector3 position, float radius) const;
 
     /**
+     * @brief Raycast against the CPU-side SDF field
+     *
+     * Uses sphere-tracing style stepping and returns the first hit point.
+     *
+     * @param origin Ray origin in world space
+     * @param direction Ray direction (does not need to be normalized)
+     * @param maxDistance Maximum travel distance
+     * @param hitPosition Output hit position when true is returned
+     * @return True if the ray intersects solid SDF geometry
+     */
+    bool Raycast(Vector3 origin, Vector3 direction, float maxDistance, Vector3 &hitPosition) const;
+
+    /**
      * @brief Batch-query collisions on the GPU for multiple entities
      *
      * Dispatches the collision compute shader and reads results back via SSBO.

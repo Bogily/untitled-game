@@ -961,6 +961,71 @@ SDFCollisionResult SDFCollisionSystem::QueryCollision(Vector3 position, float ra
     return result;
 }
 
+bool SDFCollisionSystem::Raycast(Vector3 origin, Vector3 direction, float maxDistance, Vector3 &hitPosition) const
+{
+    if (!sdfReady || !enabled)
+        return false;
+
+    float dirLen = Vector3Length(direction);
+    if (dirLen <= 1e-6f || maxDistance <= 0.0f)
+        return false;
+
+    Vector3 dir = Vector3Scale(direction, 1.0f / dirLen);
+
+    const float minStep = fmaxf(voxelSize * 0.25f, 0.005f);
+    const float maxStep = fmaxf(voxelSize * 4.0f, minStep);
+    const float surfaceEpsilon = fmaxf(voxelSize * 0.35f, 0.01f);
+
+    float t = 0.0f;
+    float prevT = 0.0f;
+    float prevDist = SampleSDF(origin);
+
+    for (int stepIndex = 0; stepIndex < 256 && t <= maxDistance; ++stepIndex)
+    {
+        Vector3 p = Vector3Add(origin, Vector3Scale(dir, t));
+        float dist = SampleSDF(p);
+
+        if (dist < 0.0f || fabsf(dist) <= surfaceEpsilon)
+        {
+            // If we crossed from outside to inside, refine hit on the segment.
+            if (prevDist > 0.0f && dist < 0.0f && t > prevT)
+            {
+                float a = prevT;
+                float b = t;
+                for (int refine = 0; refine < 8; ++refine)
+                {
+                    float m = 0.5f * (a + b);
+                    Vector3 mp = Vector3Add(origin, Vector3Scale(dir, m));
+                    float md = SampleSDF(mp);
+                    if (md > 0.0f)
+                        a = m;
+                    else
+                        b = m;
+                }
+                hitPosition = Vector3Add(origin, Vector3Scale(dir, b));
+            }
+            else
+            {
+                hitPosition = p;
+            }
+            return true;
+        }
+
+        prevT = t;
+        prevDist = dist;
+
+        float step = fabsf(dist) * 0.9f;
+        if (step < minStep)
+            step = minStep;
+        if (step > maxStep)
+            step = maxStep;
+
+        t += step;
+    }
+
+    return false;
+}
+
 void SDFCollisionSystem::DrawDebugVolume(const Camera3D &camera, float cullRadiusMultiplier) const
 {
     if (!sdfReady || sdfCPU.empty())

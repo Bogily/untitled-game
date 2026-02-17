@@ -6,11 +6,14 @@ CameraController::CameraController()
       followTargetPtr(nullptr),
       followDistance(10.0f),
       followHeight(5.0f),
+      followEyeHeight(1.6f),
+      followAutoMoveSmoothSpeed(12.0f),
       followYaw(0.0f),
       followPitch(-20.0f),
-      cameraSmoothness(0.1f),
+      cutsceneSmoothingFactor(0.1f),
+      cutsceneSmoothingEnabled(false),
       freeCameraSpeed(10.0f),
-      freeCameraMouseSensitivity(0.003f),
+      freeCameraMouseSensitivity(0.0003f),
       freeCameraYaw(0.0f),
       freeCameraPitch(0.0f),
       currentWaypointIndex(0),
@@ -20,18 +23,22 @@ CameraController::CameraController()
       transitionTimer(0.0f),
       transitionDuration(0.0f)
 {
-    // CameraEntity constructor sets sensible defaults; ensure smoothing is set
-    camera.SetSmoothing(cameraSmoothness);
+    camera.SetSmoothing(0.0f);
 }
 
 void CameraController::Initialize(Vector3 position, Vector3 target, float fovy)
 {
     camera.Initialize(position, target, fovy);
-    camera.SetSmoothing(cameraSmoothness);
+    camera.SetSmoothing(0.0f);
 }
 
 void CameraController::Update(float deltaTime)
 {
+    const float activeSmoothing = (mode == CAMERA_MODE_CUTSCENE && cutsceneSmoothingEnabled)
+                                      ? cutsceneSmoothingFactor
+                                      : 0.0f;
+    camera.SetSmoothing(activeSmoothing);
+
     // Handle smooth transitions first
     if (isTransitioning)
     {
@@ -171,6 +178,18 @@ void CameraController::UpdateFreeCamera(float deltaTime)
 
 void CameraController::UpdateFollowCamera(Vector3 targetPosition, float deltaTime)
 {
+    Vector2 mouseDelta = GetMouseDelta();
+    if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f)
+    {
+        followYaw -= mouseDelta.x * freeCameraMouseSensitivity * 100.0f;
+        followPitch -= mouseDelta.y * freeCameraMouseSensitivity * 100.0f;
+
+        if (followPitch > 60.0f)
+            followPitch = 60.0f;
+        if (followPitch < -80.0f)
+            followPitch = -80.0f;
+    }
+
     // Calculate desired camera position behind and above the target
     float yawRad = followYaw * DEG2RAD;
     float pitchRad = followPitch * DEG2RAD;
@@ -182,6 +201,40 @@ void CameraController::UpdateFollowCamera(Vector3 targetPosition, float deltaTim
 
     Vector3 desiredPosition = Vector3Add(targetPosition, offset);
     Vector3 desiredTarget = Vector3Add(targetPosition, {0.0f, followHeight * 0.5f, 0.0f});
+
+    Vector3 eyePosition = Vector3Add(targetPosition, {0.0f, followEyeHeight, 0.0f});
+
+    if (followCollisionRaycast)
+    {
+        Vector3 toDesired = Vector3Subtract(desiredPosition, eyePosition);
+        float rayLength = Vector3Length(toDesired);
+        if (rayLength > 1e-4f)
+        {
+            Ray ray = {};
+            ray.position = eyePosition;
+            ray.direction = Vector3Scale(toDesired, 1.0f / rayLength);
+
+            Vector3 hitPosition = desiredPosition;
+            if (followCollisionRaycast(ray, rayLength, hitPosition))
+            {
+                desiredPosition = hitPosition;
+            }
+        }
+    }
+
+    Vector3 desiredFromEye = Vector3Subtract(desiredPosition, eyePosition);
+    float desiredDistance = Vector3Length(desiredFromEye);
+    if (desiredDistance > 1e-4f)
+    {
+        Vector3 desiredDirection = Vector3Scale(desiredFromEye, 1.0f / desiredDistance);
+        float currentDistance = Vector3DotProduct(Vector3Subtract(camera.position, eyePosition), desiredDirection);
+        if (currentDistance < 0.0f)
+            currentDistance = 0.0f;
+
+        float blend = Clamp(deltaTime * followAutoMoveSmoothSpeed, 0.0f, 1.0f);
+        float smoothedDistance = Lerp(currentDistance, desiredDistance, blend);
+        desiredPosition = Vector3Add(eyePosition, Vector3Scale(desiredDirection, smoothedDistance));
+    }
 
     // Set desired transform on the Camera entity; entity will apply smoothing
     camera.SetDesired(desiredPosition, desiredTarget, camera.fovy);
@@ -300,10 +353,9 @@ void CameraController::SetFollowTarget(Vector3 *targetPtr)
     followTargetPtr = targetPtr;
 }
 
-void CameraController::SetSmoothness(float smoothness)
+void CameraController::SetCutsceneSmoothingFactor(float smoothingFactor)
 {
-    cameraSmoothness = smoothness;
-    camera.SetSmoothing(cameraSmoothness);
+    cutsceneSmoothingFactor = fmaxf(0.0f, fminf(1.0f, smoothingFactor));
 }
 
 void CameraController::TransitionTo(Vector3 newPosition, Vector3 newTarget, float duration)

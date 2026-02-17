@@ -439,7 +439,8 @@ void RenderManager::SetupFromLevelData(const LevelData &level)
         level.camera.startFOV);
     cameraController.SetFollowDistance(level.camera.followDistance);
     cameraController.SetFollowHeight(level.camera.followHeight);
-    cameraController.SetSmoothness(level.camera.smoothness);
+    cameraController.SetCutsceneSmoothingFactor(level.camera.smoothness);
+    cameraController.SetCutsceneSmoothingEnabled(level.camera.smoothness > 0.0f);
 
     TraceLog(LOG_INFO, "RenderManager: Setup complete (%d lights, %d particles)",
              (int)level.lights.size() + 4, (int)level.particles.size());

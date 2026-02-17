@@ -101,9 +101,9 @@ private:
     float collisionDebugYLevel = 0.0f;   ///< Y level for debug SDF slice
     int sdfResolution = 128;             ///< SDF grid resolution (per axis)
 
-    int cameraModeIndex = 1;                 ///< Camera mode selection for debug menu
-    float freeCameraSpeed = 10.0f;           ///< Free camera movement speed
-    float freeCameraMouseSensitivity = 0.3f; ///< Free camera mouse sensitivity (0-1 scale for UI)
+    int cameraModeIndex = 1;       ///< Camera mode selection for debug menu
+    float freeCameraSpeed = 10.0f; ///< Free camera movement speed
+    float camersensitivity = 0.3f; ///< Camera sensitivity control (0.01 very slow, 1.0 very fast)
 
     // Camera effects
     float cameraShakeIntensity = 0.1f; ///< Camera shake intensity (0-1)
@@ -183,6 +183,15 @@ private:
      * @brief Handle player-NPC interaction input
      */
     void HandleNPCInteraction();
+
+    /**
+     * @brief Raycast the SDF field for follow-camera collision
+     * @param ray Ray from player eye towards desired camera position
+     * @param maxDistance Maximum raycast distance
+     * @param hitPosition Output hit position
+     * @return True if the SDF field was hit
+     */
+    bool RaycastFollowCamera(const Ray &ray, float maxDistance, Vector3 &hitPosition);
 
     /**
      * @brief Process player input

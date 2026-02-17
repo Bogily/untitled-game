@@ -8,6 +8,7 @@
 #include "raymath.h"
 #include "actors/Camera.h"
 #include <vector>
+#include <functional>
 
 /**
  * @brief Camera control modes
@@ -63,7 +64,10 @@ public:
     void SetFollowTarget(Vector3 *targetPtr);
     void SetFollowDistance(float distance) { followDistance = distance; }
     void SetFollowHeight(float height) { followHeight = height; }
-    void SetSmoothness(float smoothness);
+    void SetFollowEyeHeight(float height) { followEyeHeight = height; }
+    void SetFollowCollisionRaycast(const std::function<bool(const Ray &, float, Vector3 &)> &raycastFn) { followCollisionRaycast = raycastFn; }
+    void SetCutsceneSmoothingFactor(float smoothingFactor);
+    void SetCutsceneSmoothingEnabled(bool enabled) { cutsceneSmoothingEnabled = enabled; }
 
     // Free camera controls
     void SetFreeCameraSpeed(float speed) { freeCameraSpeed = speed; }
@@ -88,18 +92,22 @@ public:
     bool IsTransitioning() const { return isTransitioning; }
 
 private:
-    Vector3 *followTargetPtr; ///< Pointer to follow target
-    float followDistance;     ///< Distance from target
-    float followHeight;       ///< Height offset from target
-    float followYaw;          ///< Follow camera yaw angle
-    float followPitch;        ///< Follow camera pitch angle
-    float cameraSmoothness;   ///< Movement smoothness factor
+    Vector3 *followTargetPtr;                                                  ///< Pointer to follow target
+    float followDistance;                                                      ///< Distance from target
+    float followHeight;                                                        ///< Height offset from target
+    float followEyeHeight;                                                     ///< Eye height offset from target feet position
+    float followAutoMoveSmoothSpeed;                                           ///< Follow smoothing speed used when mouse is not moving
+    float followYaw;                                                           ///< Follow camera yaw angle
+    float followPitch;                                                         ///< Follow camera pitch angle
+    float cutsceneSmoothingFactor;                                             ///< Cutscene camera smoothing factor
+    bool cutsceneSmoothingEnabled;                                             ///< Whether smoothing is enabled in cutscene mode
+    std::function<bool(const Ray &, float, Vector3 &)> followCollisionRaycast; ///< Optional line-of-sight raycast for follow camera
 
     // Free camera parameters
-    float freeCameraSpeed = 10.0f;             ///< Free camera movement speed
-    float freeCameraMouseSensitivity = 0.003f; ///< Mouse look sensitivity
-    float freeCameraYaw = 0.0f;                ///< Free camera yaw angle
-    float freeCameraPitch = 0.0f;              ///< Free camera pitch angle
+    float freeCameraSpeed = 10.0f;              ///< Free camera movement speed
+    float freeCameraMouseSensitivity = 0.0003f; ///< Mouse look sensitivity
+    float freeCameraYaw = 0.0f;                 ///< Free camera yaw angle
+    float freeCameraPitch = 0.0f;               ///< Free camera pitch angle
 
     std::vector<CameraWaypoint> cutsceneWaypoints; ///< Cutscene waypoint path
     int currentWaypointIndex;                      ///< Current waypoint index

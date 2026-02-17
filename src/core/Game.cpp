@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <algorithm>
 #include <unordered_set>
+#include <cmath>
 
 namespace
 {
@@ -237,9 +238,12 @@ void Game::UpdatePlaying()
             CameraControllerMode modes[] = {CAMERA_MODE_FREE, CAMERA_MODE_FOLLOW, CAMERA_MODE_CUTSCENE, CAMERA_MODE_FIXED};
             camCtrl->SetMode(modes[cameraModeIndex]);
 
-            // Apply free camera parameters (convert 0-1 sensitivity to actual value)
+            // Apply free camera parameters (map 0.01..1.0 UI to a practical internal range)
             camCtrl->SetFreeCameraSpeed(freeCameraSpeed);
-            camCtrl->SetFreeCameraMouseSensitivity(freeCameraMouseSensitivity * 0.01f);
+            float sensitivityT = (camersensitivity - 0.01f) / 0.99f;
+            sensitivityT = Clamp(sensitivityT, 0.0f, 1.0f);
+            float internalSensitivity = 0.00005f * powf(600.0f, sensitivityT);
+            camCtrl->SetFreeCameraMouseSensitivity(internalSensitivity);
         }
     }
 
@@ -502,8 +506,8 @@ void Game::DrawPlaying()
             }
         }
         
-        // Draw player with proper rotation transform
-        customModel.drawPlayerModel(player);
+        // Draw player
+        player.Draw();
         
         // Draw NPCs
         if (s)
@@ -615,6 +619,9 @@ void Game::InitializeScene()
     // Setup camera controller's follow target
     CameraController *camCtrl = renderManager.GetCameraController();
     camCtrl->SetFollowTarget(&player.GetTransform().position);
+    camCtrl->SetFollowEyeHeight(player.eyeHeight);
+    camCtrl->SetFollowCollisionRaycast([this](const Ray &ray, float maxDistance, Vector3 &hitPosition)
+                                       { return RaycastFollowCamera(ray, maxDistance, hitPosition); });
     camCtrl->SetMode(CAMERA_MODE_FOLLOW);
 
     // Reset player vertical velocity for the new scene
@@ -652,6 +659,12 @@ void Game::ShutdownScene()
     }
     sceneModels.clear();
     modelIDs.clear();
+
+    CameraController *camCtrl = renderManager.GetCameraController();
+    if (camCtrl)
+    {
+        camCtrl->SetFollowCollisionRaycast(nullptr);
+    }
 
     sceneInitialized = false;
 
@@ -736,7 +749,7 @@ void Game::SetupDebugMenu()
     // Camera mode selection
     debugMenu.AddString("Camera Mode", &cameraModeIndex, {"Free", "Follow", "Cutscene", "Fixed"});
     debugMenu.AddFloat("Free Cam Speed", &freeCameraSpeed, 1.0f, 50.0f, 1.0f);
-    debugMenu.AddFloat("Free Cam Sens", &freeCameraMouseSensitivity, 0.1f, 1.0f, 0.05f);
+    debugMenu.AddFloat("camersensitivity", &camersensitivity, 0.01f, 1.0f, 0.01f);
 
     // SDF Collision controls
     debugMenu.AddBool("Enable Collision", &enableCollision);
@@ -968,6 +981,11 @@ void Game::UpdateNPCs(float deltaTime)
     }
 }
 
+bool Game::RaycastFollowCamera(const Ray &ray, float maxDistance, Vector3 &hitPosition)
+{
+    return collisionSystem.Raycast(ray.position, ray.direction, maxDistance, hitPosition);
+}
+
 void Game::HandleNPCInteraction()
 {
     Scene *scene = sceneManager.GetCurrentScene();
@@ -1038,71 +1056,16 @@ void Game::UpdatePlayerMovement(float deltaTime)
     if (deltaTime > 0.1f)
         deltaTime = 0.1f;
 
-    Vector3 &pos = player.GetTransform().position;
+    camCtrl->SetFollowEyeHeight(player.eyeHeight);
 
-    // -----------------------------------------------------------------------
-    // 1. Gather camera-relative movement input (WASD)
-    // -----------------------------------------------------------------------
-    // Compute a horizontal forward/right basis from the camera's look direction
-    Camera3D cam = camCtrl->camera;
-    Vector3 camForward = Vector3Subtract(cam.target, cam.position);
-    camForward.y = 0.0f; // project onto XZ plane
-    float forwardLen = Vector3Length(camForward);
-    if (forwardLen > 1e-6f)
-        camForward = Vector3Scale(camForward, 1.0f / forwardLen);
-    else
-        camForward = {0.0f, 0.0f, -1.0f};
-
-    Vector3 camRight = Vector3CrossProduct(camForward, {0.0f, 1.0f, 0.0f});
-    camRight = Vector3Normalize(camRight);
-
-    Vector3 moveDir = {0.0f, 0.0f, 0.0f};
-    if (IsKeyDown(KEY_W))
-        moveDir = Vector3Add(moveDir, camForward);
-    if (IsKeyDown(KEY_S))
-        moveDir = Vector3Subtract(moveDir, camForward);
-    if (IsKeyDown(KEY_D))
-        moveDir = Vector3Add(moveDir, camRight);
-    if (IsKeyDown(KEY_A))
-        moveDir = Vector3Subtract(moveDir, camRight);
-
-    float moveDirLen = Vector3Length(moveDir);
-    if (moveDirLen > 1e-6f)
-    {
-        moveDir = Vector3Scale(moveDir, 1.0f / moveDirLen); // normalize
-
-        float speed = playerMoveSpeed;
-        if (IsKeyDown(KEY_LEFT_SHIFT))
-            speed *= player.sprintMultiplier;
-
-        pos.x += moveDir.x * speed * deltaTime;
-        pos.z += moveDir.z * speed * deltaTime;
-
-        // Rotate player model to face movement direction
-        player.playerYaw = atan2f(moveDir.x, moveDir.z) * RAD2DEG;
-    }
-
-    // -----------------------------------------------------------------------
-    // 2. Apply gravity
-    // -----------------------------------------------------------------------
-    playerVerticalVelocity -= playerGravity * deltaTime;
-    pos.y += playerVerticalVelocity * deltaTime;
-
-    // -----------------------------------------------------------------------
-    // 3. Resolve collisions via the SDF
-    // -----------------------------------------------------------------------
-    if (enableCollision && collisionSystem.IsReady())
-    {
-        Vector3 resolved = collisionSystem.ResolvePosition(pos, playerCollisionRadius, 4);
-
-        // If the resolved position is higher than where we were heading, we
-        // landed on a surface – zero out downward velocity so we don't
-        // accumulate gravity while standing on the ground.
-        if (resolved.y > pos.y + 1e-4f && playerVerticalVelocity < 0.0f)
-            playerVerticalVelocity = 0.0f;
-
-        pos = resolved;
-    }
+    player.UpdateMovement(camCtrl->camera,
+                          deltaTime,
+                          playerMoveSpeed,
+                          playerGravity,
+                          playerCollisionRadius,
+                          playerVerticalVelocity,
+                          enableCollision,
+                          &collisionSystem);
 }
 
 void Game::DrawUI()
