@@ -1,6 +1,6 @@
 # Zelda-like 3D Game Structure (Raylib + C++)
 
-This project a game using Raylib and C++.
+This project is a game using Raylib and C++.
 
 ## Folder Structure
 
