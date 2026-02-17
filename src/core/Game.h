@@ -39,10 +39,10 @@ private:
     MainMenu mainMenu;                             ///< Main menu instance
     PauseMenu pauseMenu;                           ///< Pause menu instance
 
-    Player player;               ///< Player entity
-    RenderManager renderManager; ///< Centralized rendering system
-    SceneManager sceneManager;   ///< Scene management system
-    CustomModel customModel;     ///< Custom model utilities
+    Player player;                      ///< Player entity
+    RenderManager renderManager;        ///< Centralized rendering system
+    SceneManager sceneManager;          ///< Scene management system
+    CustomModel customModel;            ///< Custom model utilities
     SDFCollisionSystem collisionSystem; ///< GPU-accelerated SDF collision system
 
     SettingsMenu settingsMenu;             ///< Settings menu instance
@@ -92,14 +92,14 @@ private:
     int previousFullscreenMode = -1; ///< Previous display mode (for change detection)
 
     // Player movement
-    float playerMoveSpeed = 5.0f;            ///< Player movement speed (units/sec)
-    float playerCollisionRadius = 0.5f;      ///< Player collision sphere radius
-    float playerGravity = 20.0f;             ///< Gravity acceleration (units/sec²)
-    float playerVerticalVelocity = 0.0f;     ///< Current vertical velocity (for gravity)
-    bool  enableCollision = true;            ///< Toggle SDF collision on/off
-    bool  showCollisionDebug = false;        ///< Show SDF debug slice visualisation
-    float collisionDebugYLevel = 0.0f;       ///< Y level for debug SDF slice
-    int   sdfResolution = 128;               ///< SDF grid resolution (per axis)
+    float playerMoveSpeed = 5.0f;        ///< Player movement speed (units/sec)
+    float playerCollisionRadius = 0.5f;  ///< Player collision sphere radius
+    float playerGravity = 20.0f;         ///< Gravity acceleration (units/sec²)
+    float playerVerticalVelocity = 0.0f; ///< Current vertical velocity (for gravity)
+    bool enableCollision = true;         ///< Toggle SDF collision on/off
+    bool showCollisionDebug = false;     ///< Show SDF debug slice visualisation
+    float collisionDebugYLevel = 0.0f;   ///< Y level for debug SDF slice
+    int sdfResolution = 128;             ///< SDF grid resolution (per axis)
 
     int cameraModeIndex = 1;                 ///< Camera mode selection for debug menu
     float freeCameraSpeed = 10.0f;           ///< Free camera movement speed

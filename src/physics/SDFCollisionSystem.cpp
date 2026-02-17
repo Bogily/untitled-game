@@ -234,7 +234,7 @@ void SDFCollisionSystem::Shutdown()
 
 void SDFCollisionSystem::SetResolution(int resolution)
 {
-    gridResolution = ClampInt(resolution, 32, 512);
+    gridResolution = (resolution < 32) ? 32 : resolution; // below 32 the SDF is too coarse to be useful
 }
 
 int SDFCollisionSystem::GetDebugStep() const
@@ -524,17 +524,48 @@ void SDFCollisionSystem::BuildSDF(const std::vector<LevelData::ObjectData> &obje
     glUniform1f(locVoxelSize, voxelSize);
     glUniform3i(locGridSize, gridResolution, gridResolution, gridResolution);
 
-    // Dispatch: local_size = (4,4,4), so divide grid by 4 and round up
-    unsigned int groupsPerAxis = (static_cast<unsigned int>(gridResolution) + 3) / 4;
-    glDispatchCompute(groupsPerAxis, groupsPerAxis, groupsPerAxis);
+    // Dispatch in chunks to avoid long single-dispatch GPU stalls (TDR risk)
+    GLint locChunkOffset = glGetUniformLocation(generateProgram, "chunkOffset");
+    GLint locChunkSize = glGetUniformLocation(generateProgram, "chunkSize");
 
-    // Ensure writes are visible before we read back
+    const int chunkDim = 64; // 64^3 chunk
+    const unsigned int groupsPerChunkAxis = (static_cast<unsigned int>(chunkDim) + 3u) / 4u;
+    int chunkDispatches = 0;
+
+    for (int z0 = 0; z0 < gridResolution; z0 += chunkDim)
+    {
+        for (int y0 = 0; y0 < gridResolution; y0 += chunkDim)
+        {
+            for (int x0 = 0; x0 < gridResolution; x0 += chunkDim)
+            {
+                int sx = std::min(chunkDim, gridResolution - x0);
+                int sy = std::min(chunkDim, gridResolution - y0);
+                int sz = std::min(chunkDim, gridResolution - z0);
+
+                glUniform3i(locChunkOffset, x0, y0, z0);
+                glUniform3i(locChunkSize, sx, sy, sz);
+
+                unsigned int gx = (static_cast<unsigned int>(sx) + 3u) / 4u;
+                unsigned int gy = (static_cast<unsigned int>(sy) + 3u) / 4u;
+                unsigned int gz = (static_cast<unsigned int>(sz) + 3u) / 4u;
+
+                glDispatchCompute(gx, gy, gz);
+                glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+                chunkDispatches++;
+                if ((chunkDispatches % 8) == 0)
+                    glFlush();
+            }
+        }
+    }
+
+    // Ensure writes are visible before readback
     glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
     glUseProgram(0);
 
-    TraceLog(LOG_INFO, "SDFCollisionSystem: GPU SDF generation dispatched (%ux%ux%u groups)",
-             groupsPerAxis, groupsPerAxis, groupsPerAxis);
+    TraceLog(LOG_INFO, "SDFCollisionSystem: GPU SDF generation dispatched in %d chunks (chunkDim=%d)",
+             chunkDispatches, chunkDim);
 
     // ------------------------------------------------------------------
     // 6. Read back the SDF texture to CPU for fast single queries

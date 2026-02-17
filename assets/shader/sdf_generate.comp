@@ -22,6 +22,8 @@ uniform uint  triangleCount;
 uniform vec3  gridOrigin;   // World-space position of voxel (0,0,0) corner
 uniform float voxelSize;    // World-space size of each voxel
 uniform ivec3 gridSize;     // Number of voxels per axis
+uniform ivec3 chunkOffset;  // Voxel-space offset of this dispatched chunk
+uniform ivec3 chunkSize;    // Local chunk dimensions covered by this dispatch
 
 // ---------------------------------------------------------------------------
 // Closest point on triangle (Ericson, "Real-Time Collision Detection" ch 5.1.5)
@@ -86,7 +88,13 @@ vec3 closestPointOnTriangle(vec3 p, vec3 a, vec3 b, vec3 c)
 
 void main()
 {
-    ivec3 voxelCoord = ivec3(gl_GlobalInvocationID.xyz);
+    ivec3 localCoord = ivec3(gl_GlobalInvocationID.xyz);
+
+    // Keep writes contained to the current chunk dispatch
+    if (any(greaterThanEqual(localCoord, chunkSize)))
+        return;
+
+    ivec3 voxelCoord = chunkOffset + localCoord;
 
     // Bounds check
     if (any(greaterThanEqual(voxelCoord, gridSize)))
