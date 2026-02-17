@@ -24,3 +24,28 @@ struct Frustum
 {
     FrustumPlane planes[6]; ///< Near, Far, Left, Right, Top, Bottom
 };
+
+/**
+ * @brief Build a frustum from a camera using the project's shared conventions
+ */
+Frustum BuildFrustumFromCamera(const Camera3D &camera);
+
+/**
+ * @brief Set the current global frustum cache
+ */
+void SetGlobalFrustum(const Frustum &frustum);
+
+/**
+ * @brief Recompute and update the global frustum from camera
+ */
+void UpdateGlobalFrustum(const Camera3D &camera);
+
+/**
+ * @brief Get current global frustum cache
+ */
+const Frustum &GetGlobalFrustum();
+
+/**
+ * @brief Whether the global frustum has been initialized
+ */
+bool IsGlobalFrustumAvailable();

@@ -15,6 +15,7 @@
 #include "../ui/PostProcessingMenu.h"
 #include "GameState.h"
 #include "ui/rmlui/raylibRmlUi.h"
+#include "../physics/SDFCollisionSystem.h"
 #include <vector>
 #include <unordered_map>
 
@@ -38,10 +39,11 @@ private:
     MainMenu mainMenu;                             ///< Main menu instance
     PauseMenu pauseMenu;                           ///< Pause menu instance
 
-    Player player;               ///< Player entity
-    RenderManager renderManager; ///< Centralized rendering system
-    SceneManager sceneManager;   ///< Scene management system
-    CustomModel customModel;     ///< Custom model utilities
+    Player player;                      ///< Player entity
+    RenderManager renderManager;        ///< Centralized rendering system
+    SceneManager sceneManager;          ///< Scene management system
+    CustomModel customModel;            ///< Custom model utilities
+    SDFCollisionSystem collisionSystem; ///< GPU-accelerated SDF collision system
 
     SettingsMenu settingsMenu;             ///< Settings menu instance
     DebugMenu debugMenu;                   ///< Debug menu for development
@@ -88,6 +90,16 @@ private:
 
     int fullscreenMode = 0;          ///< Display mode: 0=Windowed, 1=Fullscreen, 2=Borderless
     int previousFullscreenMode = -1; ///< Previous display mode (for change detection)
+
+    // Player movement
+    float playerMoveSpeed = 5.0f;        ///< Player movement speed (units/sec)
+    float playerCollisionRadius = 0.5f;  ///< Player collision sphere radius
+    float playerGravity = 20.0f;         ///< Gravity acceleration (units/sec²)
+    float playerVerticalVelocity = 0.0f; ///< Current vertical velocity (for gravity)
+    bool enableCollision = true;         ///< Toggle SDF collision on/off
+    bool showCollisionDebug = false;     ///< Show SDF debug slice visualisation
+    float collisionDebugYLevel = 0.0f;   ///< Y level for debug SDF slice
+    int sdfResolution = 128;             ///< SDF grid resolution (per axis)
 
     int cameraModeIndex = 1;                 ///< Camera mode selection for debug menu
     float freeCameraSpeed = 10.0f;           ///< Free camera movement speed
@@ -177,6 +189,12 @@ private:
      * @param deltaTime Time elapsed since last frame
      */
     void HandleInput(float deltaTime);
+
+    /**
+     * @brief Move the player using WASD relative to camera, apply gravity and SDF collision
+     * @param deltaTime Time elapsed since last frame
+     */
+    void UpdatePlayerMovement(float deltaTime);
 
     /**
      * @brief Render game scene

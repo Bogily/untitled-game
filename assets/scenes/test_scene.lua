@@ -13,7 +13,7 @@ scene = {
     },
     
     -- Player start position
-    playerStart = {0.0, 0.0, 0.0},
+    playerStart = {0.0, 1.0, 0.0},
     
     -- World objects
     objects = {
@@ -26,16 +26,6 @@ scene = {
             albedo = {77, 77, 77, 255},
             metallic = 0.0,
             roughness = 0.8
-        },
-        {
-            name = "TestSphere",
-            position = {0.0, 1.0, 0.0},
-            rotation = {0.0, 0.0, 0.0},
-            scale = {1.0, 1.0, 1.0},
-            modelType = "sphere_1.0",
-            albedo = {204, 51, 51, 255},
-            metallic = 1.0,
-            roughness = 0.3
         },
         {
             name = "RedCube",

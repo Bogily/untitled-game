@@ -1,0 +1,81 @@
+#version 430
+
+layout(local_size_x = 256) in;
+
+struct DebugVisibleVoxel
+{
+    vec4 worldPosDist; // xyz = world pos, w = signed distance
+};
+
+layout(std430, binding = 0) buffer VisibleOut
+{
+    uint counter;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+    DebugVisibleVoxel voxels[];
+} outVis;
+
+uniform sampler3D sdfTexture;
+uniform vec4 frustumPlanes[6]; // xyz normal, w distance
+uniform vec3 gridOrigin;
+uniform float voxelSize;
+uniform ivec3 gridSize;
+uniform uint step;
+uniform float shellThreshold;
+uniform float radius;
+uniform float radiusMultiplier;
+uniform uint candidateCount;
+
+bool isInFrustum(vec3 p, float r)
+{
+    float scaledRadius = r * radiusMultiplier;
+
+    if (dot(frustumPlanes[5].xyz, p) + frustumPlanes[5].w < -scaledRadius)
+        return false;
+
+    if (dot(frustumPlanes[0].xyz, p) + frustumPlanes[0].w < -scaledRadius)
+        return false;
+
+    if (dot(frustumPlanes[1].xyz, p) + frustumPlanes[1].w < -scaledRadius)
+        return false;
+
+    if (dot(frustumPlanes[2].xyz, p) + frustumPlanes[2].w < -scaledRadius)
+        return false;
+
+    if (dot(frustumPlanes[3].xyz, p) + frustumPlanes[3].w < -scaledRadius)
+        return false;
+
+    return true;
+}
+
+void main()
+{
+    uint id = gl_GlobalInvocationID.x;
+    if (id >= candidateCount)
+        return;
+
+    uint steppedX = (uint(gridSize.x) + step - 1u) / step;
+    uint steppedY = (uint(gridSize.y) + step - 1u) / step;
+
+    uint tmp = id;
+    uint sx = tmp % steppedX;
+    tmp /= steppedX;
+    uint sy = tmp % steppedY;
+    uint sz = tmp / steppedY;
+
+    ivec3 voxelCoord = ivec3(int(sx * step), int(sy * step), int(sz * step));
+    if (any(greaterThanEqual(voxelCoord, gridSize)))
+        return;
+
+    float dist = texelFetch(sdfTexture, voxelCoord, 0).r;
+    if (abs(dist) > shellThreshold)
+        return;
+
+    vec3 worldPos = gridOrigin + (vec3(voxelCoord) + 0.5) * voxelSize;
+    if (!isInFrustum(worldPos, radius))
+        return;
+
+    uint outIdx = atomicAdd(outVis.counter, 1u);
+    outVis.voxels[outIdx].worldPosDist = vec4(worldPos, dist);
+}

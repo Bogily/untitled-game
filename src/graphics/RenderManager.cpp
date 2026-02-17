@@ -1,4 +1,5 @@
 #include "RenderManager.h"
+#include "Frustum.h"
 
 RenderManager::RenderManager()
     : screenWidth(0),
@@ -471,6 +472,9 @@ void RenderManager::UpdateAllSystems(float deltaTime)
     // Update camera
     cameraController.Update(deltaTime);
     cameraController.camera.UpdateEntity(deltaTime);
+
+    // Update shared frustum once per frame for all culling systems
+    UpdateGlobalFrustum(cameraController.camera);
 
     // Update all rendering subsystems with camera
     lightRenderer.Update(cameraController.camera, 64);

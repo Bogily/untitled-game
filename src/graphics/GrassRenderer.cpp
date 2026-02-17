@@ -577,51 +577,11 @@ void GrassRenderer::GenerateGrassPositions(int count, float size)
 
 Frustum GrassRenderer::ExtractFrustum(Camera3D camera)
 {
-    Frustum frustum;
-
-    float aspect = (float)GetScreenWidth() / (float)GetScreenHeight();
-    Matrix viewProj = MatrixMultiply(GetCameraMatrix(camera),
-                                     MatrixPerspective(camera.fovy * DEG2RAD, aspect, 0.1f, 1000.0f));
-
-    // Left plane
-    frustum.planes[0].normal = {viewProj.m3 + viewProj.m0, viewProj.m7 + viewProj.m4, viewProj.m11 + viewProj.m8};
-    frustum.planes[0].distance = viewProj.m15 + viewProj.m12;
-
-    // Right plane
-    frustum.planes[1].normal = {viewProj.m3 - viewProj.m0, viewProj.m7 - viewProj.m4, viewProj.m11 - viewProj.m8};
-    frustum.planes[1].distance = viewProj.m15 - viewProj.m12;
-
-    // Bottom plane
-    frustum.planes[2].normal = {viewProj.m3 + viewProj.m1, viewProj.m7 + viewProj.m5, viewProj.m11 + viewProj.m9};
-    frustum.planes[2].distance = viewProj.m15 + viewProj.m13;
-
-    // Top plane
-    frustum.planes[3].normal = {viewProj.m3 - viewProj.m1, viewProj.m7 - viewProj.m5, viewProj.m11 - viewProj.m9};
-    frustum.planes[3].distance = viewProj.m15 - viewProj.m13;
-
-    // Near plane
-    frustum.planes[4].normal = {viewProj.m3 + viewProj.m2, viewProj.m7 + viewProj.m6, viewProj.m11 + viewProj.m10};
-    frustum.planes[4].distance = viewProj.m15 + viewProj.m14;
-
-    // Far plane
-    frustum.planes[5].normal = {viewProj.m3 - viewProj.m2, viewProj.m7 - viewProj.m6, viewProj.m11 - viewProj.m10};
-    frustum.planes[5].distance = viewProj.m15 - viewProj.m14;
-
-    // Normalize all planes
-    for (int i = 0; i < 6; i++)
+    if (!IsGlobalFrustumAvailable())
     {
-        float length = Vector3Length(frustum.planes[i].normal);
-        if (length > 0.0f)
-        {
-            frustum.planes[i].normal = Vector3Scale(frustum.planes[i].normal, 1.0f / length);
-            frustum.planes[i].distance /= length;
-        }
+        UpdateGlobalFrustum(camera);
     }
-
-    // Push near plane back to prevent early culling (match geometry)
-    frustum.planes[4].distance -= 5.0f;
-
-    return frustum;
+    return GetGlobalFrustum();
 }
 
 bool GrassRenderer::IsPointInFrustum(const Frustum &frustum, Vector3 point, float radius)
