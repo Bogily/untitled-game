@@ -49,7 +49,9 @@ if %errorlevel% neq 0 (
 
 :: Build the project
 echo Building project...
-cmake --build .
+set "BUILD_JOBS=%NUMBER_OF_PROCESSORS%"
+if "%BUILD_JOBS%"=="" set "BUILD_JOBS=1"
+cmake --build . --parallel %BUILD_JOBS%
 if %errorlevel% neq 0 (
     echo Build failed!
     cd ..
