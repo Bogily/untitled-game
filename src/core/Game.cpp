@@ -1,6 +1,7 @@
 #include "Game.h"
 #include "../world/LuaScene.h"
 #include "../utils/ShaderUtil.h"
+#include "../utils/PathUtil.h"
 #include "ui/rmlui/GameEventListener.h"
 #include "rlgl.h"
 #include <glad/glad.h>
@@ -19,6 +20,8 @@ namespace
 
 void Game::Init()
 {
+    PathUtil::SetWorkingDirectoryToExecutable();
+
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Zelda-like 3D Game Structure");
     SetTargetFPS(TARGET_FPS);
@@ -996,9 +999,15 @@ void Game::HandleInput(float deltaTime)
     {
         switch (fullscreenMode)
         {
-        case 0: fullscreenMode = 2; break; // Windowed -> Borderless
-        case 2: fullscreenMode = 1; break; // Borderless -> Fullscreen
-        default: fullscreenMode = 0; break; // Fullscreen/unknown -> Windowed
+        case 0:
+            fullscreenMode = 2;
+            break; // Windowed -> Borderless
+        case 2:
+            fullscreenMode = 1;
+            break; // Borderless -> Fullscreen
+        default:
+            fullscreenMode = 0;
+            break; // Fullscreen/unknown -> Windowed
         }
     }
 

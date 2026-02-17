@@ -16,6 +16,7 @@
 #include <vector>
 #include <unordered_map>
 #include <string>
+#include <cstdint>
 
 /**
  * @brief Result of a single collision query against the SDF
@@ -295,6 +296,12 @@ private:
                                   float shellThreshold,
                                   float cubeSize) const;
 
+    uint64_t ComputeSceneHash(const std::vector<GPUTriangle> &triangles) const;
+    std::string GetCacheFilePath(uint64_t cacheKey) const;
+    bool LoadSDFCache(uint64_t cacheKey);
+    void SaveSDFCache(uint64_t cacheKey) const;
+    bool UploadSDFTextureFromCPU();
+
     // -----------------------------------------------------------------------
     // State
     // -----------------------------------------------------------------------
@@ -338,4 +345,6 @@ private:
     int debugMatProjLoc;                   ///< Shader uniform: projection matrix
     int debugCubeScaleLoc;                 ///< Shader uniform: cube scale
     int debugShellThresholdLoc;            ///< Shader uniform: shell threshold
+
+    bool sdfCacheEnabled; ///< Load/save SDF cache on disk
 };

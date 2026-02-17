@@ -12,7 +12,9 @@
 #include <algorithm>
 #include <cstring>
 #include <cstdio>
-
+#include <filesystem>
+#include <fstream>
+#include <cstdint>
 // ---------------------------------------------------------------------------
 // Helpers – keep uniform scale extraction consistent with the rest of the code
 // ---------------------------------------------------------------------------
@@ -43,6 +45,23 @@ namespace
 
 } // anonymous namespace
 
+namespace
+{
+    constexpr uint32_t SDF_CACHE_MAGIC = 0x53444643; // 'SDFC'
+    constexpr uint32_t SDF_CACHE_VERSION = 1;
+
+    struct SDFCacheHeader
+    {
+        uint32_t magic;
+        uint32_t version;
+        uint32_t resolution;
+        uint32_t reserved;
+        float gridOrigin[3];
+        float voxelSize;
+        uint64_t voxelCount;
+    };
+}
+
 // ===========================================================================
 // Construction / Destruction
 // ===========================================================================
@@ -72,7 +91,8 @@ SDFCollisionSystem::SDFCollisionSystem()
       debugMatViewLoc(-1),
       debugMatProjLoc(-1),
       debugCubeScaleLoc(-1),
-      debugShellThresholdLoc(-1)
+      debugShellThresholdLoc(-1),
+      sdfCacheEnabled(true)
 {
 }
 
@@ -373,9 +393,6 @@ void SDFCollisionSystem::BuildSDF(const std::vector<LevelData::ObjectData> &obje
 
     sdfReady = false;
 
-    TraceLog(LOG_INFO, "SDFCollisionSystem: Building SDF from %d scene objects...",
-             static_cast<int>(objects.size()));
-
     // ------------------------------------------------------------------
     // 1. Extract world-space triangles from every static object
     // ------------------------------------------------------------------
@@ -431,11 +448,6 @@ void SDFCollisionSystem::BuildSDF(const std::vector<LevelData::ObjectData> &obje
         boundsMax = {10.0f, 10.0f, 10.0f};
     }
 
-    TraceLog(LOG_INFO, "SDFCollisionSystem: Extracted %d triangles, bounds [%.1f,%.1f,%.1f]-[%.1f,%.1f,%.1f]",
-             static_cast<int>(allTriangles.size()),
-             boundsMin.x, boundsMin.y, boundsMin.z,
-             boundsMax.x, boundsMax.y, boundsMax.z);
-
     // ------------------------------------------------------------------
     // 2. Compute grid parameters
     // ------------------------------------------------------------------
@@ -463,6 +475,20 @@ void SDFCollisionSystem::BuildSDF(const std::vector<LevelData::ObjectData> &obje
     voxelSize = maxExtent / static_cast<float>(gridResolution);
     gridOrigin = boundsMin;
 
+    const uint64_t cacheKey = ComputeSceneHash(allTriangles);
+    if (sdfCacheEnabled && LoadSDFCache(cacheKey))
+    {
+        sdfReady = true;
+        TraceLog(LOG_INFO, "SDFCollisionSystem: Loaded SDF cache (res=%d)", gridResolution);
+        return;
+    }
+
+    TraceLog(LOG_INFO, "SDFCollisionSystem: Building SDF from %d scene objects...",
+             static_cast<int>(objects.size()));
+    TraceLog(LOG_INFO, "SDFCollisionSystem: Extracted %d triangles, bounds [%.1f,%.1f,%.1f]-[%.1f,%.1f,%.1f]",
+             static_cast<int>(allTriangles.size()),
+             boundsMin.x, boundsMin.y, boundsMin.z,
+             boundsMax.x, boundsMax.y, boundsMax.z);
     TraceLog(LOG_INFO, "SDFCollisionSystem: Grid %d^3, voxelSize=%.4f, origin=[%.2f,%.2f,%.2f]",
              gridResolution, voxelSize, gridOrigin.x, gridOrigin.y, gridOrigin.z);
 
@@ -587,8 +613,130 @@ void SDFCollisionSystem::BuildSDF(const std::vector<LevelData::ObjectData> &obje
                  totalVoxels, static_cast<float>(totalVoxels * sizeof(float)) / (1024.0f * 1024.0f));
     }
 
+    if (sdfCacheEnabled)
+        SaveSDFCache(cacheKey);
+
     sdfReady = true;
     TraceLog(LOG_INFO, "SDFCollisionSystem: SDF build complete");
+}
+
+uint64_t SDFCollisionSystem::ComputeSceneHash(const std::vector<GPUTriangle> &triangles) const
+{
+    uint64_t hash = 1469598103934665603ull;
+    auto mixBytes = [&](const void *ptr, size_t len)
+    {
+        const unsigned char *p = static_cast<const unsigned char *>(ptr);
+        for (size_t i = 0; i < len; ++i)
+        {
+            hash ^= static_cast<uint64_t>(p[i]);
+            hash *= 1099511628211ull;
+        }
+    };
+
+    mixBytes(&gridResolution, sizeof(gridResolution));
+    mixBytes(&boundsMargin, sizeof(boundsMargin));
+    mixBytes(&gridOrigin, sizeof(gridOrigin));
+    mixBytes(&voxelSize, sizeof(voxelSize));
+
+    uint64_t triCount = static_cast<uint64_t>(triangles.size());
+    mixBytes(&triCount, sizeof(triCount));
+    if (!triangles.empty())
+        mixBytes(triangles.data(), triangles.size() * sizeof(GPUTriangle));
+
+    return hash;
+}
+
+std::string SDFCollisionSystem::GetCacheFilePath(uint64_t cacheKey) const
+{
+    char fileName[64];
+    std::snprintf(fileName, sizeof(fileName), "sdf_%016llx.bin", static_cast<unsigned long long>(cacheKey));
+    std::filesystem::path p = std::filesystem::path("assets") / "cache" / "sdf" / fileName;
+    return p.string();
+}
+
+bool SDFCollisionSystem::UploadSDFTextureFromCPU()
+{
+    if (sdfCPU.empty() || gridResolution <= 0)
+        return false;
+
+    if (sdfTexture3D)
+        glDeleteTextures(1, &sdfTexture3D);
+
+    glGenTextures(1, &sdfTexture3D);
+    glBindTexture(GL_TEXTURE_3D, sdfTexture3D);
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_R16F,
+                 gridResolution, gridResolution, gridResolution,
+                 0, GL_RED, GL_FLOAT, sdfCPU.data());
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glBindTexture(GL_TEXTURE_3D, 0);
+
+    return true;
+}
+
+bool SDFCollisionSystem::LoadSDFCache(uint64_t cacheKey)
+{
+    const std::string cachePath = GetCacheFilePath(cacheKey);
+    std::ifstream file(cachePath, std::ios::binary);
+    if (!file.is_open())
+        return false;
+
+    SDFCacheHeader header{};
+    file.read(reinterpret_cast<char *>(&header), sizeof(header));
+    if (!file.good())
+        return false;
+
+    if (header.magic != SDF_CACHE_MAGIC || header.version != SDF_CACHE_VERSION)
+        return false;
+
+    const uint64_t expectedVoxelCount = static_cast<uint64_t>(header.resolution) *
+                                        static_cast<uint64_t>(header.resolution) *
+                                        static_cast<uint64_t>(header.resolution);
+    if (header.voxelCount != expectedVoxelCount)
+        return false;
+
+    sdfCPU.resize(static_cast<size_t>(header.voxelCount));
+    file.read(reinterpret_cast<char *>(sdfCPU.data()), static_cast<std::streamsize>(header.voxelCount * sizeof(float)));
+    if (!file.good())
+        return false;
+
+    gridResolution = static_cast<int>(header.resolution);
+    gridOrigin = {header.gridOrigin[0], header.gridOrigin[1], header.gridOrigin[2]};
+    voxelSize = header.voxelSize;
+
+    return UploadSDFTextureFromCPU();
+}
+
+void SDFCollisionSystem::SaveSDFCache(uint64_t cacheKey) const
+{
+    if (sdfCPU.empty() || gridResolution <= 0)
+        return;
+
+    const std::string cachePath = GetCacheFilePath(cacheKey);
+    std::filesystem::path pathObj(cachePath);
+    std::error_code ec;
+    std::filesystem::create_directories(pathObj.parent_path(), ec);
+
+    std::ofstream file(cachePath, std::ios::binary | std::ios::trunc);
+    if (!file.is_open())
+        return;
+
+    SDFCacheHeader header{};
+    header.magic = SDF_CACHE_MAGIC;
+    header.version = SDF_CACHE_VERSION;
+    header.resolution = static_cast<uint32_t>(gridResolution);
+    header.gridOrigin[0] = gridOrigin.x;
+    header.gridOrigin[1] = gridOrigin.y;
+    header.gridOrigin[2] = gridOrigin.z;
+    header.voxelSize = voxelSize;
+    header.voxelCount = static_cast<uint64_t>(sdfCPU.size());
+
+    file.write(reinterpret_cast<const char *>(&header), sizeof(header));
+    file.write(reinterpret_cast<const char *>(sdfCPU.data()),
+               static_cast<std::streamsize>(sdfCPU.size() * sizeof(float)));
 }
 
 // ===========================================================================
