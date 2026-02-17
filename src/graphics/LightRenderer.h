@@ -44,7 +44,6 @@ struct alignas(16) Light
  * Manages physically-based rendering (PBR) shader system with support for:
  * - Dynamic point and directional lights
  * - Per-frame frustum culling and light sorting
- * - GPU capability detection for optimal light count
  * - Material properties (albedo, metallic, roughness)
  */
 class LightRenderer
@@ -138,12 +137,6 @@ public:
     int GetLightCount() const { return lightCount; }
 
     /**
-     * @brief Get maximum supported lights
-     * @return Max light count
-     */
-    int GetMaxLights() const { return maxLights; }
-
-    /**
      * @brief Get sun/directional light direction
      * @return Direction vector
      */
@@ -161,7 +154,6 @@ private:
 
     std::vector<Light> lights; ///< All scene lights
     int lightCount;            ///< Current light count
-    int maxLights;             ///< GPU-determined max lights
     Vector3 ambientLight;      ///< Ambient light color
 
     /**
@@ -175,10 +167,4 @@ private:
      * @param maxActiveLights Maximum lights to keep
      */
     void CullAndSortLights(const Vector3 &cameraPos, int maxActiveLights);
-
-    /**
-     * @brief Query GPU for maximum uniform vector count
-     * @return Maximum supported light count
-     */
-    int QueryMaxLightsFromGPU();
 };
