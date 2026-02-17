@@ -1068,14 +1068,6 @@ void Game::UpdatePlayerMovement(float deltaTime)
     playerVerticalVelocity -= playerGravity * deltaTime;
     pos.y += playerVerticalVelocity * deltaTime;
 
-    // Hard floor at y = 0 as an absolute safety net (prevents falling forever
-    // if the SDF grid doesn't cover the area below the scene).
-    if (pos.y < -50.0f)
-    {
-        pos.y = 0.0f;
-        playerVerticalVelocity = 0.0f;
-    }
-
     // -----------------------------------------------------------------------
     // 3. Resolve collisions via the SDF
     // -----------------------------------------------------------------------

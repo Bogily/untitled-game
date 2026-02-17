@@ -89,11 +89,16 @@ void main()
 
     CollisionResult result;
 
-    if (dist < radius)
+    float absDist = abs(dist);
+
+    if (absDist < radius)
     {
         // Entity's bounding sphere overlaps geometry
-        vec3  normal      = sdfGradient(pos);
-        float penetration = radius - dist;
+        vec3 normal = sdfGradient(pos);
+        if (dist < 0.0)
+            normal = -normal;
+
+        float penetration = radius - absDist;
 
         result.pushVector    = vec4(normal * penetration, penetration);
         result.surfaceNormal = vec4(normal, 1.0);

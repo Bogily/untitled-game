@@ -569,6 +569,14 @@ float SDFCollisionSystem::SampleSDF(Vector3 worldPos) const
     if (!sdfReady || sdfCPU.empty())
         return 1.0e4f;
 
+    const float gridExtent = voxelSize * static_cast<float>(gridResolution);
+    if (worldPos.x < gridOrigin.x || worldPos.x > gridOrigin.x + gridExtent ||
+        worldPos.y < gridOrigin.y || worldPos.y > gridOrigin.y + gridExtent ||
+        worldPos.z < gridOrigin.z || worldPos.z > gridOrigin.z + gridExtent)
+    {
+        return 1.0e4f;
+    }
+
     // Convert world position to continuous voxel coordinates
     float fx = (worldPos.x - gridOrigin.x) / voxelSize - 0.5f;
     float fy = (worldPos.y - gridOrigin.y) / voxelSize - 0.5f;
@@ -756,10 +764,14 @@ SDFCollisionResult SDFCollisionSystem::QueryCollision(Vector3 position, float ra
 
     float dist = SampleSDF(position);
 
-    if (dist < radius)
+    float absDist = fabsf(dist);
+    if (absDist < radius)
     {
         Vector3 normal = SDFGradient(position);
-        float penetration = radius - dist;
+        if (dist < 0.0f)
+            normal = Vector3Scale(normal, -1.0f);
+
+        float penetration = radius - absDist;
 
         result.pushVector = Vector3Scale(normal, penetration);
         result.surfaceNormal = normal;
