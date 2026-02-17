@@ -991,6 +991,23 @@ void Game::HandleInput(float deltaTime)
 {
     HandleNPCInteraction();
 
+    // Cycle display mode: windowed -> borderless fullscreen -> fullscreen
+    if (IsKeyPressed(KEY_F11))
+    {
+        switch (fullscreenMode)
+        {
+        case 0:
+            fullscreenMode = 2;
+            break; // Windowed -> Borderless
+        case 2:
+            fullscreenMode = 1;
+            break; // Borderless -> Fullscreen
+        default:
+            fullscreenMode = 0;
+            break; // Fullscreen/unknown -> Windowed
+        }
+    }
+
     // Toggle cursor
     if (IsKeyPressed(KEY_TAB))
     {
