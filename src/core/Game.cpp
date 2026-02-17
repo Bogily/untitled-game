@@ -11,10 +11,10 @@
 
 namespace
 {
-float GetUniformScale(Vector3 scale)
-{
-    return (scale.x + scale.y + scale.z) / 3.0f;
-}
+    float GetUniformScale(Vector3 scale)
+    {
+        return (scale.x + scale.y + scale.z) / 3.0f;
+    }
 }
 
 void Game::Init()
@@ -528,7 +528,7 @@ void Game::DrawPlaying()
         // Draw SDF collision debug visualisation
         if (showCollisionDebug && collisionSystem.IsReady())
         {
-            collisionSystem.DrawDebugSlice(renderCamera, collisionDebugYLevel);
+            collisionSystem.DrawDebugVolume(renderCamera, 1.15f);
             collisionSystem.DrawDebugBounds(GREEN);
         }
         
@@ -1037,10 +1037,14 @@ void Game::UpdatePlayerMovement(float deltaTime)
     camRight = Vector3Normalize(camRight);
 
     Vector3 moveDir = {0.0f, 0.0f, 0.0f};
-    if (IsKeyDown(KEY_W)) moveDir = Vector3Add(moveDir, camForward);
-    if (IsKeyDown(KEY_S)) moveDir = Vector3Subtract(moveDir, camForward);
-    if (IsKeyDown(KEY_D)) moveDir = Vector3Add(moveDir, camRight);
-    if (IsKeyDown(KEY_A)) moveDir = Vector3Subtract(moveDir, camRight);
+    if (IsKeyDown(KEY_W))
+        moveDir = Vector3Add(moveDir, camForward);
+    if (IsKeyDown(KEY_S))
+        moveDir = Vector3Subtract(moveDir, camForward);
+    if (IsKeyDown(KEY_D))
+        moveDir = Vector3Add(moveDir, camRight);
+    if (IsKeyDown(KEY_A))
+        moveDir = Vector3Subtract(moveDir, camRight);
 
     float moveDirLen = Vector3Length(moveDir);
     if (moveDirLen > 1e-6f)

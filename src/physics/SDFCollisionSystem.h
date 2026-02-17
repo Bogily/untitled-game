@@ -12,6 +12,7 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "../world/Level.h"
+#include "../graphics/Frustum.h"
 #include <vector>
 #include <unordered_map>
 #include <string>
@@ -139,6 +140,17 @@ public:
     void DrawDebugSlice(Camera3D camera, float yLevel) const;
 
     /**
+     * @brief Draw a 3D near-surface shell of the SDF with frustum culling
+     *
+     * Uses compute-shader frustum culling (matching grass path conventions)
+     * with CPU fallback.
+     *
+     * @param camera Camera used to extract frustum planes
+     * @param cullRadiusMultiplier Sphere inflation multiplier for culling
+     */
+    void DrawDebugVolume(const Camera3D &camera, float cullRadiusMultiplier = 1.15f) const;
+
+    /**
      * @brief Draw wireframe outline of the SDF grid volume
      * @param color Wireframe color
      */
@@ -257,31 +269,57 @@ private:
      */
     Vector3 SDFGradient(Vector3 worldPos) const;
 
+    /**
+     * @brief Frustum extraction (same plane convention as grass renderer)
+     */
+    Frustum ExtractFrustum(const Camera3D &camera) const;
+
+    /**
+     * @brief Sphere-vs-frustum test (far + left/right/top/bottom, near skipped)
+     */
+    bool IsPointInFrustum(const Frustum &frustum, Vector3 point, float radius) const;
+
+    /**
+     * @brief Debug rendering sampling step based on grid resolution
+     */
+    int GetDebugStep() const;
+
+    struct DebugVisibleVoxel
+    {
+        float x, y, z, dist;
+    };
+
     // -----------------------------------------------------------------------
     // State
     // -----------------------------------------------------------------------
 
-    bool initialized;   ///< Init() has been called
-    bool sdfReady;      ///< BuildSDF() completed successfully
-    bool enabled;       ///< Runtime toggle
+    bool initialized; ///< Init() has been called
+    bool sdfReady;    ///< BuildSDF() completed successfully
+    bool enabled;     ///< Runtime toggle
 
     // Grid parameters
-    int     gridResolution; ///< Voxels per axis (default 128)
-    float   boundsMargin;   ///< Extra padding around scene AABB (default 4.0)
-    Vector3 gridOrigin;     ///< World-space corner of voxel (0,0,0)
-    float   voxelSize;      ///< World-space size of one voxel
+    int gridResolution; ///< Voxels per axis (default 128)
+    float boundsMargin; ///< Extra padding around scene AABB (default 4.0)
+    Vector3 gridOrigin; ///< World-space corner of voxel (0,0,0)
+    float voxelSize;    ///< World-space size of one voxel
 
     // CPU-side SDF cache (gridResolution^3 floats, X-major layout)
     std::vector<float> sdfCPU;
 
     // GPU resources – SDF generation
-    unsigned int generateProgram;   ///< Compute shader program for SDF generation
-    unsigned int ssboTriangles;     ///< SSBO holding world-space triangles
-    unsigned int sdfTexture3D;      ///< 3D texture (R16F) holding the SDF
+    unsigned int generateProgram; ///< Compute shader program for SDF generation
+    unsigned int ssboTriangles;   ///< SSBO holding world-space triangles
+    unsigned int sdfTexture3D;    ///< 3D texture (R16F) holding the SDF
 
     // GPU resources – collision query
-    unsigned int collisionProgram;  ///< Compute shader program for collision queries
-    unsigned int ssboEntities;      ///< SSBO holding entity position+radius
-    unsigned int ssboResults;       ///< SSBO holding collision results
-    unsigned int sdfSampler;        ///< Sampler object for trilinear filtering
+    unsigned int collisionProgram; ///< Compute shader program for collision queries
+    unsigned int ssboEntities;     ///< SSBO holding entity position+radius
+    unsigned int ssboResults;      ///< SSBO holding collision results
+    unsigned int sdfSampler;       ///< Sampler object for trilinear filtering
+
+    // GPU resources – debug volume frustum culling
+    unsigned int debugCullProgram;                          ///< Compute shader for debug voxel frustum culling
+    unsigned int ssboDebugVisible;                          ///< SSBO: [counter+padding][DebugVisibleVoxel...]
+    mutable unsigned int debugMaxVisible;                   ///< Maximum visible entries allocated
+    mutable std::vector<DebugVisibleVoxel> debugVisibleCPU; ///< Readback cache
 };

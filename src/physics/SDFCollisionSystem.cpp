@@ -11,6 +11,7 @@
 #include <cfloat>
 #include <algorithm>
 #include <cstring>
+#include <cstdio>
 
 // ---------------------------------------------------------------------------
 // Helpers – keep uniform scale extraction consistent with the rest of the code
@@ -18,25 +19,29 @@
 namespace
 {
 
-float AverageScale(Vector3 s)
-{
-    return (s.x + s.y + s.z) / 3.0f;
-}
+    float AverageScale(Vector3 s)
+    {
+        return (s.x + s.y + s.z) / 3.0f;
+    }
 
-// Clamp an integer to [lo, hi]
-int ClampInt(int v, int lo, int hi)
-{
-    if (v < lo) return lo;
-    if (v > hi) return hi;
-    return v;
-}
+    // Clamp an integer to [lo, hi]
+    int ClampInt(int v, int lo, int hi)
+    {
+        if (v < lo)
+            return lo;
+        if (v > hi)
+            return hi;
+        return v;
+    }
 
-float Clamp01(float v)
-{
-    if (v < 0.0f) return 0.0f;
-    if (v > 1.0f) return 1.0f;
-    return v;
-}
+    float Clamp01(float v)
+    {
+        if (v < 0.0f)
+            return 0.0f;
+        if (v > 1.0f)
+            return 1.0f;
+        return v;
+    }
 
 } // anonymous namespace
 
@@ -58,7 +63,10 @@ SDFCollisionSystem::SDFCollisionSystem()
       collisionProgram(0),
       ssboEntities(0),
       ssboResults(0),
-      sdfSampler(0)
+      sdfSampler(0),
+      debugCullProgram(0),
+      ssboDebugVisible(0),
+      debugMaxVisible(0)
 {
 }
 
@@ -95,10 +103,17 @@ void SDFCollisionSystem::Init()
         return;
     }
 
+    debugCullProgram = CompileComputeProgram("assets/shader/sdf_debug_cull.comp");
+    if (debugCullProgram == 0)
+    {
+        TraceLog(LOG_WARNING, "SDFCollisionSystem: Failed to compile debug culling shader (CPU fallback active)");
+    }
+
     // --- Create SSBOs (initial empty allocation) ---------------------------
     glGenBuffers(1, &ssboTriangles);
     glGenBuffers(1, &ssboEntities);
     glGenBuffers(1, &ssboResults);
+    glGenBuffers(1, &ssboDebugVisible);
 
     // --- Create sampler for trilinear SDF reads ----------------------------
     glGenSamplers(1, &sdfSampler);
@@ -114,16 +129,56 @@ void SDFCollisionSystem::Init()
 
 void SDFCollisionSystem::Shutdown()
 {
-    if (generateProgram)  { glDeleteProgram(generateProgram);  generateProgram  = 0; }
-    if (collisionProgram) { glDeleteProgram(collisionProgram); collisionProgram = 0; }
-    if (ssboTriangles)    { glDeleteBuffers(1, &ssboTriangles);    ssboTriangles    = 0; }
-    if (ssboEntities)     { glDeleteBuffers(1, &ssboEntities);     ssboEntities     = 0; }
-    if (ssboResults)      { glDeleteBuffers(1, &ssboResults);      ssboResults      = 0; }
-    if (sdfTexture3D)     { glDeleteTextures(1, &sdfTexture3D);    sdfTexture3D     = 0; }
-    if (sdfSampler)       { glDeleteSamplers(1, &sdfSampler);      sdfSampler       = 0; }
+    if (generateProgram)
+    {
+        glDeleteProgram(generateProgram);
+        generateProgram = 0;
+    }
+    if (collisionProgram)
+    {
+        glDeleteProgram(collisionProgram);
+        collisionProgram = 0;
+    }
+    if (debugCullProgram)
+    {
+        glDeleteProgram(debugCullProgram);
+        debugCullProgram = 0;
+    }
+    if (ssboTriangles)
+    {
+        glDeleteBuffers(1, &ssboTriangles);
+        ssboTriangles = 0;
+    }
+    if (ssboEntities)
+    {
+        glDeleteBuffers(1, &ssboEntities);
+        ssboEntities = 0;
+    }
+    if (ssboResults)
+    {
+        glDeleteBuffers(1, &ssboResults);
+        ssboResults = 0;
+    }
+    if (ssboDebugVisible)
+    {
+        glDeleteBuffers(1, &ssboDebugVisible);
+        ssboDebugVisible = 0;
+    }
+    if (sdfTexture3D)
+    {
+        glDeleteTextures(1, &sdfTexture3D);
+        sdfTexture3D = 0;
+    }
+    if (sdfSampler)
+    {
+        glDeleteSamplers(1, &sdfSampler);
+        sdfSampler = 0;
+    }
 
     sdfCPU.clear();
-    sdfReady    = false;
+    debugVisibleCPU.clear();
+    debugMaxVisible = 0;
+    sdfReady = false;
     initialized = false;
 
     TraceLog(LOG_INFO, "SDFCollisionSystem: Shutdown complete");
@@ -138,6 +193,16 @@ void SDFCollisionSystem::SetResolution(int resolution)
     gridResolution = ClampInt(resolution, 32, 512);
 }
 
+int SDFCollisionSystem::GetDebugStep() const
+{
+    if (gridResolution >= 256)
+        return 4;
+    if (gridResolution >= 192)
+        return 3;
+    if (gridResolution > 128)
+        return 2;
+    return 1;
+}
 void SDFCollisionSystem::SetBoundsMargin(float margin)
 {
     boundsMargin = fmaxf(0.0f, margin);
@@ -153,7 +218,7 @@ Matrix SDFCollisionSystem::BuildObjectTransform(const LevelData::ObjectData &obj
     //   translate -> rotateX -> rotateY -> rotateZ -> scale(uniform)
     float uniformScale = AverageScale(obj.scale);
 
-    Matrix matScale    = MatrixScale(uniformScale, uniformScale, uniformScale);
+    Matrix matScale = MatrixScale(uniformScale, uniformScale, uniformScale);
     Matrix matRotation = MatrixRotateXYZ({obj.rotation.x * DEG2RAD,
                                           obj.rotation.y * DEG2RAD,
                                           obj.rotation.z * DEG2RAD});
@@ -207,7 +272,7 @@ void SDFCollisionSystem::ExtractTriangles(const Mesh &mesh, Matrix transform,
         Vector3 edge1 = Vector3Subtract(wv1, wv0);
         Vector3 edge2 = Vector3Subtract(wv2, wv0);
         Vector3 faceN = Vector3CrossProduct(edge1, edge2);
-        float   faceNLen = Vector3Length(faceN);
+        float faceNLen = Vector3Length(faceN);
 
         if (faceNLen > 1e-10f)
         {
@@ -228,10 +293,22 @@ void SDFCollisionSystem::ExtractTriangles(const Mesh &mesh, Matrix transform,
         }
 
         GPUTriangle tri;
-        tri.v0[0] = wv0.x; tri.v0[1] = wv0.y; tri.v0[2] = wv0.z; tri.v0[3] = 0.0f;
-        tri.v1[0] = wv1.x; tri.v1[1] = wv1.y; tri.v1[2] = wv1.z; tri.v1[3] = 0.0f;
-        tri.v2[0] = wv2.x; tri.v2[1] = wv2.y; tri.v2[2] = wv2.z; tri.v2[3] = 0.0f;
-        tri.n[0]  = faceN.x; tri.n[1] = faceN.y; tri.n[2] = faceN.z; tri.n[3] = 0.0f;
+        tri.v0[0] = wv0.x;
+        tri.v0[1] = wv0.y;
+        tri.v0[2] = wv0.z;
+        tri.v0[3] = 0.0f;
+        tri.v1[0] = wv1.x;
+        tri.v1[1] = wv1.y;
+        tri.v1[2] = wv1.z;
+        tri.v1[3] = 0.0f;
+        tri.v2[0] = wv2.x;
+        tri.v2[1] = wv2.y;
+        tri.v2[2] = wv2.z;
+        tri.v2[3] = 0.0f;
+        tri.n[0] = faceN.x;
+        tri.n[1] = faceN.y;
+        tri.n[2] = faceN.z;
+        tri.n[3] = 0.0f;
 
         outTriangles.push_back(tri);
     }
@@ -262,7 +339,7 @@ void SDFCollisionSystem::BuildSDF(const std::vector<LevelData::ObjectData> &obje
     allTriangles.reserve(8192); // rough pre-alloc
 
     // Track world bounds while extracting
-    Vector3 boundsMin = { FLT_MAX,  FLT_MAX,  FLT_MAX};
+    Vector3 boundsMin = {FLT_MAX, FLT_MAX, FLT_MAX};
     Vector3 boundsMax = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
 
     for (const auto &obj : objects)
@@ -288,9 +365,9 @@ void SDFCollisionSystem::BuildSDF(const std::vector<LevelData::ObjectData> &obje
             {
                 for (int vi = 0; vi < 3; vi++)
                 {
-                    const float *v = (vi == 0) ? allTriangles[ti].v0
-                                   : (vi == 1) ? allTriangles[ti].v1
-                                                : allTriangles[ti].v2;
+                    const float *v = (vi == 0)   ? allTriangles[ti].v0
+                                     : (vi == 1) ? allTriangles[ti].v1
+                                                 : allTriangles[ti].v2;
                     boundsMin.x = fminf(boundsMin.x, v[0]);
                     boundsMin.y = fminf(boundsMin.y, v[1]);
                     boundsMin.z = fminf(boundsMin.z, v[2]);
@@ -307,7 +384,7 @@ void SDFCollisionSystem::BuildSDF(const std::vector<LevelData::ObjectData> &obje
         TraceLog(LOG_WARNING, "SDFCollisionSystem: No static triangles found – SDF will be empty");
         // Create a trivial SDF with large positive values (no geometry)
         boundsMin = {-10.0f, -2.0f, -10.0f};
-        boundsMax = { 10.0f,  10.0f,  10.0f};
+        boundsMax = {10.0f, 10.0f, 10.0f};
     }
 
     TraceLog(LOG_INFO, "SDFCollisionSystem: Extracted %d triangles, bounds [%.1f,%.1f,%.1f]-[%.1f,%.1f,%.1f]",
@@ -339,7 +416,7 @@ void SDFCollisionSystem::BuildSDF(const std::vector<LevelData::ObjectData> &obje
     if (maxExtent < 1.0f)
         maxExtent = 1.0f;
 
-    voxelSize  = maxExtent / static_cast<float>(gridResolution);
+    voxelSize = maxExtent / static_cast<float>(gridResolution);
     gridOrigin = boundsMin;
 
     TraceLog(LOG_INFO, "SDFCollisionSystem: Grid %d^3, voxelSize=%.4f, origin=[%.2f,%.2f,%.2f]",
@@ -393,10 +470,10 @@ void SDFCollisionSystem::BuildSDF(const std::vector<LevelData::ObjectData> &obje
     glBindImageTexture(0, sdfTexture3D, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_R16F);
 
     // Set uniforms
-    GLint locTriCount   = glGetUniformLocation(generateProgram, "triangleCount");
+    GLint locTriCount = glGetUniformLocation(generateProgram, "triangleCount");
     GLint locGridOrigin = glGetUniformLocation(generateProgram, "gridOrigin");
-    GLint locVoxelSize  = glGetUniformLocation(generateProgram, "voxelSize");
-    GLint locGridSize   = glGetUniformLocation(generateProgram, "gridSize");
+    GLint locVoxelSize = glGetUniformLocation(generateProgram, "voxelSize");
+    GLint locGridSize = glGetUniformLocation(generateProgram, "gridSize");
 
     glUniform1ui(locTriCount, static_cast<unsigned int>(allTriangles.size()));
     glUniform3f(locGridOrigin, gridOrigin.x, gridOrigin.y, gridOrigin.z);
@@ -471,20 +548,18 @@ float SDFCollisionSystem::SampleSDF(Vector3 worldPos) const
         x = ClampInt(x, 0, maxIdx);
         y = ClampInt(y, 0, maxIdx);
         z = ClampInt(z, 0, maxIdx);
-        size_t index = static_cast<size_t>(x)
-                     + static_cast<size_t>(y) * static_cast<size_t>(gridResolution)
-                     + static_cast<size_t>(z) * static_cast<size_t>(gridResolution) * static_cast<size_t>(gridResolution);
+        size_t index = static_cast<size_t>(x) + static_cast<size_t>(y) * static_cast<size_t>(gridResolution) + static_cast<size_t>(z) * static_cast<size_t>(gridResolution) * static_cast<size_t>(gridResolution);
         return sdfCPU[index];
     };
 
     // Trilinear interpolation
-    float c000 = sample(ix,     iy,     iz    );
-    float c100 = sample(ix + 1, iy,     iz    );
-    float c010 = sample(ix,     iy + 1, iz    );
-    float c110 = sample(ix + 1, iy + 1, iz    );
-    float c001 = sample(ix,     iy,     iz + 1);
-    float c101 = sample(ix + 1, iy,     iz + 1);
-    float c011 = sample(ix,     iy + 1, iz + 1);
+    float c000 = sample(ix, iy, iz);
+    float c100 = sample(ix + 1, iy, iz);
+    float c010 = sample(ix, iy + 1, iz);
+    float c110 = sample(ix + 1, iy + 1, iz);
+    float c001 = sample(ix, iy, iz + 1);
+    float c101 = sample(ix + 1, iy, iz + 1);
+    float c011 = sample(ix, iy + 1, iz + 1);
     float c111 = sample(ix + 1, iy + 1, iz + 1);
 
     float c00 = c000 * (1.0f - tx) + c100 * tx;
@@ -502,12 +577,9 @@ Vector3 SDFCollisionSystem::SDFGradient(Vector3 worldPos) const
 {
     float eps = voxelSize * 0.5f;
 
-    float dx = SampleSDF({worldPos.x + eps, worldPos.y, worldPos.z})
-             - SampleSDF({worldPos.x - eps, worldPos.y, worldPos.z});
-    float dy = SampleSDF({worldPos.x, worldPos.y + eps, worldPos.z})
-             - SampleSDF({worldPos.x, worldPos.y - eps, worldPos.z});
-    float dz = SampleSDF({worldPos.x, worldPos.y, worldPos.z + eps})
-             - SampleSDF({worldPos.x, worldPos.y, worldPos.z - eps});
+    float dx = SampleSDF({worldPos.x + eps, worldPos.y, worldPos.z}) - SampleSDF({worldPos.x - eps, worldPos.y, worldPos.z});
+    float dy = SampleSDF({worldPos.x, worldPos.y + eps, worldPos.z}) - SampleSDF({worldPos.x, worldPos.y - eps, worldPos.z});
+    float dz = SampleSDF({worldPos.x, worldPos.y, worldPos.z + eps}) - SampleSDF({worldPos.x, worldPos.y, worldPos.z - eps});
 
     Vector3 g = {dx, dy, dz};
     float len = Vector3Length(g);
@@ -518,6 +590,60 @@ Vector3 SDFCollisionSystem::SDFGradient(Vector3 worldPos) const
     return Vector3Scale(g, 1.0f / len);
 }
 
+Frustum SDFCollisionSystem::ExtractFrustum(const Camera3D &camera) const
+{
+    Frustum frustum;
+
+    float aspect = (float)GetScreenWidth() / (float)GetScreenHeight();
+    Matrix viewProj = MatrixMultiply(GetCameraMatrix(camera),
+                                     MatrixPerspective(camera.fovy * DEG2RAD, aspect, 0.1f, 1000.0f));
+
+    frustum.planes[0].normal = {viewProj.m3 + viewProj.m0, viewProj.m7 + viewProj.m4, viewProj.m11 + viewProj.m8};
+    frustum.planes[0].distance = viewProj.m15 + viewProj.m12;
+
+    frustum.planes[1].normal = {viewProj.m3 - viewProj.m0, viewProj.m7 - viewProj.m4, viewProj.m11 - viewProj.m8};
+    frustum.planes[1].distance = viewProj.m15 - viewProj.m12;
+
+    frustum.planes[2].normal = {viewProj.m3 + viewProj.m1, viewProj.m7 + viewProj.m5, viewProj.m11 + viewProj.m9};
+    frustum.planes[2].distance = viewProj.m15 + viewProj.m13;
+
+    frustum.planes[3].normal = {viewProj.m3 - viewProj.m1, viewProj.m7 - viewProj.m5, viewProj.m11 - viewProj.m9};
+    frustum.planes[3].distance = viewProj.m15 - viewProj.m13;
+
+    frustum.planes[4].normal = {viewProj.m3 + viewProj.m2, viewProj.m7 + viewProj.m6, viewProj.m11 + viewProj.m10};
+    frustum.planes[4].distance = viewProj.m15 + viewProj.m14;
+
+    frustum.planes[5].normal = {viewProj.m3 - viewProj.m2, viewProj.m7 - viewProj.m6, viewProj.m11 - viewProj.m10};
+    frustum.planes[5].distance = viewProj.m15 - viewProj.m14;
+
+    for (int i = 0; i < 6; i++)
+    {
+        float length = Vector3Length(frustum.planes[i].normal);
+        if (length > 0.0f)
+        {
+            frustum.planes[i].normal = Vector3Scale(frustum.planes[i].normal, 1.0f / length);
+            frustum.planes[i].distance /= length;
+        }
+    }
+
+    frustum.planes[4].distance -= 5.0f;
+    return frustum;
+}
+
+bool SDFCollisionSystem::IsPointInFrustum(const Frustum &frustum, Vector3 point, float radius) const
+{
+    if (Vector3DotProduct(frustum.planes[5].normal, point) + frustum.planes[5].distance < -radius)
+        return false;
+
+    for (int i = 0; i < 4; i++)
+    {
+        float distance = Vector3DotProduct(frustum.planes[i].normal, point) + frustum.planes[i].distance;
+        if (distance < -radius)
+            return false;
+    }
+
+    return true;
+}
 // ===========================================================================
 // Collision queries – single entity (CPU path)
 // ===========================================================================
@@ -525,10 +651,10 @@ Vector3 SDFCollisionSystem::SDFGradient(Vector3 worldPos) const
 SDFCollisionResult SDFCollisionSystem::QueryCollision(Vector3 position, float radius) const
 {
     SDFCollisionResult result;
-    result.pushVector     = {0.0f, 0.0f, 0.0f};
-    result.surfaceNormal  = {0.0f, 1.0f, 0.0f};
+    result.pushVector = {0.0f, 0.0f, 0.0f};
+    result.surfaceNormal = {0.0f, 1.0f, 0.0f};
     result.penetrationDepth = 0.0f;
-    result.colliding      = false;
+    result.colliding = false;
 
     if (!sdfReady || !enabled)
         return result;
@@ -537,33 +663,191 @@ SDFCollisionResult SDFCollisionSystem::QueryCollision(Vector3 position, float ra
 
     if (dist < radius)
     {
-        Vector3 normal      = SDFGradient(position);
-        float   penetration = radius - dist;
+        Vector3 normal = SDFGradient(position);
+        float penetration = radius - dist;
 
-        result.pushVector     = Vector3Scale(normal, penetration);
-        result.surfaceNormal  = normal;
+        result.pushVector = Vector3Scale(normal, penetration);
+        result.surfaceNormal = normal;
         result.penetrationDepth = penetration;
-        result.colliding      = true;
+        result.colliding = true;
     }
 
     return result;
 }
 
+void SDFCollisionSystem::DrawDebugVolume(const Camera3D &camera, float cullRadiusMultiplier) const
+{
+    if (!sdfReady || sdfCPU.empty())
+        return;
+
+    const int step = GetDebugStep();
+    const float shellThreshold = voxelSize * static_cast<float>(step) * 1.2f;
+    const float cubeSize = voxelSize * static_cast<float>(step) * 0.55f;
+    const float voxelCullRadius = cubeSize * 0.5f;
+    const Frustum frustum = ExtractFrustum(camera);
+
+    // Ensure debug visible buffer matches current stepped voxel count
+    const unsigned int steppedRes = (static_cast<unsigned int>(gridResolution) + static_cast<unsigned int>(step) - 1u) / static_cast<unsigned int>(step);
+    const unsigned int totalCandidates = steppedRes * steppedRes * steppedRes;
+
+    if (ssboDebugVisible != 0 && debugMaxVisible != totalCandidates)
+    {
+        const size_t headerSize = 16;
+        const size_t bodySize = static_cast<size_t>(totalCandidates) * sizeof(DebugVisibleVoxel);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboDebugVisible);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, static_cast<GLsizeiptr>(headerSize + bodySize), nullptr, GL_DYNAMIC_COPY);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+        debugMaxVisible = totalCandidates;
+        debugVisibleCPU.resize(debugMaxVisible);
+    }
+
+    if (debugCullProgram != 0 && ssboDebugVisible != 0 && debugMaxVisible > 0)
+    {
+        unsigned int zero = 0;
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboDebugVisible);
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(unsigned int), &zero);
+
+        glUseProgram(debugCullProgram);
+
+        for (int i = 0; i < 6; ++i)
+        {
+            char name[64];
+            sprintf(name, "frustumPlanes[%d]", i);
+            GLint loc = glGetUniformLocation(debugCullProgram, name);
+            if (loc >= 0)
+            {
+                glUniform4f(loc,
+                            frustum.planes[i].normal.x,
+                            frustum.planes[i].normal.y,
+                            frustum.planes[i].normal.z,
+                            frustum.planes[i].distance);
+            }
+        }
+
+        GLint locSdfTex = glGetUniformLocation(debugCullProgram, "sdfTexture");
+        GLint locOrigin = glGetUniformLocation(debugCullProgram, "gridOrigin");
+        GLint locVoxel = glGetUniformLocation(debugCullProgram, "voxelSize");
+        GLint locGrid = glGetUniformLocation(debugCullProgram, "gridSize");
+        GLint locStep = glGetUniformLocation(debugCullProgram, "step");
+        GLint locThreshold = glGetUniformLocation(debugCullProgram, "shellThreshold");
+        GLint locRadius = glGetUniformLocation(debugCullProgram, "radius");
+        GLint locRadiusMul = glGetUniformLocation(debugCullProgram, "radiusMultiplier");
+        GLint locTotal = glGetUniformLocation(debugCullProgram, "candidateCount");
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_3D, sdfTexture3D);
+        glBindSampler(0, sdfSampler);
+
+        if (locSdfTex >= 0)
+            glUniform1i(locSdfTex, 0);
+        if (locOrigin >= 0)
+            glUniform3f(locOrigin, gridOrigin.x, gridOrigin.y, gridOrigin.z);
+        if (locVoxel >= 0)
+            glUniform1f(locVoxel, voxelSize);
+        if (locGrid >= 0)
+            glUniform3i(locGrid, gridResolution, gridResolution, gridResolution);
+        if (locStep >= 0)
+            glUniform1ui(locStep, static_cast<unsigned int>(step));
+        if (locThreshold >= 0)
+            glUniform1f(locThreshold, shellThreshold);
+        if (locRadius >= 0)
+            glUniform1f(locRadius, voxelCullRadius);
+        if (locRadiusMul >= 0)
+            glUniform1f(locRadiusMul, cullRadiusMultiplier);
+        if (locTotal >= 0)
+            glUniform1ui(locTotal, totalCandidates);
+
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssboDebugVisible);
+
+        unsigned int groups = (totalCandidates + 255u) / 256u;
+        glDispatchCompute(groups, 1, 1);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+        unsigned int visibleCount = 0;
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboDebugVisible);
+        glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(unsigned int), &visibleCount);
+
+        if (visibleCount > debugMaxVisible)
+            visibleCount = debugMaxVisible;
+
+        if (visibleCount > 0)
+        {
+            glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 16,
+                               static_cast<GLsizeiptr>(visibleCount * sizeof(DebugVisibleVoxel)),
+                               debugVisibleCPU.data());
+
+            for (unsigned int i = 0; i < visibleCount; ++i)
+            {
+                const DebugVisibleVoxel &v = debugVisibleCPU[i];
+                float absDist = fabsf(v.dist);
+                float intensity = Clamp01(1.0f - absDist / shellThreshold);
+                unsigned char alpha = static_cast<unsigned char>(90.0f + intensity * 165.0f);
+
+                Color color = (v.dist < 0.0f)
+                                  ? Color{255, 70, 70, alpha}
+                                  : Color{80, 180, 255, alpha};
+
+                DrawCube({v.x, v.y, v.z}, cubeSize, cubeSize, cubeSize, color);
+            }
+        }
+
+        glBindSampler(0, 0);
+        glBindTexture(GL_TEXTURE_3D, 0);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+        glUseProgram(0);
+        return;
+    }
+
+    // CPU fallback path (frustum behavior mirrors grass culling)
+    const float cpuCullRadius = voxelCullRadius * cullRadiusMultiplier;
+    for (int iz = 0; iz < gridResolution; iz += step)
+    {
+        for (int iy = 0; iy < gridResolution; iy += step)
+        {
+            for (int ix = 0; ix < gridResolution; ix += step)
+            {
+                size_t index = static_cast<size_t>(ix) + static_cast<size_t>(iy) * static_cast<size_t>(gridResolution) + static_cast<size_t>(iz) * static_cast<size_t>(gridResolution) * static_cast<size_t>(gridResolution);
+
+                float dist = sdfCPU[index];
+                float absDist = fabsf(dist);
+                if (absDist > shellThreshold)
+                    continue;
+
+                Vector3 worldPos = {
+                    gridOrigin.x + (static_cast<float>(ix) + 0.5f) * voxelSize,
+                    gridOrigin.y + (static_cast<float>(iy) + 0.5f) * voxelSize,
+                    gridOrigin.z + (static_cast<float>(iz) + 0.5f) * voxelSize};
+
+                if (!IsPointInFrustum(frustum, worldPos, cpuCullRadius))
+                    continue;
+
+                float intensity = Clamp01(1.0f - absDist / shellThreshold);
+                unsigned char alpha = static_cast<unsigned char>(90.0f + intensity * 165.0f);
+
+                Color color = (dist < 0.0f)
+                                  ? Color{255, 70, 70, alpha}
+                                  : Color{80, 180, 255, alpha};
+
+                DrawCube(worldPos, cubeSize, cubeSize, cubeSize, color);
+            }
+        }
+    }
+}
 // ===========================================================================
 // Collision queries – batch (GPU path)
 // ===========================================================================
 
 void SDFCollisionSystem::QueryCollisionBatch(const Vector3 *positions, const float *radii,
-                                              SDFCollisionResult *results, int count)
+                                             SDFCollisionResult *results, int count)
 {
     if (!initialized || !sdfReady || !enabled || count <= 0)
     {
         for (int i = 0; i < count; i++)
         {
-            results[i].pushVector     = {0, 0, 0};
-            results[i].surfaceNormal  = {0, 1, 0};
+            results[i].pushVector = {0, 0, 0};
+            results[i].surfaceNormal = {0, 1, 0};
             results[i].penetrationDepth = 0.0f;
-            results[i].colliding      = false;
+            results[i].colliding = false;
         }
         return;
     }
@@ -602,10 +886,10 @@ void SDFCollisionSystem::QueryCollisionBatch(const Vector3 *positions, const flo
     glBindTexture(GL_TEXTURE_3D, sdfTexture3D);
     glBindSampler(0, sdfSampler);
 
-    GLint locSdfTex      = glGetUniformLocation(collisionProgram, "sdfTexture");
+    GLint locSdfTex = glGetUniformLocation(collisionProgram, "sdfTexture");
     GLint locGridOriginC = glGetUniformLocation(collisionProgram, "gridOrigin");
-    GLint locVoxelSizeC  = glGetUniformLocation(collisionProgram, "voxelSize");
-    GLint locGridSizeC   = glGetUniformLocation(collisionProgram, "gridSize");
+    GLint locVoxelSizeC = glGetUniformLocation(collisionProgram, "voxelSize");
+    GLint locGridSizeC = glGetUniformLocation(collisionProgram, "gridSize");
     GLint locEntityCount = glGetUniformLocation(collisionProgram, "entityCount");
 
     glUniform1i(locSdfTex, 0);
@@ -636,10 +920,10 @@ void SDFCollisionSystem::QueryCollisionBatch(const Vector3 *positions, const flo
     for (int i = 0; i < count; i++)
     {
         const auto &gr = gpuResults[i];
-        results[i].pushVector     = {gr.pushVector[0], gr.pushVector[1], gr.pushVector[2]};
+        results[i].pushVector = {gr.pushVector[0], gr.pushVector[1], gr.pushVector[2]};
         results[i].penetrationDepth = gr.pushVector[3];
-        results[i].surfaceNormal  = {gr.surfaceNormal[0], gr.surfaceNormal[1], gr.surfaceNormal[2]};
-        results[i].colliding      = (gr.surfaceNormal[3] > 0.5f);
+        results[i].surfaceNormal = {gr.surfaceNormal[0], gr.surfaceNormal[1], gr.surfaceNormal[2]};
+        results[i].colliding = (gr.surfaceNormal[3] > 0.5f);
     }
 }
 
@@ -687,10 +971,7 @@ void SDFCollisionSystem::DrawDebugSlice(Camera3D camera, float yLevel) const
     {
         for (int ix = 0; ix < gridResolution; ix += step)
         {
-            size_t index = static_cast<size_t>(ix)
-                         + static_cast<size_t>(iy) * static_cast<size_t>(gridResolution)
-                         + static_cast<size_t>(iz) * static_cast<size_t>(gridResolution)
-                                                   * static_cast<size_t>(gridResolution);
+            size_t index = static_cast<size_t>(ix) + static_cast<size_t>(iy) * static_cast<size_t>(gridResolution) + static_cast<size_t>(iz) * static_cast<size_t>(gridResolution) * static_cast<size_t>(gridResolution);
             float dist = sdfCPU[index];
 
             // Map distance to color: blue = positive (safe), red = negative (inside)
@@ -704,7 +985,8 @@ void SDFCollisionSystem::DrawDebugSlice(Camera3D camera, float yLevel) const
             else
                 color = {0, 100, 255, a}; // blue = outside
 
-            if (a < 10) continue; // skip nearly transparent quads
+            if (a < 10)
+                continue; // skip nearly transparent quads
 
             float wx = gridOrigin.x + (static_cast<float>(ix) + 0.5f) * voxelSize;
             float wz = gridOrigin.z + (static_cast<float>(iz) + 0.5f) * voxelSize;
@@ -723,8 +1005,7 @@ void SDFCollisionSystem::DrawDebugBounds(Color color) const
     Vector3 center = {
         gridOrigin.x + extent * 0.5f,
         gridOrigin.y + extent * 0.5f,
-        gridOrigin.z + extent * 0.5f
-    };
+        gridOrigin.z + extent * 0.5f};
 
     DrawCubeWires(center, extent, extent, extent, color);
 }
