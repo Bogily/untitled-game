@@ -961,6 +961,14 @@ SDFCollisionResult SDFCollisionSystem::QueryCollision(Vector3 position, float ra
     return result;
 }
 
+bool SDFCollisionSystem::IsInside(Vector3 position) const
+{
+    if (!sdfReady || !enabled)
+        return false;
+
+    return SampleSDF(position) < 0.0f;
+}
+
 bool SDFCollisionSystem::Raycast(Vector3 origin, Vector3 direction, float maxDistance, Vector3 &hitPosition) const
 {
     if (!sdfReady || !enabled)
@@ -979,16 +987,45 @@ bool SDFCollisionSystem::Raycast(Vector3 origin, Vector3 direction, float maxDis
     float t = 0.0f;
     float prevT = 0.0f;
     float prevDist = SampleSDF(origin);
+    const bool startInside = (prevDist < 0.0f);
 
     for (int stepIndex = 0; stepIndex < 256 && t <= maxDistance; ++stepIndex)
     {
         Vector3 p = Vector3Add(origin, Vector3Scale(dir, t));
         float dist = SampleSDF(p);
 
-        if (dist < 0.0f || fabsf(dist) <= surfaceEpsilon)
+        if (!startInside)
         {
-            // If we crossed from outside to inside, refine hit on the segment.
-            if (prevDist > 0.0f && dist < 0.0f && t > prevT)
+            if (dist < 0.0f || fabsf(dist) <= surfaceEpsilon)
+            {
+                // If we crossed from outside to inside, refine hit on the segment.
+                if (prevDist > 0.0f && dist < 0.0f && t > prevT)
+                {
+                    float a = prevT;
+                    float b = t;
+                    for (int refine = 0; refine < 8; ++refine)
+                    {
+                        float m = 0.5f * (a + b);
+                        Vector3 mp = Vector3Add(origin, Vector3Scale(dir, m));
+                        float md = SampleSDF(mp);
+                        if (md > 0.0f)
+                            a = m;
+                        else
+                            b = m;
+                    }
+                    hitPosition = Vector3Add(origin, Vector3Scale(dir, b));
+                }
+                else
+                {
+                    hitPosition = p;
+                }
+                return true;
+            }
+        }
+        else
+        {
+            // Starting inside: detect first inside->outside transition
+            if (prevDist < 0.0f && dist >= 0.0f && t > prevT)
             {
                 float a = prevT;
                 float b = t;
@@ -997,18 +1034,22 @@ bool SDFCollisionSystem::Raycast(Vector3 origin, Vector3 direction, float maxDis
                     float m = 0.5f * (a + b);
                     Vector3 mp = Vector3Add(origin, Vector3Scale(dir, m));
                     float md = SampleSDF(mp);
-                    if (md > 0.0f)
+                    if (md < 0.0f)
                         a = m;
                     else
                         b = m;
                 }
-                hitPosition = Vector3Add(origin, Vector3Scale(dir, b));
+                // Return the inside-side boundary point
+                hitPosition = Vector3Add(origin, Vector3Scale(dir, a));
+                return true;
             }
-            else
+
+            // If exactly on/near boundary while moving from inside, also accept hit.
+            if (fabsf(dist) <= surfaceEpsilon)
             {
                 hitPosition = p;
+                return true;
             }
-            return true;
         }
 
         prevT = t;

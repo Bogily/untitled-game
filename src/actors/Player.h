@@ -23,7 +23,7 @@ public:
     float cameraYaw = 0.0f;        ///< Camera horizontal rotation
     float cameraPitch = -30.0f;    ///< Camera vertical rotation
     float sprintMultiplier = 2.0f; ///< Sprint speed multiplier
-    float eyeHeight = 1.6f;        ///< Eye/camera height offset from feet
+    float eyeHeight = 3.0f;        ///< Eye/camera height offset from feet
 
     /**
      * @brief Update player state

@@ -72,22 +72,17 @@ void Player::UpdateMovement(const Camera3D &camera,
 
 void Player::Draw()
 {
-    if (render.modelLoaded)
-    {
-        rlPushMatrix();
-        rlTranslatef(transform.position.x, transform.position.y, transform.position.z);
-        rlRotatef(render.modelRotationOffset.y + playerYaw, 0.0f, 1.0f, 0.0f);
-        rlRotatef(render.modelRotationOffset.x, 1.0f, 0.0f, 0.0f);
-        rlRotatef(render.modelRotationOffset.z, 0.0f, 0.0f, 1.0f);
-        rlScalef(render.modelScale.x, render.modelScale.y, render.modelScale.z);
-        DrawModel(render.model, {0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
-        rlPopMatrix();
-    }
-    else
-    {
-        DrawCubeV(transform.position, {1.0f, 2.0f, 1.0f}, GREEN);
-        DrawCubeWiresV(transform.position, {1.0f, 2.0f, 1.0f}, DARKGREEN);
-    }
+    if (!render.modelLoaded)
+        return;
+
+    rlPushMatrix();
+    rlTranslatef(transform.position.x, transform.position.y, transform.position.z);
+    rlRotatef(render.modelRotationOffset.y + playerYaw, 0.0f, 1.0f, 0.0f);
+    rlRotatef(render.modelRotationOffset.x, 1.0f, 0.0f, 0.0f);
+    rlRotatef(render.modelRotationOffset.z, 0.0f, 0.0f, 1.0f);
+    rlScalef(render.modelScale.x, render.modelScale.y, render.modelScale.z);
+    DrawModel(render.model, {0.0f, 0.0f, 0.0f}, 1.0f, render.tint);
+    rlPopMatrix();
 }
 
 Ray Player::GetForwardRay() const

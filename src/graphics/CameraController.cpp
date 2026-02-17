@@ -194,47 +194,58 @@ void CameraController::UpdateFollowCamera(Vector3 targetPosition, float deltaTim
     float yawRad = followYaw * DEG2RAD;
     float pitchRad = followPitch * DEG2RAD;
 
+    Vector3 eyePosition = Vector3Add(targetPosition, {0.0f, followEyeHeight, 0.0f});
+
     Vector3 offset;
     offset.x = followDistance * cosf(pitchRad) * sinf(yawRad);
-    offset.y = followDistance * sinf(pitchRad) + followHeight;
+    offset.y = followDistance * sinf(pitchRad);
     offset.z = followDistance * cosf(pitchRad) * cosf(yawRad);
 
-    Vector3 desiredPosition = Vector3Add(targetPosition, offset);
-    Vector3 desiredTarget = Vector3Add(targetPosition, {0.0f, followHeight * 0.5f, 0.0f});
+    Vector3 desiredPosition = Vector3Add(eyePosition, offset);
+    Vector3 desiredTarget = eyePosition;
+    Vector3 lookDirection = Vector3Normalize(Vector3Subtract(desiredTarget, desiredPosition));
+    if (Vector3Length(lookDirection) <= 1e-4f)
+        lookDirection = {0.0f, 0.0f, -1.0f};
 
-    Vector3 eyePosition = Vector3Add(targetPosition, {0.0f, followEyeHeight, 0.0f});
+    Vector3 orbitVector = Vector3Subtract(desiredPosition, eyePosition);
+    float orbitLength = Vector3Length(orbitVector);
+    if (orbitLength <= 1e-4f)
+    {
+        orbitVector = {0.0f, 0.0f, 1.0f};
+        orbitLength = 1.0f;
+    }
+    Vector3 orbitDirection = Vector3Scale(orbitVector, 1.0f / orbitLength);
+    float desiredDistance = orbitLength;
 
     if (followCollisionRaycast)
     {
-        Vector3 toDesired = Vector3Subtract(desiredPosition, eyePosition);
-        float rayLength = Vector3Length(toDesired);
+        float rayLength = desiredDistance;
         if (rayLength > 1e-4f)
         {
             Ray ray = {};
             ray.position = eyePosition;
-            ray.direction = Vector3Scale(toDesired, 1.0f / rayLength);
+            ray.direction = orbitDirection;
 
             Vector3 hitPosition = desiredPosition;
             if (followCollisionRaycast(ray, rayLength, hitPosition))
             {
-                desiredPosition = hitPosition;
+                desiredDistance = Vector3Distance(eyePosition, hitPosition);
             }
         }
     }
 
-    Vector3 desiredFromEye = Vector3Subtract(desiredPosition, eyePosition);
-    float desiredDistance = Vector3Length(desiredFromEye);
-    if (desiredDistance > 1e-4f)
-    {
-        Vector3 desiredDirection = Vector3Scale(desiredFromEye, 1.0f / desiredDistance);
-        float currentDistance = Vector3DotProduct(Vector3Subtract(camera.position, eyePosition), desiredDirection);
-        if (currentDistance < 0.0f)
-            currentDistance = 0.0f;
+    const float minCameraDistance = 0.35f;
+    if (desiredDistance < minCameraDistance)
+        desiredDistance = minCameraDistance;
 
-        float blend = Clamp(deltaTime * followAutoMoveSmoothSpeed, 0.0f, 1.0f);
-        float smoothedDistance = Lerp(currentDistance, desiredDistance, blend);
-        desiredPosition = Vector3Add(eyePosition, Vector3Scale(desiredDirection, smoothedDistance));
-    }
+    float currentDistance = Vector3DotProduct(Vector3Subtract(camera.position, eyePosition), orbitDirection);
+    if (currentDistance < minCameraDistance)
+        currentDistance = minCameraDistance;
+
+    float blend = Clamp(deltaTime * followAutoMoveSmoothSpeed, 0.0f, 1.0f);
+    float smoothedDistance = Lerp(currentDistance, desiredDistance, blend);
+    desiredPosition = Vector3Add(eyePosition, Vector3Scale(orbitDirection, smoothedDistance));
+    desiredTarget = Vector3Add(desiredPosition, Vector3Scale(lookDirection, followDistance));
 
     // Set desired transform on the Camera entity; entity will apply smoothing
     camera.SetDesired(desiredPosition, desiredTarget, camera.fovy);

@@ -506,6 +506,25 @@ void Game::DrawPlaying()
             }
         }
         
+        // Fade player slightly when camera gets very close
+        {
+            Vector3 playerViewPos = Vector3Add(player.GetTransform().position, {0.0f, player.eyeHeight, 0.0f});
+            float cameraDistance = Vector3Distance(renderCamera.position, playerViewPos);
+            const float fadeStartDistance = 4.4f;
+            const float fadeMinDistance = 0.8f;
+            float alpha = 1.0f;
+            if (cameraDistance < fadeStartDistance)
+            {
+                float t = (cameraDistance - fadeMinDistance) / (fadeStartDistance - fadeMinDistance);
+                t = Clamp(t, 0.0f, 1.0f);
+                alpha = Lerp(0.25f, 1.0f, t);
+            }
+
+            Color tint = WHITE;
+            tint.a = (unsigned char)(alpha * 255.0f);
+            player.GetRender().tint = tint;
+        }
+
         // Draw player
         player.Draw();
         
@@ -730,7 +749,7 @@ void Game::SetupDebugMenu()
     debugMenu.AddBool("Show FPS", &showFPS);
     debugMenu.AddBool("Show Grass", &showGrass);
     debugMenu.AddFloat("Sprint Multiplier", &player.sprintMultiplier, 1.0f, 5.0f, 0.1f);
-    debugMenu.AddFloat("Eye Height", &player.eyeHeight, 0.5f, 2.5f, 0.1f);
+    debugMenu.AddFloat("Eye Height", &player.eyeHeight, 2.0f, 6.0f, 0.1f);
 
     // Culling margins
     debugMenu.AddFloat("Geometry Cull Margin", &geometryCullMargin, 1.0f, 2.0f, 0.05f);
@@ -983,7 +1002,19 @@ void Game::UpdateNPCs(float deltaTime)
 
 bool Game::RaycastFollowCamera(const Ray &ray, float maxDistance, Vector3 &hitPosition)
 {
-    return collisionSystem.Raycast(ray.position, ray.direction, maxDistance, hitPosition);
+    if (!collisionSystem.Raycast(ray.position, ray.direction, maxDistance, hitPosition))
+        return false;
+
+    const float voxel = collisionSystem.GetVoxelSize();
+    const float surfaceBackoff = fmaxf(voxel * 1.5f, 0.08f);
+    Vector3 safePosition = Vector3Subtract(hitPosition, Vector3Scale(ray.direction, surfaceBackoff));
+
+    const float minRayDistance = 0.05f;
+    if (Vector3Distance(ray.position, safePosition) < minRayDistance)
+        safePosition = Vector3Add(ray.position, Vector3Scale(ray.direction, minRayDistance));
+
+    hitPosition = safePosition;
+    return true;
 }
 
 void Game::HandleNPCInteraction()

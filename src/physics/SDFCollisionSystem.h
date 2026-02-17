@@ -101,6 +101,13 @@ public:
     SDFCollisionResult QueryCollision(Vector3 position, float radius) const;
 
     /**
+     * @brief Check whether a world position is inside solid SDF geometry
+     * @param position World-space position
+     * @return True when signed distance is negative
+     */
+    bool IsInside(Vector3 position) const;
+
+    /**
      * @brief Raycast against the CPU-side SDF field
      *
      * Uses sphere-tracing style stepping and returns the first hit point.
