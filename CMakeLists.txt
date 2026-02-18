@@ -201,5 +201,12 @@ if(WIN32)
 endif()
 
 # --- Assets Copying (Optional but helpful) ---
-# Copies the assets folder to the build directory
-file(COPY ${CMAKE_SOURCE_DIR}/assets DESTINATION ${CMAKE_BINARY_DIR})
+# Add a custom target that copies assets on every build
+add_custom_target(copy_assets ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_SOURCE_DIR}/assets
+    ${CMAKE_BINARY_DIR}/assets
+)
+
+# Make sure assets are copied before building the executable
+add_dependencies(${PROJECT_NAME} copy_assets)
