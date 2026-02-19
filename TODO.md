@@ -2,6 +2,7 @@
 
 - Write the blender Plugins (scene system)
 - Make NPC's be lua scripts for dynamic dialog
+- Make custom models support pbr correctly
 
 ---
 
