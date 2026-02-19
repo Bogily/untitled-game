@@ -267,15 +267,6 @@ void Game::UpdatePlaying()
     {
         postProc->SetColorGradingPreset(colorGradingPreset);
         postProc->SetColorGradingIntensity(colorGradingIntensity);
-
-        // Apply contact shadows settings
-        postProc->SetContactShadowsEnabled(enableContactShadows);
-        postProc->SetContactShadowParams(contactShadowDistance, contactShadowSteps,
-                                         contactShadowThickness, contactShadowIntensity);
-
-        // Apply SSAO settings
-        postProc->SetSSAOEnabled(enableSSAO);
-        postProc->SetSSAOParams(ssaoNumSamples, ssaoRadius, ssaoBias, ssaoIntensity, ssaoContrast);
     }
 
     // Map MSAA index to MSAALevel
@@ -484,58 +475,10 @@ void Game::DrawPlaying()
         renderManager.GetGeometryRenderer()->Draw(renderCamera);
 
         Scene *s = sceneManager.GetCurrentScene();
-        if (s)
-        {
-            for (const auto &objData : s->GetObjects())
-            {
-                if (objData.mobility != LevelData::ObjectData::Mobility::Dynamic)
-                    continue;
-
-                auto modelIt = sceneModels.find(objData.modelType);
-                if (modelIt == sceneModels.end())
-                    continue;
-
-                rlPushMatrix();
-                rlTranslatef(objData.position.x, objData.position.y, objData.position.z);
-                rlRotatef(objData.rotation.x, 1.0f, 0.0f, 0.0f);
-                rlRotatef(objData.rotation.y, 0.0f, 1.0f, 0.0f);
-                rlRotatef(objData.rotation.z, 0.0f, 0.0f, 1.0f);
-                rlScalef(objData.scale.x, objData.scale.y, objData.scale.z);
-                DrawModel(modelIt->second, {0, 0, 0}, 1.0f, WHITE);
-                rlPopMatrix();
-            }
-        }
+        renderManager.GetSceneObjectRenderer()->DrawDynamicObjects(s, sceneModels);
         
-        // Fade player slightly when camera gets very close
-        {
-            Vector3 playerViewPos = Vector3Add(player.GetTransform().position, {0.0f, player.eyeHeight, 0.0f});
-            float cameraDistance = Vector3Distance(renderCamera.position, playerViewPos);
-            const float fadeStartDistance = 4.4f;
-            const float fadeMinDistance = 0.8f;
-            float alpha = 1.0f;
-            if (cameraDistance < fadeStartDistance)
-            {
-                float t = (cameraDistance - fadeMinDistance) / (fadeStartDistance - fadeMinDistance);
-                t = Clamp(t, 0.0f, 1.0f);
-                alpha = Lerp(0.25f, 1.0f, t);
-            }
-
-            Color tint = WHITE;
-            tint.a = (unsigned char)(alpha * 255.0f);
-            player.GetRender().tint = tint;
-        }
-
-        // Draw player
-        player.Draw();
-        
-        // Draw NPCs
-        if (s)
-        {
-            for (auto &npc : s->GetNPCs())
-            {
-                npc.Draw();
-            }
-        }
+        // Draw all actors (player + NPCs)
+        renderManager.GetActorRenderer()->Draw(player, s, renderCamera);
         
         // Draw water
         renderManager.GetWaterRenderer()->Draw();
@@ -843,18 +786,6 @@ void Game::SetupPostProcessingMenu()
     postProcessingMenu.AddString("MSAA Level", &msaaLevelIndex, {"None", "4X", "8X", "16X"});
     postProcessingMenu.AddString("Color Grading", &colorGradingPreset, {"None", "Warm", "Cool", "Cinematic", "Vintage", "Noir"});
     postProcessingMenu.AddFloat("Grading Intensity", &colorGradingIntensity, 0.0f, 1.0f, 0.05f);
-    postProcessingMenu.AddBool("Contact Shadows", &enableContactShadows);
-    postProcessingMenu.AddFloat("Shadow Distance", &contactShadowDistance, 0.01f, 0.5f, 0.02f);
-    postProcessingMenu.AddInt("Shadow Steps", &contactShadowSteps, 4, 64, 4);
-    postProcessingMenu.AddFloat("Shadow Thickness", &contactShadowThickness, 0.001f, 0.1f, 0.005f);
-    postProcessingMenu.AddFloat("Shadow Intensity", &contactShadowIntensity, 0.0f, 1.0f, 0.05f);
-    postProcessingMenu.AddBool("SSAO", &enableSSAO);
-    postProcessingMenu.AddInt("AO Samples", &ssaoNumSamples, 4, 32, 2);
-    postProcessingMenu.AddFloat("AO Radius", &ssaoRadius, 0.001f, 0.1f, 0.005f);
-    postProcessingMenu.AddFloat("AO Bias", &ssaoBias, 0.001f, 0.01f, 0.001f);
-    postProcessingMenu.AddFloat("AO Intensity", &ssaoIntensity, 0.0f, 2.0f, 0.05f);
-    postProcessingMenu.AddFloat("AO Contrast", &ssaoContrast, 0.5f, 2.0f, 0.05f);
-
     TraceLog(LOG_INFO, "Game: Post-processing menu initialized");
 }
 

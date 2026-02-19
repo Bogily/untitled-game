@@ -16,6 +16,8 @@
 #include "ParticleSystem.h"
 #include "DebugRenderer.h"
 #include "CameraController.h"
+#include "ActorRenderer.h"
+#include "SceneObjectRenderer.h"
 #include "../world/Level.h"
 #include <functional>
 #include <vector>
@@ -213,6 +215,18 @@ public:
      * @return Pointer to camera controller
      */
     CameraController *GetCameraController() { return &cameraController; }
+
+    /**
+     * @brief Get actor renderer subsystem
+     * @return Pointer to actor renderer
+     */
+    ActorRenderer *GetActorRenderer() { return &actorRenderer; }
+
+    /**
+     * @brief Get scene object renderer subsystem
+     * @return Pointer to scene object renderer
+     */
+    SceneObjectRenderer *GetSceneObjectRenderer() { return &sceneObjectRenderer; }
 
     /**
      * @brief Setup rendering systems from level data
@@ -427,6 +441,8 @@ private:
     ParticleSystem particleSystem;                 ///< Particle effects
     DebugRenderer debugRenderer;                   ///< Debug visualization
     CameraController cameraController;             ///< Camera control system
+    ActorRenderer actorRenderer;                   ///< Actor rendering (player + NPCs)
+    SceneObjectRenderer sceneObjectRenderer;       ///< Dynamic scene object rendering
 
     FrameSettings currentFrameSettings; ///< Cached frame configuration
 

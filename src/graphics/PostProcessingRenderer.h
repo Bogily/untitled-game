@@ -129,73 +129,6 @@ public:
     float GetColorGradingIntensity() const { return lutIntensity; }
 
     /**
-     * @brief Enable or disable screen-space shadows (contact shadows)
-     * @param enable True to enable
-     */
-    void SetContactShadowsEnabled(bool enable) { enableContactShadows = enable; }
-
-    /**
-     * @brief Check if contact shadows are enabled
-     * @return True if enabled
-     */
-    bool GetContactShadowsEnabled() const { return enableContactShadows; }
-
-    /**
-     * @brief Set contact shadow parameters
-     * @param maxDist Maximum ray march distance in screen units (0.0-0.5)
-     * @param steps Number of ray march steps (4-64)
-     * @param thickness Surface thickness tolerance (0.0-0.1)
-     * @param intensity Shadow intensity (0.0-1.0)
-     */
-    void SetContactShadowParams(float maxDist, int steps, float thickness, float intensity);
-
-    /**
-     * @brief Get contact shadow maximum distance
-     * @return Maximum distance
-     */
-    float GetContactShadowMaxDist() const { return contactShadowMaxDist; }
-
-    /**
-     * @brief Get contact shadow step count
-     * @return Number of steps
-     */
-    int GetContactShadowSteps() const { return contactShadowSteps; }
-
-    /**
-     * @brief Get contact shadow thickness
-     * @return Surface thickness
-     */
-    float GetContactShadowThickness() const { return contactShadowThickness; }
-
-    /**
-     * @brief Get contact shadow intensity
-     * @return Shadow intensity
-     */
-    float GetContactShadowIntensity() const { return contactShadowIntensity; }
-
-    /**
-     * @brief Enable or disable screen-space ambient occlusion
-     * @param enable True to enable
-     */
-    void SetSSAOEnabled(bool enable) { enableSSAO = enable; }
-
-    /**
-     * @brief Check if SSAO is enabled
-     * @return True if enabled
-     */
-    bool GetSSAOEnabled() const { return enableSSAO; }
-
-    /**
-     * @brief Set SSAO parameters
-     * @param samples Number of samples (4-32)
-     * @param radius Sample radius in screen space (0.001-0.1)
-     * @param bias Depth bias (0.001-0.01)
-     * @param intensity AO intensity (0.0-2.0)
-     * @param contrast AO contrast (0.5-2.0)
-     */
-    void SetSSAOParams(int samples, float radius, float bias, float intensity, float contrast);
-
-    /**
      * @brief Get scene render texture
      * @return Scene texture with depth attachment
      */
@@ -250,28 +183,13 @@ private:
     RenderTexture2D pingPongTextures[2]; ///< Ping-pong textures for chaining effects
     MSAARenderTexture msaaTexture;       ///< MSAA render texture (if MSAA enabled)
 
-    Shader grayscaleShader;          ///< Grayscale effect shader
-    Shader depthShader;              ///< Depth visualization shader
-    Shader colorGradingShader;       ///< Color grading shader
-    Shader screenSpaceShadowsShader; ///< Screen-space shadows shader
-    Shader ssaoShader;               ///< Screen-space ambient occlusion shader
+    Shader grayscaleShader;    ///< Grayscale effect shader
+    Shader depthShader;        ///< Depth visualization shader
+    Shader colorGradingShader; ///< Color grading shader
 
     Texture lutTexture;   ///< 3D LUT texture for color grading
     int currentLUTPreset; ///< Current LUT preset index
     float lutIntensity;   ///< Color grading intensity (0.0 to 1.0)
-
-    bool enableContactShadows;    ///< Contact shadows toggle
-    float contactShadowMaxDist;   ///< Ray march max distance
-    int contactShadowSteps;       ///< Number of ray march steps
-    float contactShadowThickness; ///< Surface thickness tolerance
-    float contactShadowIntensity; ///< Shadow intensity (0.0 to 1.0)
-
-    bool enableSSAO;     ///< SSAO toggle
-    int ssaoNumSamples;  ///< Number of SSAO samples
-    float ssaoRadius;    ///< SSAO sample radius
-    float ssaoBias;      ///< SSAO depth bias
-    float ssaoIntensity; ///< SSAO intensity
-    float ssaoContrast;  ///< SSAO contrast
 
     int width;  ///< Screen width
     int height; ///< Screen height

@@ -9,18 +9,7 @@ PostProcessingRenderer::PostProcessingRenderer()
       enableDepthDebug(false),
       msaaTexture({0}),
       currentLUTPreset(0),
-      lutIntensity(1.0f),
-      enableContactShadows(false),
-      contactShadowMaxDist(0.1f),
-      contactShadowSteps(8),
-      contactShadowThickness(0.01f),
-      contactShadowIntensity(0.5f),
-      enableSSAO(false),
-      ssaoNumSamples(8),
-      ssaoRadius(0.02f),
-      ssaoBias(0.001f),
-      ssaoIntensity(0.5f),
-      ssaoContrast(1.0f)
+      lutIntensity(1.0f)
 {
     lutTexture.id = 0;
 }
@@ -48,14 +37,10 @@ void PostProcessingRenderer::Init(int screenWidth, int screenHeight)
     grayscaleShader = LoadShader(0, "assets/shader/grayscale.fs");
     depthShader = LoadShader(0, "assets/shader/depth_render.fs");
     colorGradingShader = LoadShader(0, "assets/shader/color_grading.fs");
-    screenSpaceShadowsShader = LoadShader(0, "assets/shader/screen_space_shadows.fs");
-    ssaoShader = LoadShader(0, "assets/shader/ssao.fs");
 
     TraceLog(LOG_INFO, "PostProcessingRenderer: Grayscale shader loaded successfully");
     TraceLog(LOG_INFO, "PostProcessingRenderer: Depth render shader loaded successfully");
     TraceLog(LOG_INFO, "PostProcessingRenderer: Color grading shader loaded successfully");
-    TraceLog(LOG_INFO, "PostProcessingRenderer: Screen-space shadows shader loaded successfully");
-    TraceLog(LOG_INFO, "PostProcessingRenderer: SSAO shader loaded successfully");
 
     // Generate identity LUT by default (no color change)
     lutTexture = Generate3DLUT(0);
@@ -80,10 +65,6 @@ void PostProcessingRenderer::Shutdown()
         UnloadShader(depthShader);
     if (colorGradingShader.id > 0)
         UnloadShader(colorGradingShader);
-    if (screenSpaceShadowsShader.id > 0)
-        UnloadShader(screenSpaceShadowsShader);
-    if (ssaoShader.id > 0)
-        UnloadShader(ssaoShader);
     if (lutTexture.id > 0)
         UnloadTexture(lutTexture);
 
@@ -176,39 +157,6 @@ void PostProcessingRenderer::ApplyEffects()
             ShaderUtil util(colorGradingShader);
             util.SetTexture("lutTexture", lutTexture);
             util.SetFloat("lutIntensity", lutIntensity); });
-    }
-
-    // Apply contact shadows if enabled
-    if (enableContactShadows && contactShadowIntensity > 0.0f)
-    {
-        Texture2D sourceTexture = hasEffects ? pingPongTextures[currentRead].texture : targetTexture.texture;
-
-        applyShaderPass(screenSpaceShadowsShader, sourceTexture, [&]()
-                        {
-            ShaderUtil util(screenSpaceShadowsShader);
-            util.SetTexture("depthTexture", targetTexture.depth);
-            util.SetFloat("maxDistance", contactShadowMaxDist);
-            util.SetInt("numSteps", contactShadowSteps);
-            util.SetFloat("thickness", contactShadowThickness);
-            util.SetFloat("intensity", contactShadowIntensity);
-            util.SetInt("enabled", 1); });
-    }
-
-    // Apply SSAO if enabled
-    if (enableSSAO && ssaoIntensity > 0.0f)
-    {
-        Texture2D sourceTexture = hasEffects ? pingPongTextures[currentRead].texture : targetTexture.texture;
-
-        applyShaderPass(ssaoShader, sourceTexture, [&]()
-                        {
-            ShaderUtil util(ssaoShader);
-            util.SetTexture("depthTexture", targetTexture.depth);
-            util.SetInt("numSamples", ssaoNumSamples);
-            util.SetFloat("radius", ssaoRadius);
-            util.SetFloat("bias", ssaoBias);
-            util.SetFloat("intensity", ssaoIntensity);
-            util.SetFloat("contrast", ssaoContrast);
-            util.SetInt("enabled", 1); });
     }
 
     // Final render to screen
@@ -735,27 +683,4 @@ void PostProcessingRenderer::ApplyNoirGrading(unsigned char *data, int size)
         data[index + 1] = (unsigned char)(luma * 255);
         data[index + 2] = (unsigned char)(luma * 255);
     }
-}
-
-// Screen-Space Shadows Implementation
-
-void PostProcessingRenderer::SetContactShadowParams(float maxDist, int steps, float thickness, float intensity)
-{
-    // Clamp values to reasonable ranges
-    contactShadowMaxDist = fmaxf(0.01f, fminf(0.5f, maxDist));
-    contactShadowSteps = fmaxf(4, fminf(64, steps));
-    contactShadowThickness = fmaxf(0.001f, fminf(0.1f, thickness));
-    contactShadowIntensity = fmaxf(0.0f, fminf(1.0f, intensity));
-}
-
-// Screen-Space Ambient Occlusion Implementation
-
-void PostProcessingRenderer::SetSSAOParams(int samples, float radius, float bias, float intensity, float contrast)
-{
-    // Clamp values to reasonable ranges
-    ssaoNumSamples = fmaxf(4, fminf(32, samples));
-    ssaoRadius = fmaxf(0.001f, fminf(0.1f, radius));
-    ssaoBias = fmaxf(0.001f, fminf(0.01f, bias));
-    ssaoIntensity = fmaxf(0.0f, fminf(2.0f, intensity));
-    ssaoContrast = fmaxf(0.5f, fminf(2.0f, contrast));
 }
