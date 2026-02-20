@@ -32,6 +32,14 @@ scene = {
             scale = { 0.1, 0.1, 0.1 },
             modelType = "assets/models/crooked tree/crooked tree.glb",
             albedo = { 255, 255, 255, 255 }
+        },
+        {
+            name = "PBR-TEST",
+            position = { .0, 1.0, 0.0 },
+            rotation = { 0.0, 0.0, 0.0 },
+            scale = { 1.0, 1.0, 1.0 },
+            modelType = "assets/models/pbr_materials_test.glb",
+            albedo = { 255, 255, 255, 255 }
         }
     },
 
