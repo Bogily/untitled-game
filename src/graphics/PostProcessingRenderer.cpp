@@ -68,6 +68,15 @@ void PostProcessingRenderer::Shutdown()
     if (lutTexture.id > 0)
         UnloadTexture(lutTexture);
 
+    sceneTexture = {0};
+    pingPongTextures[0] = {0};
+    pingPongTextures[1] = {0};
+    grayscaleShader = {0};
+    depthShader = {0};
+    colorGradingShader = {0};
+    lutTexture = {0};
+    msaaTexture = {0};
+
     TraceLog(LOG_INFO, "PostProcessingRenderer: Shutdown complete");
 }
 
