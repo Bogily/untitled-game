@@ -291,7 +291,7 @@ MSAARenderTexture PostProcessingRenderer::LoadMSAARenderTexture(int width, int h
 
         msaaTarget.depthMS.width = width;
         msaaTarget.depthMS.height = height;
-        msaaTarget.depthMS.format = 19; // DEPTH_COMPONENT_24BIT
+        msaaTarget.depthMS.format = GL_DEPTH_COMPONENT24;
         msaaTarget.depthMS.mipmaps = 1;
 
         // Attach MSAA textures to MSAA FBO
