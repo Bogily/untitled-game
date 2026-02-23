@@ -44,7 +44,6 @@ Frustum BuildFrustumFromCamera(const Camera3D &camera)
         }
     }
 
-    // Match existing culling behavior in renderers
     frustum.planes[4].distance -= 5.0f;
 
     return frustum;

@@ -22,13 +22,11 @@ void DebugRenderer::Shutdown()
 
 void DebugRenderer::DrawLightDebug(const std::vector<Light> &lights)
 {
-    // Draw spheres at light positions
     for (const auto &light : lights)
     {
-        if (light.type == 0) // Directional light - skip visualization
+        if (light.type == 0)
             continue;
 
-        // Point light
         Vector4 color = light.color;
         DrawSphere({light.positionRadius.x, light.positionRadius.y, light.positionRadius.z},
                    0.3f,

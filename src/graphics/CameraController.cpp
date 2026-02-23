@@ -39,7 +39,6 @@ void CameraController::Update(float deltaTime)
                                       : 0.0f;
     camera.SetSmoothing(activeSmoothing);
 
-    // Handle smooth transitions first
     if (isTransitioning)
     {
         transitionTimer += deltaTime;
@@ -47,14 +46,12 @@ void CameraController::Update(float deltaTime)
 
         if (t >= 1.0f)
         {
-            // Transition complete (set immediate)
             camera.SetPositionImmediate(transitionEndPos);
             camera.SetTargetImmediate(transitionEndTarget);
             isTransitioning = false;
         }
         else
         {
-            // Apply easing and set desired position => entity will smooth towards it
             float easedT = CameraEntity::EaseInOutCubic(t);
             Vector3 pos = CameraEntity::LerpVector3(transitionStartPos, transitionEndPos, easedT);
             Vector3 tgt = CameraEntity::LerpVector3(transitionStartTarget, transitionEndTarget, easedT);
@@ -63,7 +60,6 @@ void CameraController::Update(float deltaTime)
         return;
     }
 
-    // Update based on current mode
     switch (mode)
     {
     case CAMERA_MODE_FREE:
@@ -84,8 +80,6 @@ void CameraController::Update(float deltaTime)
         break;
     }
 
-    // Apply camera shake as offset to final position (after all mode calculations)
-    // This is applied directly to position, bypassing SetDesired to avoid conflicts
     if (shakeIntensity > 0.0f && shakeDuration > 0.0f)
     {
         shakeTimer += deltaTime;
@@ -93,23 +87,19 @@ void CameraController::Update(float deltaTime)
 
         if (shakeProgress >= 1.0f)
         {
-            // Shake complete
             shakeIntensity = 0.0f;
             shakeTimer = 0.0f;
         }
         else
         {
-            // Apply shake with easing (fade out)
-            float easeOut = 1.0f - (shakeProgress * shakeProgress); // Quadratic ease-out
+            float easeOut = 1.0f - (shakeProgress * shakeProgress);
             float currentIntensity = shakeIntensity * easeOut;
 
-            // Generate random offset
             Vector3 shakeOffset;
             shakeOffset.x = (GetRandomValue(-100, 100) / 100.0f) * currentIntensity;
             shakeOffset.y = (GetRandomValue(-100, 100) / 100.0f) * currentIntensity;
             shakeOffset.z = (GetRandomValue(-100, 100) / 100.0f) * currentIntensity;
 
-            // Apply shake offset directly to position (temporary, won't interfere with smoothing)
             camera.position = Vector3Add(camera.position, shakeOffset);
         }
     }
@@ -117,27 +107,22 @@ void CameraController::Update(float deltaTime)
 
 void CameraController::UpdateFreeCamera(float deltaTime)
 {
-    // Handle mouse input for camera rotation
     Vector2 mouseDelta = GetMouseDelta();
 
     if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f)
     {
-        // Update yaw and pitch based on mouse movement (negate yaw for correct direction)
         freeCameraYaw -= mouseDelta.x * freeCameraMouseSensitivity * 100.0f;
         freeCameraPitch -= mouseDelta.y * freeCameraMouseSensitivity * 100.0f;
 
-        // Clamp pitch to prevent camera flipping (+-89 degrees)
         if (freeCameraPitch > 89.0f)
             freeCameraPitch = 89.0f;
         if (freeCameraPitch < -89.0f)
             freeCameraPitch = -89.0f;
     }
 
-    // Convert angles to radians
     float yawRad = freeCameraYaw * DEG2RAD;
     float pitchRad = freeCameraPitch * DEG2RAD;
 
-    // Calculate forward, right, and up vectors
     Vector3 forward;
     forward.x = sinf(yawRad) * cosf(pitchRad);
     forward.y = sinf(pitchRad);
@@ -150,7 +135,6 @@ void CameraController::UpdateFreeCamera(float deltaTime)
     Vector3 up = Vector3CrossProduct(right, forward);
     up = Vector3Normalize(up);
 
-    // Handle keyboard input for movement
     Vector3 movement = {0.0f, 0.0f, 0.0f};
 
     if (IsKeyDown(KEY_W))
@@ -166,13 +150,10 @@ void CameraController::UpdateFreeCamera(float deltaTime)
     if (IsKeyDown(KEY_LEFT_CONTROL))
         movement = Vector3Add(movement, Vector3Scale(up, -freeCameraSpeed * deltaTime));
 
-    // Apply movement to camera position
     Vector3 newPosition = Vector3Add(camera.position, movement);
 
-    // Calculate new target (looking direction)
     Vector3 newTarget = Vector3Add(newPosition, forward);
 
-    // Update camera
     camera.SetDesired(newPosition, newTarget, camera.fovy);
 }
 
@@ -190,7 +171,6 @@ void CameraController::UpdateFollowCamera(Vector3 targetPosition, float deltaTim
             followPitch = -80.0f;
     }
 
-    // Calculate desired camera position behind and above the target
     float yawRad = followYaw * DEG2RAD;
     float pitchRad = followPitch * DEG2RAD;
 
@@ -247,7 +227,6 @@ void CameraController::UpdateFollowCamera(Vector3 targetPosition, float deltaTim
     desiredPosition = Vector3Add(eyePosition, Vector3Scale(orbitDirection, smoothedDistance));
     desiredTarget = Vector3Add(desiredPosition, Vector3Scale(lookDirection, followDistance));
 
-    // Set desired transform on the Camera entity; entity will apply smoothing
     camera.SetDesired(desiredPosition, desiredTarget, camera.fovy);
 }
 
@@ -261,10 +240,8 @@ void CameraController::UpdateCutsceneCamera(float deltaTime)
 
     cutsceneTimer += deltaTime;
 
-    // Check if we need to move to next waypoint
     if (currentWaypointIndex >= cutsceneWaypoints.size())
     {
-        // Cutscene finished
         StopCutscene();
         return;
     }
@@ -273,13 +250,11 @@ void CameraController::UpdateCutsceneCamera(float deltaTime)
 
     if (cutsceneTimer >= currentWaypoint.duration)
     {
-        // Move to next waypoint
         currentWaypointIndex++;
         cutsceneTimer = 0.0f;
 
         if (currentWaypointIndex >= cutsceneWaypoints.size())
         {
-            // Reached the end - set immediate
             camera.SetPositionImmediate(currentWaypoint.position);
             camera.SetTargetImmediate(currentWaypoint.target);
             camera.SetFovImmediate(currentWaypoint.fov);
@@ -287,19 +262,16 @@ void CameraController::UpdateCutsceneCamera(float deltaTime)
         }
     }
 
-    // Interpolate between current and next waypoint
     if (currentWaypointIndex < cutsceneWaypoints.size())
     {
         const CameraWaypoint &waypoint = cutsceneWaypoints[currentWaypointIndex];
         float t = cutsceneTimer / waypoint.duration;
         t = CameraEntity::EaseInOutCubic(t);
 
-        // Get start position (previous waypoint or current position)
         Vector3 startPos = (currentWaypointIndex == 0) ? camera.position : cutsceneWaypoints[currentWaypointIndex - 1].position;
         Vector3 startTarget = (currentWaypointIndex == 0) ? camera.target : cutsceneWaypoints[currentWaypointIndex - 1].target;
         float startFov = (currentWaypointIndex == 0) ? camera.fovy : cutsceneWaypoints[currentWaypointIndex - 1].fov;
 
-        // Interpolate and set desired on the entity
         Vector3 interpPos = CameraEntity::LerpVector3(startPos, waypoint.position, t);
         Vector3 interpTgt = CameraEntity::LerpVector3(startTarget, waypoint.target, t);
         float interpFov = Lerp(startFov, waypoint.fov, t);
@@ -326,14 +298,13 @@ void CameraController::StopCutscene()
     currentWaypointIndex = 0;
     cutsceneTimer = 0.0f;
 
-    // Return to follow mode or free mode
     mode = CAMERA_MODE_FREE;
 }
 
 void CameraController::ApplyShake(float intensity, float duration)
 {
-    shakeIntensity = fmaxf(0.0f, fminf(1.0f, intensity)); // Clamp to 0-1
-    shakeDuration = fmaxf(0.1f, duration);                // Min 0.1 seconds
+    shakeIntensity = fmaxf(0.0f, fminf(1.0f, intensity));
+    shakeDuration = fmaxf(0.1f, duration);
     shakeTimer = 0.0f;
 }
 
@@ -341,7 +312,6 @@ void CameraController::SetMode(CameraControllerMode newMode)
 {
     mode = newMode;
 
-    // Reset mode-specific data
     if (mode != CAMERA_MODE_CUTSCENE)
     {
         isPlayingCutscene = false;
@@ -379,7 +349,6 @@ void CameraController::TransitionTo(Vector3 newPosition, Vector3 newTarget, floa
     transitionStartTarget = camera.target;
     transitionEndTarget = newTarget;
 
-    // Don't update follow/cutscene modes during transition
     if (mode == CAMERA_MODE_FOLLOW || mode == CAMERA_MODE_CUTSCENE)
     {
         mode = CAMERA_MODE_FIXED;

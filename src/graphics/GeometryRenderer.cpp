@@ -23,7 +23,6 @@ void GeometryRenderer::Init()
 {
     TraceLog(LOG_INFO, "GeometryRenderer: Initializing GPU culling system...");
 
-    // Compile compute shader
     computeProgram = CompileComputeProgram("assets/shader/geometry_cull.comp");
     if (computeProgram == 0)
     {
@@ -36,13 +35,11 @@ void GeometryRenderer::Init()
     glGenBuffers(1, &ssboAllInstances);
     glGenBuffers(1, &ssboVisibleIndices);
 
-    // Allocate initial space (will grow dynamically)
     const int initialCapacity = 1000;
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboAllInstances);
     glBufferData(GL_SHADER_STORAGE_BUFFER, initialCapacity * sizeof(ModelInstance), nullptr, GL_DYNAMIC_DRAW);
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboVisibleIndices);
-    // counter (uint) + padding (3 uints) + indices array
     glBufferData(GL_SHADER_STORAGE_BUFFER, 16 + initialCapacity * sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
@@ -78,15 +75,12 @@ void GeometryRenderer::Shutdown()
 
 int GeometryRenderer::RegisterModel(const std::string &name, Model *model)
 {
-    // Check if already registered
     auto it = modelNameToID.find(name);
     if (it != modelNameToID.end())
         return it->second;
 
-    // Calculate bounding box
     BoundingBox bounds = GetMeshBoundingBox(model->meshes[0]);
 
-    // Register new model
     int modelID = static_cast<int>(registeredModels.size());
     registeredModels.push_back({model, name, bounds});
     modelNameToID[name] = modelID;
@@ -152,7 +146,6 @@ void GeometryRenderer::Update(float deltaTime, Camera3D camera)
         return;
     }
 
-    // Run culling
     if (gpuCullingEnabled && computeProgram != 0)
     {
         RunGPUCulling(camera);
@@ -168,7 +161,6 @@ void GeometryRenderer::Draw(Camera3D camera)
     if (visibleCount == 0)
         return;
 
-    // Draw each visible instance
     for (int i = 0; i < visibleCount; i++)
     {
         unsigned int idx = (gpuCullingEnabled && computeProgram != 0) ? visibleIndices[i] : visibleIndices[i];
@@ -186,10 +178,8 @@ void GeometryRenderer::Draw(Camera3D camera)
         Vector3 position = {inst.posX, inst.posY, inst.posZ};
         Vector3 rotation = {inst.rotX, inst.rotY, inst.rotZ};
 
-        // Check if rotation is needed
         if (rotation.x != 0.0f || rotation.y != 0.0f || rotation.z != 0.0f)
         {
-            // Apply transformation manually for rotated instances
             rlPushMatrix();
             rlTranslatef(position.x, position.y, position.z);
             rlRotatef(rotation.x, 1.0f, 0.0f, 0.0f); // pitch (X axis)
@@ -201,7 +191,6 @@ void GeometryRenderer::Draw(Camera3D camera)
         }
         else
         {
-            // Simple draw for non-rotated instances
             DrawModel(*model, position, inst.scale, WHITE);
         }
     }
@@ -228,50 +217,42 @@ bool GeometryRenderer::IsAABBInFrustum(const Frustum &frustum, BoundingBox world
         (worldAABB.max.y - worldAABB.min.y) * 0.5f,
         (worldAABB.max.z - worldAABB.min.z) * 0.5f};
 
-    // Conservative: test bounding sphere against planes
     float radius = sqrtf(extents.x * extents.x + extents.y * extents.y + extents.z * extents.z) * cullRadiusMultiplier;
 
     for (int i = 0; i < 6; i++)
     {
-        // Skip near plane for stability when objects are very close
         if (i == 4)
             continue;
         const Vector3 &normal = frustum.planes[i].normal;
         float dist = frustum.planes[i].distance;
         float planeDist = normal.x * center.x + normal.y * center.y + normal.z * center.z + dist;
         if (planeDist < -radius)
-            return false; // fully outside
+            return false;
     }
 
-    return true; // intersects or inside
+    return true;
 }
 
 void GeometryRenderer::RunGPUCulling(Camera3D camera)
 {
-    // Upload instance data to GPU
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboAllInstances);
     glBufferData(GL_SHADER_STORAGE_BUFFER, allInstances.size() * sizeof(ModelInstance),
                  allInstances.data(), GL_DYNAMIC_DRAW);
 
-    // Reset counter in visible buffer
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboVisibleIndices);
     unsigned int zero[4] = {0, 0, 0, 0};
     glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 16, zero);
 
-    // Ensure buffer is large enough
     glBufferData(GL_SHADER_STORAGE_BUFFER, 16 + allInstances.size() * sizeof(unsigned int),
                  nullptr, GL_DYNAMIC_DRAW);
     glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 16, zero);
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-    // Extract frustum planes
     Frustum frustum = ExtractFrustum(camera);
 
-    // Run compute shader
     glUseProgram(computeProgram);
 
-    // Upload frustum planes
     float frustumData[24]; // 6 planes * 4 floats
     for (int i = 0; i < 6; i++)
     {
@@ -293,25 +274,21 @@ void GeometryRenderer::RunGPUCulling(Camera3D camera)
         glUniform1f(radiusMultLoc, cullRadiusMultiplier);
     }
 
-    // Bind SSBOs
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssboAllInstances);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssboVisibleIndices);
 
-    // Dispatch compute shader
     unsigned int numWorkGroups = (static_cast<unsigned int>(allInstances.size()) + 255) / 256;
     glDispatchCompute(numWorkGroups, 1, 1);
 
     // Memory barrier
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-    // Read back visible count
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboVisibleIndices);
     unsigned int counter;
     glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(unsigned int), &counter);
 
     visibleCount = static_cast<int>(counter);
 
-    // Read back visible indices
     if (visibleCount > 0)
     {
         visibleIndices.resize(visibleCount);
@@ -332,21 +309,17 @@ void GeometryRenderer::RunCPUCulling(Camera3D camera)
     {
         const ModelInstance &inst = allInstances[i];
 
-        // Calculate world-space AABB
         Vector3 worldPos = {inst.posX, inst.posY, inst.posZ};
         Vector3 rotation = {inst.rotX, inst.rotY, inst.rotZ};
         float scale = inst.scale;
 
         BoundingBox worldAABB;
 
-        // If object has rotation, calculate an expanded AABB that contains the rotated box
         if (rotation.x != 0.0f || rotation.y != 0.0f || rotation.z != 0.0f)
         {
-            // Get local bounds
             Vector3 localMin = {inst.boundsMinX * scale, inst.boundsMinY * scale, inst.boundsMinZ * scale};
             Vector3 localMax = {inst.boundsMaxX * scale, inst.boundsMaxY * scale, inst.boundsMaxZ * scale};
 
-            // Calculate all 8 corners of the local bounding box
             Vector3 corners[8] = {
                 {localMin.x, localMin.y, localMin.z},
                 {localMax.x, localMin.y, localMin.z},
@@ -380,13 +353,11 @@ void GeometryRenderer::RunCPUCulling(Camera3D camera)
                 transformedMax.z = fmaxf(transformedMax.z, transformed.z);
             }
 
-            // Apply world position
             worldAABB.min = Vector3Add(worldPos, transformedMin);
             worldAABB.max = Vector3Add(worldPos, transformedMax);
         }
         else
         {
-            // No rotation - simple transform
             worldAABB.min = {
                 worldPos.x + inst.boundsMinX * scale,
                 worldPos.y + inst.boundsMinY * scale,
