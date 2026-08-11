@@ -1,49 +1,44 @@
-# Zelda-like 3D Game Structure (Raylib + C++)
+# 3D Game Engine / Prototype (Raylib + C++)
 
-This project is a game using Raylib and C++.
+> **Note**: This repository contains an experimental 3D game project originally developed for a school assignment. The project has since been abandoned as development moved to a different codebase. The code quality, structure, and design patterns here are legacy and do not reflect our current coding standards or style. It is preserved here for historical and reference purposes.
+
+## Overview & Features
+- **Language & Build**: C++20, CMake
+- **Graphics Framework**: Raylib, GLAD, OpenGL
+- **Rendering Pipeline**:
+  - Forward+ rendering architecture
+  - PBR (Physically-Based Rendering) lighting model
+  - Screen-Space Ambient Occlusion (SSAO) & Screen-Space Contact Shadows
+  - Post-processing pipeline with color grading and 3D LUT support
+  - Compute shader driven wind simulation for grass and volumetric clouds
+- **Physics & Collision**: Signed Distance Field (SDF) 3D collision system
 
 ## Folder Structure
 
-- **src/**: Contains all source code.
-  - **core/**: Core engine systems (Game loop, Window management, Input handling).
-  - **entities/**: Game entities (Player, Enemies, NPCs).
-  - **world/**: Level management, Terrain, Skybox.
-  - **graphics/**: Rendering systems, Model loading, Shaders.
-  - **audio/**: Sound and Music management.
-  - **utils/**: Helper functions, Math libraries, Logging.
-- **assets/**: Game assets.
-  - **models/**: 3D models (.obj, .gltf, etc.).
-  - **textures/**: Image textures (.png, .jpg).
-  - **sounds/**: Audio files (.wav, .ogg).
+- **src/**: Source code
+  - **core/**: Core engine systems (game loop, window management, input handling)
+  - **entities/**: Game entities (Player, NPCs, components)
+  - **world/**: Level management, terrain, skybox, SDF collision
+  - **graphics/**: Rendering pipeline, model loading, shaders, post-processing
+  - **audio/**: Sound and music management
+  - **utils/**: Helper utilities, math libraries, logging
+- **assets/**: Game assets (models, textures, shaders, sound effects)
 
 ## Building
 
-This project uses CMake.
+### Requirements
+- CMake (3.20 or higher)
+- C++20 compatible compiler (MSVC, GCC, or Clang)
 
-1. Create a build directory:
-   ```bash
-   mkdir build
-   cd build
-   ```
-2. Configure the project:
-   ```bash
-   cmake ..
-   ```
-3. Build:
-   ```bash
-   make
-   ```
-4. Run:
-   ```bash
-   ./ZeldaLikeGame
-   ```
+### Build Instructions
+```bash
+# 1. Create build directory
+mkdir build
+cd build
 
-## Semantics
+# 2. Configure with CMake
+cmake ..
 
-This is an example commit message
-
+# 3. Compile the project
+cmake --build .
 ```
-feat(Audio): fixed audio playing in reverse
-```
-
-[Small cheat sheet](https://gist.github.com/joshbuchea/6f47e86d2510bce28f8e7f42ae84c716)
