@@ -46,7 +46,10 @@ FetchContent_MakeAvailable(lua)
 # Freetype (required by RmlUi)
 FetchContent_Declare(
     Freetype
-    URL https://download.savannah.gnu.org/releases/freetype/freetype-2.13.2.tar.gz
+    URL
+        https://github.com/freetype/freetype/archive/refs/tags/VER-2-13-2.tar.gz
+        https://downloads.sourceforge.net/project/freetype/freetype2/2.13.2/freetype-2.13.2.tar.gz
+        https://download.savannah.gnu.org/releases/freetype/freetype-2.13.2.tar.gz
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 set(FT_ENABLE_ERROR_STRINGS ON CACHE BOOL "" FORCE)
