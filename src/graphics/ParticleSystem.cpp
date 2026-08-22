@@ -269,7 +269,7 @@ void ParticleSystem::Init()
     ImageDrawRectangle(&img, 14, 2, 4, 28, WHITE);
     ImageDrawRectangle(&img, 2, 14, 28, 4, WHITE);
     Image glow = GenImageGradientRadial(16, 16, 0.0f, WHITE, {255, 255, 255, 0});
-    ImageDraw(&img, glow, {0, 0, 16, 16}, {8, 8, 16, 16}, WHITE);
+    ImageDrawImageRec(&img, glow, {0, 0, 16, 16}, {8, 8}, WHITE);
     UnloadImage(glow);
     textures["star"] = LoadTextureFromImage(img);
     UnloadImage(img);

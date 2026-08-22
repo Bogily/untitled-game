@@ -526,12 +526,12 @@ Texture PostProcessingRenderer::Generate3DLUT(int preset)
     }
 
     // Create 3D texture
-    Image lutImage = {
-        .data = lutData,
-        .width = LUT_SIZE,
-        .height = LUT_SIZE * LUT_SIZE,
-        .mipmaps = 1,
-        .format = PIXELFORMAT_UNCOMPRESSED_R8G8B8};
+    Image lutImage{};
+    lutImage.data = lutData;
+    lutImage.width = LUT_SIZE;
+    lutImage.height = LUT_SIZE * LUT_SIZE;
+    lutImage.mipmaps = 1;
+    lutImage.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8;
 
     Texture texture = LoadTextureFromImage(lutImage);
 

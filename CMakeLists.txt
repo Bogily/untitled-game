@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 4.0)
 project(ZeldaLikeGame VERSION 1.0.0 LANGUAGES C CXX)
 
 set(CMAKE_BUILD_TYPE RelWithDebInfo)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Build raylib as a shared library so GLAD symbols are exported on Windows
@@ -209,6 +209,12 @@ add_custom_target(copy_assets ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_SOURCE_DIR}/assets
     ${CMAKE_BINARY_DIR}/assets
+)
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_SOURCE_DIR}/assets
+    "$<TARGET_FILE_DIR:${PROJECT_NAME}>/assets"
 )
 
 # Make sure assets are copied before building the executable

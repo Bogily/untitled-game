@@ -19,7 +19,7 @@ inline void RemoveText(std::string &text, const std::string &toRemove)
 Rml::FileHandle RaylibFileInterface::Open(const Rml::String &path)
 {
     auto stream = new std::fstream(ParsePath(path), std::ios::in | std::ios::binary);
-    return reinterpret_cast<Rml::FileHandle>(reinterpret_cast<uintptr_t>(stream));
+    return reinterpret_cast<Rml::FileHandle>(stream);
 }
 
 void RaylibFileInterface::Close(Rml::FileHandle file)

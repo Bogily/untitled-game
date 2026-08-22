@@ -61,7 +61,7 @@ void WaterRenderer::Init()
     waterModel.materials[0].shader = waterShader;
 
     // Set water color (base color, shader will override)
-    waterModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = (Color){0, 100, 150, 217};
+    waterModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = Color{0, 100, 150, 217};
 
     // Initialize compute shader if enabled
     if (useComputeShader)
@@ -327,7 +327,7 @@ void WaterRenderer::UpdateMeshFromCompute()
             float dx = hR - hL;
             float dz = hU - hD;
 
-            Vector3 normal = Vector3Normalize((Vector3){-dx * 10.0f, 1.0f, -dz * 10.0f});
+            Vector3 normal = Vector3Normalize(Vector3{-dx * 10.0f, 1.0f, -dz * 10.0f});
 
             waterMesh.normals[idx * 3 + 0] = normal.x;
             waterMesh.normals[idx * 3 + 1] = normal.y;
