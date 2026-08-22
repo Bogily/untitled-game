@@ -8,6 +8,7 @@
 #include <memory>
 #include <filesystem>
 #include <algorithm>
+#include "../utils/GlLoader.h"
 #include <unordered_set>
 #include <cmath>
 
@@ -29,7 +30,7 @@ void Game::Init()
     SetExitKey(KEY_NULL);
 
     // Initialize GLAD for OpenGL function loading
-    if (!gladLoadGL())
+    if (!GlLoader::Init())
     {
         TraceLog(LOG_ERROR, "Failed to initialize GLAD!");
         return;
